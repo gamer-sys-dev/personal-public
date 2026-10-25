@@ -67,6 +67,7 @@
       <button class="big good" data-toilet="garden" data-kind="poo">Poo in garden</button>
       <button class="big bad" data-toilet="inside" data-kind="poo">Poo inside</button>
     </div>
+    <div data-when="toilet"></div>
   </div>
   <div class="card">
     <h2>Last 7 days</h2>
@@ -94,6 +95,7 @@
     <input id="reps" type="number" inputmode="numeric" min="1" value="10">
     <label for="hits">Reps he got right</label>
     <input id="hits" type="number" inputmode="numeric" min="0" value="7">
+    <div data-when="session"></div>
     <button class="primary wide" id="logSession">Save session</button>
   </div>
   <div class="card">
@@ -160,10 +162,23 @@
       <input id="wKg" type="number" inputmode="decimal" step="0.01" placeholder="kg" style="flex:1">
       <button id="addW">Add</button>
     </div>
+    <select id="wBcs" style="margin-top:8px">
+      <option value="">Body score (optional)</option>
+      <option value="1">1 of 9: very thin, bones stick out</option>
+      <option value="2">2 of 9: thin</option>
+      <option value="3">3 of 9: lean, ribs easy to see</option>
+      <option value="4">4 of 9: ideal, lean side</option>
+      <option value="5">5 of 9: ideal</option>
+      <option value="6">6 of 9: a bit heavy</option>
+      <option value="7">7 of 9: heavy, ribs hard to feel</option>
+      <option value="8">8 of 9: very heavy</option>
+      <option value="9">9 of 9: obese</option>
+    </select>
+    <div class="next" id="wGuide"></div>
     <div id="wChart" style="margin-top:12px"></div>
     <p class="muted" id="wGain"></p>
     <ul id="wList"></ul>
-    <p class="muted">Puppies vary hugely by breed, so watch the trend rather than a single number and ask your vet if gain stalls or drops.</p>
+    <p class="muted">Body score matters more than the number on the scales, especially for crosses. You should feel his ribs easily under a thin layer, see a waist from above and a tuck behind the ribs from the side. Puppies vary hugely, so watch the trend and ask your vet if gain stalls or drops.</p>
   </div>
 
   <div class="card">
@@ -190,6 +205,45 @@
     <div id="foodNow"></div>
   </div>
   <div class="card">
+    <h2>Log a feed</h2>
+    <label for="feedFood">Food</label>
+    <input id="feedFood" list="foodHistory">
+    <div class="row">
+      <div style="flex:1"><label for="feedG">Amount (g)</label><input id="feedG" type="number" inputmode="numeric" min="0"></div>
+      <div style="flex:1"><label for="feedAte">How much he ate</label>
+        <select id="feedAte"><option value="1">All of it</option><option value="0.75">Most</option><option value="0.5">About half</option><option value="0.25">A little</option><option value="0">None</option></select></div>
+    </div>
+    <div data-when="feed"></div>
+    <button class="primary wide" id="logFeed">Log feed</button>
+  </div>
+  <div class="card">
+    <h2>Day by day</h2>
+    <div class="row"><button id="dayPrev" aria-label="Previous day">&lsaquo;</button><input type="date" id="dayPick" style="flex:1"><button id="dayNext" aria-label="Next day">&rsaquo;</button></div>
+    <ul id="dayList" style="margin-top:8px"></ul>
+    <p class="muted" id="daySum"></p>
+    <h3>Last 7 days</h3>
+    <p class="muted" id="feedTrend"></p>
+  </div>
+  <div class="card">
+    <h2>Feeding guide</h2>
+    <div class="row">
+      <div style="flex:1"><label for="gType">Food type</label>
+        <select id="gType"><option value="dry">Dry</option><option value="wet">Wet</option><option value="raw">Raw</option><option value="mixed">Mixed dry and wet</option></select></div>
+      <div style="flex:1"><label for="gMeals">Feeds a day</label>
+        <select id="gMeals"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+    </div>
+    <p class="muted">Energy per 100g, from the packet. If it gives kcal per kg, divide by 10. Leave blank to use a typical figure.</p>
+    <div class="row">
+      <div style="flex:1" id="gKdryWrap"><label for="gKdry">Dry kcal/100g</label><input id="gKdry" type="number" inputmode="numeric" placeholder="380"></div>
+      <div style="flex:1" id="gKwetWrap"><label for="gKwet">Wet kcal/100g</label><input id="gKwet" type="number" inputmode="numeric" placeholder="95"></div>
+      <div style="flex:1" id="gKrawWrap"><label for="gKraw">Raw kcal/100g</label><input id="gKraw" type="number" inputmode="numeric" placeholder="150"></div>
+    </div>
+    <div id="gSplitWrap"><label for="gSplit">Share of the day's calories from dry</label>
+      <select id="gSplit"><option value="25">25%</option><option value="50">50%</option><option value="75">75%</option></select></div>
+    <div class="next" id="gOut"></div>
+    <p class="muted">A rough guide only, worked out from his latest weight and age with a standard calorie formula. Foods differ a lot, so follow the manufacturer's feeding guide on the packet first and your vet's advice over both. Adjust by body score rather than sticking to a number, and count treats as part of the day (about 10% at most).</p>
+  </div>
+  <div class="card">
     <h2>Start a new food</h2>
     <label for="fBrand">Brand and product</label>
     <input id="fBrand" list="foodHistory" placeholder="e.g. Brand X Puppy Large Breed">
@@ -207,6 +261,7 @@
     <div class="row">
       <button class="big good" data-stool="1">1</button><button class="big good" data-stool="2">2</button><button class="big" data-stool="3">3</button><button class="big bad" data-stool="4">4</button><button class="big bad" data-stool="5">5</button>
     </div>
+    <div data-when="stool"></div>
     <ul id="stoolList" style="margin-top:8px"></ul>
   </div>
   <div class="card">
@@ -216,6 +271,46 @@
   <div class="card">
     <h2>Comparing foods</h2>
     <p class="muted">For independent ratings of UK dog foods by ingredients, see <a href="https://www.allaboutdogfood.co.uk/" target="_blank" rel="noopener">All About Dog Food</a>. The PFMA has <a href="https://www.ukpetfood.org/" target="_blank" rel="noopener">UK pet food guidance</a>. Your own stool and weight logs are the best guide to what suits him.</p>
+  </div>
+</section>
+
+<!-- BEHAVIOUR -->
+<section id="tab-behaviour" class="hidden">
+  <div class="card">
+    <h2>Log behaviour</h2>
+    <label for="bWhat">What happened</label>
+    <select id="bWhat"></select>
+    <input id="bWhatOther" class="hidden" placeholder="Describe it, e.g. barking at the hoover" style="margin-top:8px">
+    <label for="bLevel">How strong</label>
+    <select id="bLevel"><option value="1">Mild</option><option value="2">Moderate</option><option value="3">Strong</option></select>
+    <label for="bWhy">What was going on</label>
+    <select id="bWhy"></select>
+    <label for="bDid">What you did</label>
+    <select id="bDid"></select>
+    <label for="bResult">How he responded</label>
+    <select id="bResult"></select>
+    <label for="bNote">Notes (optional)</label>
+    <input id="bNote" placeholder="e.g. grabbed trouser leg after the walk">
+    <div data-when="beh"></div>
+    <button class="primary wide" id="logBeh">Save</button>
+  </div>
+  <div class="card">
+    <h2>Last 7 days</h2>
+    <ul id="behTrend"></ul>
+  </div>
+  <div class="card">
+    <h2>What's working</h2>
+    <ul id="behWorks"></ul>
+    <p class="muted">From your logs over the last 4 weeks. It needs a handful of logs for each approach before it means much. Sticking to one approach as a household matters more than which one you pick.</p>
+  </div>
+  <div class="card">
+    <h2>Recent</h2>
+    <ul id="behList"></ul>
+  </div>
+  <div class="card">
+    <h2>Tips</h2>
+    <div id="behTips"></div>
+    <p class="muted">More from <a href="https://www.dogstrust.org.uk/dog-advice" target="_blank" rel="noopener">Dogs Trust</a>. For guarding, growling or fear that's getting worse, ask your vet about a behaviourist registered with the ABTC.</p>
   </div>
 </section>
 
@@ -272,6 +367,7 @@
 <nav>
   <button data-tab="toilet" class="on">Toilet</button>
   <button data-tab="training">Training</button>
+  <button data-tab="behaviour">Behaviour</button>
   <button data-tab="health">Health</button>
   <button data-tab="food">Food</button>
   <button data-tab="more">More</button>
@@ -284,7 +380,8 @@ const blank = {
   toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], custom:[],
   vax:[], vaxDue:'',
   treatments:[],
-  weights:[], foods:[], stools:[]
+  weights:[], foods:[], stools:[], feeds:[], behaviours:[],
+  feedPlan:{ type:'', meals:0, kdry:'', kwet:'', kraw:'', split:50 }
 };
 function load() {
   let d = {};
@@ -342,9 +439,34 @@ document.addEventListener('click', e => {
 });
 const dateInput = (path, i, val) => `<input type="date" class="date" value="${esc(val)}" data-edit="${path}|${i}|date">`;
 const delBtn = (path, i) => `<button class="small" data-del="${path}|${i}">x</button>`;
+// Local calendar day and datetime, so late night logs land on the right day
+const localIso = t => new Date(t - new Date(t).getTimezoneOffset() * 60000).toISOString();
+const localDay = t => localIso(t).slice(0, 10);
+
+// Live logs use now. Ticking "earlier" shows a time picker for logging after the fact.
+document.querySelectorAll('[data-when]').forEach(el => {
+  const id = el.dataset.when;
+  el.innerHTML = `<label class="row" style="margin-top:10px"><input type="checkbox" id="${id}Past"> Log an earlier one</label><input type="datetime-local" id="${id}At" class="hidden" style="margin-top:6px">`;
+  $(id + 'Past').onchange = () => {
+    $(id + 'At').classList.toggle('hidden', !$(id + 'Past').checked);
+    if (!$(id + 'At').value) $(id + 'At').value = localIso(Date.now()).slice(0, 16);
+  };
+});
+function when(id) {
+  if (!$(id + 'Past').checked) return Date.now();
+  const t = new Date($(id + 'At').value).getTime();
+  if (!t) { alert('Pick the date and time.'); return null; }
+  if (t > Date.now() + 60000) { alert("That time hasn't happened yet."); return null; }
+  return t;
+}
+// Keep timed lists newest first, even when an earlier one is added later
+const addTimed = (list, x) => { list.push(x); list.sort((a, b) => b.t - a.t); };
 
 // ---------- Toilet ----------
-document.querySelectorAll('[data-toilet]').forEach(b => b.onclick = () => { S.toilet.unshift({ t: Date.now(), where: b.dataset.toilet, kind: b.dataset.kind }); save(); });
+document.querySelectorAll('[data-toilet]').forEach(b => b.onclick = () => {
+  const t = when('toilet'); if (t === null) return;
+  addTimed(S.toilet, { t, where: b.dataset.toilet, kind: b.dataset.kind }); save();
+});
 function rate(from, to) {
   const xs = S.toilet.filter(x => x.t >= from && x.t < to);
   return xs.length ? { pct: Math.round(100 * xs.filter(x => x.where === 'garden').length / xs.length), n: xs.length } : null;
@@ -363,7 +485,8 @@ $('addCmd').onclick = () => { const v = $('newCmd').value.trim(); if (v && !S.co
 $('logSession').onclick = () => {
   const reps = +$('reps').value, hits = +$('hits').value;
   if (!reps || hits < 0 || hits > reps) { alert("Check the numbers: right answers can't be more than reps tried."); return; }
-  S.sessions.unshift({ t: Date.now(), cmd: $('cmd').value, reps, hits }); save();
+  const t = when('session'); if (t === null) return;
+  addTimed(S.sessions, { t, cmd: $('cmd').value, reps, hits }); save();
 };
 function advice(list) {
   if (!list.length) return 'No sessions yet';
@@ -481,12 +604,42 @@ document.addEventListener('click', e => {
 $('addW').onclick = () => {
   const date = $('wDate').value, kg = parseFloat($('wKg').value);
   if (!date || !(kg > 0)) { alert('Add a date and a weight in kg.'); return; }
-  S.weights.push({ date, kg }); $('wKg').value = ''; save();
+  S.weights.push({ date, kg, bcs: $('wBcs').value }); $('wKg').value = ''; $('wBcs').value = ''; save();
 };
+// Typical adult weight in kg, both sexes. Rough, and types and crosses vary a lot.
+const ADULT_KG = {
+  'Airedale Terrier':[18,29], 'Akita':[32,59], 'Australian Shepherd':[16,32], 'Basset Hound':[20,29], 'Beagle':[9,14], 'Bearded Collie':[18,27],
+  'Bedlington Terrier':[8,10], 'Bernese Mountain Dog':[36,50], 'Bichon Frise':[5,8], 'Border Collie':[12,20], 'Border Terrier':[5,7], 'Borzoi':[27,48],
+  'Boston Terrier':[5,11], 'Boxer':[25,32], 'Bull Terrier':[20,32], 'Bulldog':[18,25], 'Cairn Terrier':[6,8], 'Cavalier King Charles Spaniel':[5,8],
+  'Chihuahua':[1.5,3], 'Cocker Spaniel':[12,15], 'Dachshund':[9,12], 'Miniature Dachshund':[4,5.5], 'Dalmatian':[20,32], 'Deerhound':[34,50],
+  'Dobermann':[30,45], 'English Springer Spaniel':[18,25], 'Flat Coated Retriever':[25,36], 'French Bulldog':[8,14], 'German Shepherd':[22,40],
+  'German Shorthaired Pointer':[20,32], 'Golden Retriever':[25,34], 'Great Dane':[45,80], 'Greyhound':[25,40], 'Hungarian Vizsla':[18,30],
+  'Irish Wolfhound':[40,70], 'Jack Russell Terrier':[5,8], 'Labrador Retriever':[25,36], 'Lhasa Apso':[6,8], 'Maltese':[2,4], 'Miniature Schnauzer':[5,9],
+  'Newfoundland':[45,70], 'Pointer':[20,34], 'Pomeranian':[2,3.5], 'Poodle (Standard)':[20,32], 'Poodle (Miniature)':[5,8], 'Poodle (Toy)':[2,4],
+  'Pug':[6,9], 'Rottweiler':[35,60], 'Rough Collie':[18,29], 'Saluki':[16,29], 'Samoyed':[16,30], 'Shetland Sheepdog':[6,12], 'Shiba Inu':[8,11],
+  'Shih Tzu':[4,8], 'Siberian Husky':[16,27], 'Staffordshire Bull Terrier':[11,17], 'Weimaraner':[25,40], 'Welsh Springer Spaniel':[16,25],
+  'West Highland White Terrier':[7,10], 'Whippet':[10,18], 'Yorkshire Terrier':[2,3.5],
+  'Lurcher':[15,35], 'Longdog':[20,40], 'Cavachon':[6,9], 'Cavapoo':[5,12], 'Cockapoo':[6,12], 'Collie cross':[12,25], 'Goldendoodle':[20,40],
+  'Jug':[6,9], 'Labradoodle':[20,35], 'Maltipoo':[2,6], 'Patterdale type':[5,7], 'Sheepdog (working type)':[14,22], 'Sprocker':[14,20], 'Staffie cross':[12,25]
+};
+const adultRange = () => { const k = Object.keys(ADULT_KG).find(b => b.toLowerCase() === (S.breed || '').toLowerCase()); return k ? ADULT_KG[k] : null; };
+// Bigger dogs grow for longer. Months until roughly adult, and the wording for it.
+function growth(r) {
+  const top = r ? r[1] : 25;
+  return top <= 10 ? [10, '9 to 10 months'] : top <= 25 ? [12, 'about 12 months'] : top <= 45 ? [15, '12 to 18 months'] : [18, '18 to 24 months'];
+}
 function renderWeight() {
   if (!$('wDate').value) $('wDate').value = today();
+  const r = adultRange(), last = [...S.weights].sort(byDate)[0], bcs = [...S.weights].sort(byDate).find(x => x.bcs);
+  const sight = SIGHT.test(S.breed + ' ' + S.breed2);
+  $('wGuide').innerHTML = (r
+    ? `<strong>Typical adult ${esc(S.breed)}:</strong> ${r[0]} to ${r[1]} kg. Dogs that size usually finish growing at ${growth(r)[1]}.${S.kind !== 'pedigree' ? ' Types and crosses vary a lot, so take this loosely.' : ''}`
+    : '<span class="muted">Pick a breed or type in More to see a typical adult weight.</span>')
+    + (r && last && +last.kg > r[1] ? `<div class="muted">He's already above the typical adult range, so he may be a bigger one. Body score is the better check.</div>` : '')
+    + (bcs ? `<div style="margin-top:6px"><strong>Last body score:</strong> ${bcs.bcs} of 9, ${+bcs.bcs <= 2 ? 'thin. Talk to your vet.' : +bcs.bcs === 3 ? (sight ? 'lean, which is often normal for a sighthound.' : 'lean. Consider feeding about 10% more.') : +bcs.bcs <= 5 ? 'ideal.' : +bcs.bcs === 6 ? 'a bit heavy. Consider feeding about 10% less.' : 'heavy. Talk to your vet.'}</div>` : '')
+    + (sight ? '<div class="muted">Sighthounds are naturally lean and often look right with two or three ribs just visible.</div>' : '');
   const w = S.weights.map((d, i) => ({ ...d, i })).sort((a, b) => (a.date > b.date ? 1 : -1));
-  $('wList').innerHTML = [...w].reverse().map(d => `<li><span>${d.kg} kg${S.dob ? ` <span class="muted">at ${Math.round(ageWeeks(ts(d.date)))} weeks</span>` : ''}</span><span class="row">${dateInput('weights', d.i, d.date)}${delBtn('weights', d.i)}</span></li>`).join('') || '<li class="muted">No weights yet</li>';
+  $('wList').innerHTML = [...w].reverse().map(d => `<li><span>${d.kg} kg${d.bcs ? ` <span class="tag">body ${d.bcs}/9</span>` : ''}${S.dob ? ` <span class="muted">at ${Math.round(ageWeeks(ts(d.date)))} weeks</span>` : ''}</span><span class="row">${dateInput('weights', d.i, d.date)}${delBtn('weights', d.i)}</span></li>`).join('') || '<li class="muted">No weights yet</li>';
   if (w.length >= 2) {
     const a = w[w.length - 2], b = w[w.length - 1], weeks = (ts(b.date) - ts(a.date)) / WEEK;
     $('wGain').textContent = weeks > 0 ? `Gaining ${((b.kg - a.kg) / weeks).toFixed(2)} kg a week since the last weigh in.` : '';
@@ -515,6 +668,8 @@ function renderOther() {
 
 // ---------- Food ----------
 const currentFood = () => S.foods.filter(f => !f.end).sort(byDate)[0];
+// The food he was on at a given time, so back dated logs get the right one
+const foodAt = t => S.foods.filter(f => ts(f.date) <= t + DAY && (!f.end || ts(f.end) > t)).sort(byDate)[0] || currentFood();
 $('addFood').onclick = () => {
   const brand = $('fBrand').value.trim(), date = $('fStart').value;
   if (!brand || !date) { alert('Add the food and a start date.'); return; }
@@ -523,7 +678,8 @@ $('addFood').onclick = () => {
   $('fBrand').value = ''; save();
 };
 document.querySelectorAll('[data-stool]').forEach(b => b.onclick = () => {
-  const f = currentFood(); S.stools.unshift({ t: Date.now(), score: +b.dataset.stool, food: f ? f.brand : '' }); save();
+  const t = when('stool'); if (t === null) return;
+  const f = foodAt(t); addTimed(S.stools, { t, score: +b.dataset.stool, food: f ? f.brand : '' }); save();
 });
 function transitionText(f) {
   if (!f.transition || !f.from) return '';
@@ -533,6 +689,78 @@ function transitionText(f) {
   return `<div class="next"><strong>Day ${day} of 7:</strong> about ${pct}% new food, ${100 - pct}% ${esc(f.from)}. Slow down if poos go soft.</div>`;
 }
 function stoolAvg(brand) { const xs = S.stools.filter(s => s.food === brand); return xs.length ? (xs.reduce((a, s) => a + s.score, 0) / xs.length).toFixed(1) + ` from ${xs.length}` : 'no poo logs'; }
+// ---------- Feeding guide ----------
+const KCAL = { dry:380, wet:95, raw:150 };
+const planType = () => S.feedPlan.type || ({ Dry:'dry', Wet:'wet', Raw:'raw', 'Fresh cooked':'wet', Mixed:'mixed' }[(currentFood() || {}).type] || 'dry');
+function suggestedMeals(wk) { return wk < 12 ? 4 : wk < 26 ? 3 : 2; }
+function feedGuide() {
+  const kg = latestKg(), wk = S.dob ? ageWeeks(Date.now()) : null;
+  if (!kg || wk === null) return null;
+  const adultAt = growth(adultRange())[0] * 4.35, rer = 70 * Math.pow(kg, 0.75);
+  // Standard energy multipliers: 3x resting under 4 months, 2x while growing, 1.6 to 1.8x as an adult
+  const [lo, hi] = wk < 16 ? [2.7, 3.3] : wk < adultAt ? [1.8, 2.2] : [1.6, 1.8];
+  const p = S.feedPlan, type = planType(), meals = +p.meals || suggestedMeals(wk);
+  const k = t => +p['k' + t] || KCAL[t], parts = type === 'mixed' ? [['dry', p.split / 100], ['wet', 1 - p.split / 100]] : [[type, 1]];
+  const r5 = x => Math.round(x / 5) * 5;
+  return { kg, wk, meals, type, kcal: [rer * lo, rer * hi].map(Math.round),
+    foods: parts.map(([t, share]) => ({ t, typical: !+p['k' + t], day: [r5(rer * lo * share / k(t) * 100), r5(rer * hi * share / k(t) * 100)] })) };
+}
+['gType', 'gMeals', 'gKdry', 'gKwet', 'gKraw', 'gSplit'].forEach(id => $(id).onchange = () => {
+  const p = S.feedPlan; p.type = $('gType').value; p.meals = +$('gMeals').value;
+  p.kdry = $('gKdry').value; p.kwet = $('gKwet').value; p.kraw = $('gKraw').value; p.split = +$('gSplit').value; save();
+});
+const NAMES = { dry:'Dry', wet:'Wet', raw:'Raw' };
+function renderGuide() {
+  const p = S.feedPlan, type = planType(), g = feedGuide();
+  $('gType').value = type; $('gKdry').value = p.kdry; $('gKwet').value = p.kwet; $('gKraw').value = p.kraw; $('gSplit').value = p.split;
+  $('gMeals').value = g ? g.meals : (p.meals || 3);
+  $('gKdryWrap').classList.toggle('hidden', type !== 'dry' && type !== 'mixed');
+  $('gKwetWrap').classList.toggle('hidden', type !== 'wet' && type !== 'mixed');
+  $('gKrawWrap').classList.toggle('hidden', type !== 'raw');
+  $('gSplitWrap').classList.toggle('hidden', type !== 'mixed');
+  if (!g) { $('gOut').innerHTML = '<span class="muted">Add his date of birth in More and a weight in Health to see a guide.</span>'; return; }
+  const sug = suggestedMeals(g.wk), sight = SIGHT.test(S.breed + ' ' + S.breed2);
+  $('gOut').innerHTML = `<div>At ${g.kg} kg and ${Math.round(g.wk)} weeks he needs roughly <strong>${g.kcal[0]} to ${g.kcal[1]} kcal a day</strong>.</div>`
+    + g.foods.map(f => `<div style="margin-top:6px"><strong>${NAMES[f.t]}:</strong> ${f.day[0]} to ${f.day[1]} g a day, so about ${Math.round(f.day[0] / g.meals)} to ${Math.round(f.day[1] / g.meals)} g per feed over ${g.meals} feeds.${f.typical ? ' <span class="muted">Using a typical ' + KCAL[f.t] + ' kcal/100g.</span>' : ''}</div>`).join('')
+    + (g.meals !== sug ? `<div class="muted" style="margin-top:6px">Most dogs his age have ${sug} feeds a day.</div>` : '')
+    + (sight ? '<div class="muted" style="margin-top:6px">Deep chested dogs like sighthounds are more prone to bloat. Stick to two or more smaller meals for life and avoid hard exercise for about an hour either side of a meal.</div>' : '');
+}
+$('logFeed').onclick = () => {
+  const food = $('feedFood').value.trim(), g = +$('feedG').value;
+  if (!food) { alert('Add which food.'); return; }
+  const t = when('feed'); if (t === null) return;
+  addTimed(S.feeds, { t, food, g: g > 0 ? g : 0, ate: +$('feedAte').value });
+  $('feedFood').value = ''; delete $('feedG').dataset.typed; $('feedAte').value = '1'; save();
+};
+$('feedG').oninput = () => { $('feedG').dataset.typed = 1; };
+const ATE = { 1:'ate it all', 0.75:'ate most', 0.5:'ate about half', 0.25:'ate a little', 0:'ate none' };
+let day = localDay(Date.now());
+$('dayPick').onchange = () => { day = $('dayPick').value || localDay(Date.now()); renderFood(); };
+$('dayPrev').onclick = () => { day = localDay(new Date(day + 'T12:00').getTime() - DAY); renderFood(); };
+$('dayNext').onclick = () => { day = localDay(new Date(day + 'T12:00').getTime() + DAY); renderFood(); };
+function feedStats(from, to) {
+  const xs = S.feeds.filter(x => x.t >= from && x.t < to), ps = S.stools.filter(x => x.t >= from && x.t < to);
+  const days = new Set(xs.map(x => localDay(x.t))).size;
+  return { n: xs.length, days, left: xs.filter(x => x.ate < 1).length, poo: ps.length ? ps.reduce((a, x) => a + x.score, 0) / ps.length : null };
+}
+function renderFeeds() {
+  $('dayPick').value = day;
+  const items = [
+    ...S.feeds.map((x, i) => ({ ...x, i, kind:'feeds' })),
+    ...S.stools.map((x, i) => ({ ...x, i, kind:'stools' }))
+  ].filter(x => localDay(x.t) === day).sort((a, b) => a.t - b.t);
+  $('dayList').innerHTML = items.map(x => `<li><span>${x.kind === 'feeds'
+      ? `${esc(x.food)}${x.g ? ' ' + x.g + ' g' : ''} <span class="muted">${ATE[x.ate]}</span>`
+      : `Poo score ${x.score}`}</span><span class="row"><span class="muted">${time(x.t)}</span>${delBtn(x.kind, x.i)}</span></li>`).join('') || '<li class="muted">Nothing logged this day</li>';
+  const fs = items.filter(x => x.kind === 'feeds'), eaten = Math.round(fs.reduce((a, x) => a + x.g * x.ate, 0)), g = feedGuide();
+  $('daySum').textContent = fs.length ? `${fs.length} feed${fs.length === 1 ? '' : 's'}${eaten ? `, about ${eaten} g eaten` : ''}.${g && g.foods.length === 1 && eaten ? ` Guide ${g.foods[0].day[0]} to ${g.foods[0].day[1]} g.` : ''}` : '';
+  const now = Date.now(), a = feedStats(now - WEEK, now + 1), b = feedStats(now - 2 * WEEK, now - WEEK);
+  const line = st => `${st.days ? (st.n / st.days).toFixed(1) : 0} feeds a day, ${st.n ? Math.round(100 * st.left / st.n) : 0}% not finished${st.poo ? `, average poo ${st.poo.toFixed(1)}` : ''}`;
+  $('feedTrend').textContent = a.n ? line(a) + '.' + (b.n ? ' Week before: ' + line(b) + '.' : '') + (a.n >= 6 && a.left / a.n > 0.4 ? ' He\'s leaving a lot. If he\'s otherwise well and holding weight, he may need less, or fewer feeds.' : '') : 'Log feeds to see a trend.';
+  if (!$('feedFood').value) { const f = currentFood(); if (f) $('feedFood').value = f.brand; }
+  // Suggest a portion from the guide until the user types their own
+  if (!$('feedG').dataset.typed) $('feedG').value = g && g.foods.length === 1 ? Math.round((g.foods[0].day[0] + g.foods[0].day[1]) / 2 / g.meals) : '';
+}
 function renderFood() {
   if (!$('fStart').value) $('fStart').value = today();
   const f = currentFood();
@@ -540,12 +768,69 @@ function renderFood() {
   $('foodHistory').innerHTML = [...new Set(S.foods.map(x => x.brand))].map(b => `<option value="${esc(b)}">`).join('');
   $('foodList').innerHTML = S.foods.map((x, i) => ({ ...x, i })).sort(byDate).map(x =>
     `<li style="display:block"><div class="row" style="justify-content:space-between"><strong>${esc(x.brand)}</strong>${delBtn('foods', x.i)}</div><div class="row muted">From ${dateInput('foods', x.i, x.date)} ${x.end ? 'to ' + fmt(x.end) : '(current)'}</div><div class="muted">Average poo score ${stoolAvg(x.brand)}</div></li>`).join('') || '<li class="muted">None yet</li>';
+  renderGuide(); renderFeeds();
   $('stoolList').innerHTML = S.stools.slice(0, 7).map((s, i) => `<li><span>Score ${s.score}${s.food ? ` <span class="muted">on ${esc(s.food)}</span>` : ''}</span><span class="row"><span class="muted">${fmt(s.t)} ${time(s.t)}</span>${delBtn('stools', i)}</span></li>`).join('');
+}
+
+// ---------- Behaviour ----------
+const BEH = ['Biting or mouthing', 'Jumping up', 'Chewing things', 'Barking', 'Whining or crying', 'Pulling on the lead', 'Stealing things', 'Guarding food or toys', 'Growling', 'Zoomies', 'Scared or startled'];
+const WHY = ['Not sure', 'Playing', 'Overtired', 'Overexcited', 'Being handled or groomed', 'Visitors', 'Left alone', 'On a walk', 'Around food', 'New place or noise'];
+const DID = ['Redirected to a toy or chew', 'Stopped play and stepped away', 'Calm interrupter, e.g. his name or a sound', 'Ignored it', 'Asked for a sit or another behaviour', 'Gave him a rest or nap', 'Moved him away from the trigger', 'Nothing', 'Something else (see notes)'];
+const RES = { stopped:'Stopped straight away', calmed:'Calmed down after a bit', same:'No change', worse:'Got worse' };
+const TIPS = {
+  'Biting or mouthing': "Normal for puppies and usually eases once adult teeth are in, around 6 months. It spikes when they're overtired, and puppies need 18 to 20 hours' sleep a day. Swap hands for a toy, and if he keeps going, calmly end the game for a moment.",
+  'Jumping up': "Turn away when he jumps and give attention once all four paws are on the floor. Ask visitors to do the same so it's consistent.",
+  'Chewing things': "Chewing peaks while teething, roughly 3 to 6 months. Keep safe chews to hand, tidy away what you'd mind losing and swap rather than chase.",
+  'Barking': "Work out what sets it off first. Reward quiet, and don't shout back, which can sound like joining in.",
+  'Whining or crying': "Check the basics (toilet, water, too hot or cold). Build up time alone slowly, starting with a few seconds.",
+  'Pulling on the lead': "Stop when the lead goes tight and move on when it's slack. Reward him for being by your side.",
+  'Stealing things': "Teach drop and swap for something better. Chasing turns it into a game he'll want to repeat.",
+  'Guarding food or toys': "Don't take things off him by force, which can make it worse. Swap for something better, and drop a tasty bit in his bowl as you walk past so people near his bowl mean good things.",
+  'Growling': "Growling is a warning, so don't tell him off for it or he may skip the warning next time. Give him space and work out the trigger.",
+  'Zoomies': "Normal, often in the evening or after a bath. Just make sure he's somewhere safe to run.",
+  'Scared or startled': "Let him watch from a distance and reward calm. Never force him closer, and go at his pace."
+};
+const behTypes = () => [...BEH, ...new Set(S.behaviours.map(b => b.what).filter(w => !BEH.includes(w)))];
+const opts = (list, cur) => list.map(x => `<option${x === cur ? ' selected' : ''}>${esc(x)}</option>`).join('');
+$('bWhat').onchange = () => $('bWhatOther').classList.toggle('hidden', $('bWhat').value !== OTHER);
+$('logBeh').onclick = () => {
+  const what = $('bWhat').value === OTHER ? $('bWhatOther').value.trim() : $('bWhat').value;
+  if (!what) { alert('Describe what happened.'); return; }
+  const t = when('beh'); if (t === null) return;
+  addTimed(S.behaviours, { t, what, level: +$('bLevel').value, why: $('bWhy').value, did: $('bDid').value, result: $('bResult').value, note: $('bNote').value.trim() });
+  $('bNote').value = ''; $('bWhatOther').value = ''; save();
+};
+function renderBeh() {
+  const cur = $('bWhat').value;
+  $('bWhat').innerHTML = opts(behTypes(), cur) + `<option value="${OTHER}"${cur === OTHER ? ' selected' : ''}>Something else, type it</option>`;
+  $('bWhatOther').classList.toggle('hidden', $('bWhat').value !== OTHER);
+  [['bWhy', WHY], ['bDid', DID]].forEach(([id, list]) => { const v = $(id).value; $(id).innerHTML = opts(list, v); });
+  const rv = $('bResult').value; $('bResult').innerHTML = Object.entries(RES).map(([k, v]) => `<option value="${k}"${k === rv ? ' selected' : ''}>${v}</option>`).join('');
+  const now = Date.now(), wk = S.behaviours.filter(b => b.t >= now - WEEK), prev = S.behaviours.filter(b => b.t >= now - 2 * WEEK && b.t < now - WEEK);
+  const types = [...new Set([...wk, ...prev].map(b => b.what))];
+  $('behTrend').innerHTML = types.map(w => {
+    const a = wk.filter(b => b.what === w), p = prev.filter(b => b.what === w);
+    const whys = a.filter(b => b.why && b.why !== 'Not sure').map(b => b.why), top = whys.sort((x, y) => whys.filter(v => v === y).length - whys.filter(v => v === x).length)[0];
+    const strong = a.length ? a.reduce((s, b) => s + b.level, 0) / a.length : 0;
+    return `<li style="display:block"><div class="row" style="justify-content:space-between"><strong>${esc(w)}</strong><span class="muted">${a.length} this week, ${p.length} the week before</span></div>`
+      + `<div class="muted">${a.length ? `Mostly ${strong < 1.5 ? 'mild' : strong < 2.5 ? 'moderate' : 'strong'}` : 'None this week'}${top ? `, most often when ${top.toLowerCase()}` : ''}.</div></li>`;
+  }).join('') || '<li class="muted">Nothing logged in the last two weeks</li>';
+  const recent = S.behaviours.filter(b => b.t >= now - 4 * WEEK), groups = {};
+  recent.forEach(b => { const k = b.what + '|' + b.did; (groups[k] = groups[k] || []).push(b); });
+  $('behWorks').innerHTML = [...new Set(recent.map(b => b.what))].map(w => {
+    const rows = Object.entries(groups).filter(([k]) => k.startsWith(w + '|')).map(([k, xs]) => ({ did: k.slice(w.length + 1), n: xs.length, ok: xs.filter(b => b.result === 'stopped' || b.result === 'calmed').length }))
+      .sort((a, b) => b.ok / b.n - a.ok / a.n || b.n - a.n);
+    return `<li style="display:block"><strong>${esc(w)}</strong>${rows.map(r => `<div class="row" style="justify-content:space-between"><span class="muted">${esc(r.did)}</span><span class="tag">${r.ok} of ${r.n} worked</span></div>`).join('')}</li>`;
+  }).join('') || '<li class="muted">Log what you did and how he responded to see what works</li>';
+  $('behList').innerHTML = S.behaviours.slice(0, 15).map((b, i) => `<li style="display:block"><div class="row" style="justify-content:space-between"><strong>${esc(b.what)}</strong><span class="row"><span class="muted">${fmt(b.t)} ${time(b.t)}</span>${delBtn('behaviours', i)}</span></div>`
+    + `<div class="muted">${['', 'Mild', 'Moderate', 'Strong'][b.level]}${b.why && b.why !== 'Not sure' ? ', ' + esc(b.why.toLowerCase()) : ''}. ${esc(b.did)}: ${RES[b.result].toLowerCase()}.${b.note ? ' ' + esc(b.note) : ''}</div></li>`).join('') || '<li class="muted">Nothing logged yet</li>';
+  const seen = [...new Set(S.behaviours.filter(b => b.t >= now - 2 * WEEK).map(b => b.what))].filter(w => TIPS[w]);
+  $('behTips').innerHTML = (seen.length ? seen : ['Biting or mouthing', 'Jumping up', 'Chewing things']).map(w => `<p><strong>${esc(w)}.</strong> ${TIPS[w]}</p>`).join('');
 }
 
 // ---------- Settings and sharing ----------
 // Kennel Club breeds people often ask about, plus types and crosses that aren't breeds
-const BREEDS = ['Airedale Terrier', 'Akita', 'Australian Shepherd', 'Basset Hound', 'Beagle', 'Bearded Collie', 'Bedlington Terrier', 'Bernese Mountain Dog', 'Bichon Frise', 'Border Collie', 'Border Terrier', 'Borzoi', 'Boston Terrier', 'Boxer', 'Bull Terrier', 'Bulldog', 'Cairn Terrier', 'Cavalier King Charles Spaniel', 'Chihuahua', 'Cocker Spaniel', 'Dachshund', 'Dalmatian', 'Deerhound', 'Dobermann', 'English Springer Spaniel', 'Flat Coated Retriever', 'French Bulldog', 'German Shepherd', 'German Shorthaired Pointer', 'Golden Retriever', 'Great Dane', 'Greyhound', 'Hungarian Vizsla', 'Irish Wolfhound', 'Jack Russell Terrier', 'Labrador Retriever', 'Lhasa Apso', 'Maltese', 'Miniature Schnauzer', 'Newfoundland', 'Pointer', 'Pomeranian', 'Poodle', 'Pug', 'Rottweiler', 'Rough Collie', 'Saluki', 'Samoyed', 'Shetland Sheepdog', 'Shiba Inu', 'Shih Tzu', 'Siberian Husky', 'Staffordshire Bull Terrier', 'Weimaraner', 'Welsh Springer Spaniel', 'West Highland White Terrier', 'Whippet', 'Yorkshire Terrier'];
+const BREEDS = ['Airedale Terrier', 'Akita', 'Australian Shepherd', 'Basset Hound', 'Beagle', 'Bearded Collie', 'Bedlington Terrier', 'Bernese Mountain Dog', 'Bichon Frise', 'Border Collie', 'Border Terrier', 'Borzoi', 'Boston Terrier', 'Boxer', 'Bull Terrier', 'Bulldog', 'Cairn Terrier', 'Cavalier King Charles Spaniel', 'Chihuahua', 'Cocker Spaniel', 'Dachshund', 'Miniature Dachshund', 'Dalmatian', 'Deerhound', 'Dobermann', 'English Springer Spaniel', 'Flat Coated Retriever', 'French Bulldog', 'German Shepherd', 'German Shorthaired Pointer', 'Golden Retriever', 'Great Dane', 'Greyhound', 'Hungarian Vizsla', 'Irish Wolfhound', 'Jack Russell Terrier', 'Labrador Retriever', 'Lhasa Apso', 'Maltese', 'Miniature Schnauzer', 'Newfoundland', 'Pointer', 'Pomeranian', 'Poodle (Standard)', 'Poodle (Miniature)', 'Poodle (Toy)', 'Pug', 'Rottweiler', 'Rough Collie', 'Saluki', 'Samoyed', 'Shetland Sheepdog', 'Shiba Inu', 'Shih Tzu', 'Siberian Husky', 'Staffordshire Bull Terrier', 'Weimaraner', 'Welsh Springer Spaniel', 'West Highland White Terrier', 'Whippet', 'Yorkshire Terrier'];
 const TYPES = ['Lurcher', 'Longdog', 'Cavachon', 'Cavapoo', 'Cockapoo', 'Collie cross', 'Goldendoodle', 'Jug', 'Labradoodle', 'Maltipoo', 'Patterdale type', 'Sheepdog (working type)', 'Sprocker', 'Staffie cross'];
 const OTHER = '__other';
 const SIGHT = /lurcher|longdog|greyhound|whippet|saluki|deerhound|wolfhound|borzoi|sloughi|galgo|azawakh/i;
@@ -605,7 +890,7 @@ function render() {
   $('pupName').value = S.name; $('pupDob').value = S.dob;
   $('pupBreed').value = BREEDS.includes(S.breed) || TYPES.includes(S.breed) ? '' : S.breed;
   $('pupBreedSel').value = ''; $('pupKind').value = S.kind; $('pupBreed2').value = S.breed2; kindUI();
-  renderToilet(); renderTraining(); renderVax(); renderTreatments();
+  renderToilet(); renderTraining(); renderBeh(); renderVax(); renderTreatments();
   renderWeight(); renderOther(); renderFood();
 }
 render();
