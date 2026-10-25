@@ -24,6 +24,8 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Feed log with amount and how much was eaten, a day by day view (feeds and poos) and a 7 day trend.
 - Weight guide: rough adult weight range per breed or type (ADULT_KG), when that size usually stops growing, and an optional 1 to 9 body score with each weigh in.
 - Behaviour tab: what happened, how strong, what was going on, what you did and how he responded. Shows weekly counts, what's working per behaviour (last 4 weeks) and short tips.
+- Socialisation checklist on the Training tab: 47 items in six areas plus the user's own, each logged as happy, unsure then OK, or scared. Shows the socialisation window by age (closes around 12 to 16 weeks). Scared items are flagged to retry from further away.
+- Sleep log on the Behaviour tab: fell asleep and woke up buttons, last 24 hours and daily average against 18 to 20 hours. Behaviour trends show how long he'd been awake beforehand when the sleep log covers it.
 
 ## Ideas for later
 

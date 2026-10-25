@@ -103,6 +103,32 @@
     <ul id="trainList"></ul>
     <p class="muted">Rule of thumb: short sessions of 5 to 10 reps. When he gets 80% or more in three sessions running, make it a bit harder (more distance, longer duration or more distraction). If he drops below 50%, go back a step.</p>
   </div>
+  <div class="card">
+    <h2>Socialisation</h2>
+    <div class="next" id="socWindow"></div>
+    <label for="socCat">Area</label>
+    <select id="socCat"></select>
+    <label for="socItem">What he met</label>
+    <select id="socItem"></select>
+    <label>How he took it</label>
+    <div class="row">
+      <button class="big good" data-soc="fine">Happy</button>
+      <button class="big" data-soc="unsure">Unsure, then OK</button>
+      <button class="big bad" data-soc="scared">Scared</button>
+    </div>
+    <div data-when="soc"></div>
+    <div class="row" style="margin-top:10px">
+      <input id="socNew" placeholder="Add your own, e.g. the neighbour's cat" style="flex:1">
+      <button id="socAdd">Add</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Checklist</h2>
+    <div class="stat" id="socRate"></div>
+    <div class="bar"><div id="socBar" style="width:0"></div></div>
+    <div id="socList"></div>
+    <p class="muted">Short, calm meetings beat long ones. Let him watch from a distance and come closer if he wants, with treats for calm. If something scared him, go back to it later from further away. Tap an item to log it.</p>
+  </div>
 </section>
 
 <!-- HEALTH -->
@@ -277,6 +303,17 @@
 <!-- BEHAVIOUR -->
 <section id="tab-behaviour" class="hidden">
   <div class="card">
+    <h2>Sleep and naps</h2>
+    <div class="next" id="sleepNow"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="big" id="sleepStart">Fell asleep</button>
+      <button class="big" id="sleepEnd">Woke up</button>
+    </div>
+    <div data-when="sleep"></div>
+    <p class="muted" id="sleepSum"></p>
+    <ul id="sleepList"></ul>
+  </div>
+  <div class="card">
     <h2>Log behaviour</h2>
     <label for="bWhat">What happened</label>
     <select id="bWhat"></select>
@@ -380,7 +417,7 @@ const blank = {
   toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], custom:[],
   vax:[], vaxDue:'',
   treatments:[],
-  weights:[], foods:[], stools:[], feeds:[], behaviours:[],
+  weights:[], foods:[], stools:[], feeds:[], behaviours:[], sleep:[], social:[], socialOwn:[],
   feedPlan:{ type:'', meals:0, kdry:'', kwet:'', kraw:'', split:50 }
 };
 function load() {
@@ -772,6 +809,95 @@ function renderFood() {
   $('stoolList').innerHTML = S.stools.slice(0, 7).map((s, i) => `<li><span>Score ${s.score}${s.food ? ` <span class="muted">on ${esc(s.food)}</span>` : ''}</span><span class="row"><span class="muted">${fmt(s.t)} ${time(s.t)}</span>${delBtn('stools', i)}</span></li>`).join('');
 }
 
+// ---------- Socialisation ----------
+const SOCIAL = {
+  'People': ['Men', 'Women', 'Children', 'Babies or toddlers', 'Older people', 'Beards, hats or hoods', 'Hi-vis or uniforms', 'Sticks, walkers or wheelchairs', 'Visitors at the door', 'Delivery drivers'],
+  'Dogs and animals': ['Calm adult dogs', 'Other puppies', 'Cats', 'Small pets', 'Sheep, cows or horses', 'Birds and ducks'],
+  'Sounds': ['Hoover', 'Washing machine', 'Doorbell', 'Hairdryer', 'Traffic', 'Fireworks (recording)', 'Thunder (recording)', 'Crying baby'],
+  'Places': ['Car journeys', 'Vet waiting room', 'Town centre', 'Café or pub', 'Park', 'Bus or train station', 'Woods or beach', "Someone else's home"],
+  'Handling': ['Paws and nails', 'Ears', 'Mouth and teeth', 'Brushing', 'Collar and harness', 'Being picked up', 'Bath', 'Vet style check over'],
+  'Things': ['Bikes', 'Pushchairs', 'Umbrellas', 'Scooters or skateboards', 'Wheelie bins', 'Stairs', 'Different floors (gravel, wet grass, grates)']
+};
+const OWN = 'Your own';
+const socCats = () => Object.keys(SOCIAL).concat(S.socialOwn.length ? [OWN] : []);
+const socItems = c => c === OWN ? S.socialOwn : SOCIAL[c] || [];
+const REACT = { fine:'happy', unsure:'unsure, then OK', scared:'scared' };
+$('socCat').onchange = () => renderSocial();
+document.querySelectorAll('[data-soc]').forEach(b => b.onclick = () => {
+  const item = $('socItem').value; if (!item) return;
+  const t = when('soc'); if (t === null) return;
+  addTimed(S.social, { t, item, react: b.dataset.soc }); save();
+});
+$('socAdd').onclick = () => {
+  const v = $('socNew').value.trim(); if (!v) return;
+  if (!S.socialOwn.includes(v)) S.socialOwn.push(v);
+  $('socNew').value = ''; renderSocial(); $('socCat').value = OWN; renderSocial(); $('socItem').value = v; save();
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-socpick]'); if (!el) return;
+  const [c, item] = el.dataset.socpick.split('|');
+  $('socCat').value = c; renderSocial(); $('socItem').value = item;
+  $('socCat').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+function renderSocial() {
+  const c = socCats().includes($('socCat').value) ? $('socCat').value : socCats()[0], item = $('socItem').value;
+  $('socCat').innerHTML = opts(socCats(), c);
+  $('socItem').innerHTML = opts(socItems(c), item);
+  const wk = S.dob ? ageWeeks(Date.now()) : null;
+  $('socWindow').innerHTML = wk === null ? '<span class="muted">Add his date of birth in More to see where he is in the socialisation window.</span>'
+    : wk < 16 ? `<strong>He's ${Math.floor(wk)} weeks.</strong> The main socialisation window closes at around 12 to 16 weeks, so this is the time to cover as much as you can, calmly. Until his jabs are done, carry him out to see the world and only meet dogs you know are vaccinated.`
+    : `<strong>He's ${Math.floor(wk)} weeks.</strong> The main window has passed, but new experiences still matter through adolescence. Keep going, and go slowly with anything that worries him.`;
+  const all = Object.keys(SOCIAL).flatMap(k => SOCIAL[k].map(i => [k, i])).concat(S.socialOwn.map(i => [OWN, i]));
+  const logs = i => S.social.filter(x => x.item === i);
+  const done = all.filter(([, i]) => logs(i).some(x => x.react !== 'scared')).length;
+  $('socRate').textContent = `${done} of ${all.length} covered`;
+  $('socBar').style.width = (all.length ? 100 * done / all.length : 0) + '%';
+  $('socList').innerHTML = socCats().map(k => `<h3>${esc(k)}</h3><ul>${socItems(k).map(i => {
+    const xs = logs(i), last = xs[0], good = xs.filter(x => x.react === 'fine').length;
+    const tag = !last ? '<span class="tag">Not yet</span>'
+      : last.react === 'scared' ? '<span class="tag due">Scared last time, try further away</span>'
+      : `<span class="tag">${good >= 3 ? 'Done' : 'Seen'} ${xs.length}x, last ${REACT[last.react]}</span>`;
+    return `<li data-socpick="${esc(k)}|${esc(i)}" style="cursor:pointer"><span>${esc(i)}</span>${tag}</li>`;
+  }).join('')}</ul>`).join('')
+    + (SIGHT.test(S.breed + ' ' + S.breed2) ? '<p class="muted">Sighthounds can have a strong chase instinct, so calm, regular time around cats and small pets now pays off later.</p>' : '');
+}
+
+// ---------- Sleep ----------
+const dur = ms => { const m = Math.round(ms / 60000); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : ''); };
+const openNap = () => S.sleep.find(x => !x.end);
+$('sleepStart').onclick = () => {
+  const t = when('sleep'); if (t === null) return;
+  const o = openNap(); if (o && o.t < t) o.end = t; // he must have woken up in between
+  addTimed(S.sleep, { t, end: 0 }); save();
+};
+$('sleepEnd').onclick = () => {
+  const t = when('sleep'); if (t === null) return;
+  const o = openNap();
+  if (o && t > o.t) o.end = t;
+  else { alert('Log when he fell asleep first.'); return; }
+  save();
+};
+// Sleep logged between two times, counting a nap still going up to now
+function sleptBetween(from, to) {
+  return S.sleep.reduce((a, x) => a + Math.max(0, Math.min(x.end || Date.now(), to) - Math.max(x.t, from)), 0);
+}
+// How long he'd been awake at a moment, if the sleep log covers it
+function awakeAt(t) {
+  if (S.sleep.some(x => x.t <= t && (x.end || Date.now()) > t)) return null;
+  const last = S.sleep.filter(x => x.end && x.end <= t).sort((a, b) => b.end - a.end)[0];
+  return last && t - last.end < 8 * 3600000 ? t - last.end : null;
+}
+function renderSleep() {
+  const now = Date.now(), o = openNap();
+  const lastEnd = S.sleep.filter(x => x.end).sort((a, b) => b.end - a.end)[0];
+  $('sleepNow').innerHTML = o ? `<strong>Asleep</strong> since ${time(o.t)}, ${dur(now - o.t)} so far.`
+    : lastEnd ? `<strong>Awake</strong> since ${time(lastEnd.end)}, ${dur(now - lastEnd.end)}.${now - lastEnd.end > 90 * 60000 ? ' <span class="muted">Young puppies usually need a nap after an hour or two awake.</span>' : ''}`
+    : '<span class="muted">Tap when he falls asleep and when he wakes up, overnight too.</span>';
+  const first = S.sleep.length ? Math.min(...S.sleep.map(x => x.t)) : now, days = Math.min(7, Math.max(1, (now - first) / DAY));
+  $('sleepSum').textContent = S.sleep.length ? `Last 24 hours: ${dur(sleptBetween(now - DAY, now))} asleep. Daily average over ${days < 7 ? 'what\'s logged' : 'the last 7 days'}: ${dur(sleptBetween(now - 7 * DAY, now) / days)}. Puppies need around 18 to 20 hours a day. This only counts what you log.` : '';
+  $('sleepList').innerHTML = S.sleep.slice(0, 8).map((x, i) => `<li><span>${fmt(x.t)} ${time(x.t)} to ${x.end ? time(x.end) : 'now'} <span class="muted">${dur((x.end || now) - x.t)}</span></span>${delBtn('sleep', i)}</li>`).join('');
+}
+
 // ---------- Behaviour ----------
 const BEH = ['Biting or mouthing', 'Jumping up', 'Chewing things', 'Barking', 'Whining or crying', 'Pulling on the lead', 'Stealing things', 'Guarding food or toys', 'Growling', 'Zoomies', 'Scared or startled'];
 const WHY = ['Not sure', 'Playing', 'Overtired', 'Overexcited', 'Being handled or groomed', 'Visitors', 'Left alone', 'On a walk', 'Around food', 'New place or noise'];
@@ -812,8 +938,9 @@ function renderBeh() {
     const a = wk.filter(b => b.what === w), p = prev.filter(b => b.what === w);
     const whys = a.filter(b => b.why && b.why !== 'Not sure').map(b => b.why), top = whys.sort((x, y) => whys.filter(v => v === y).length - whys.filter(v => v === x).length)[0];
     const strong = a.length ? a.reduce((s, b) => s + b.level, 0) / a.length : 0;
+    const aw = a.map(b => awakeAt(b.t)).filter(x => x !== null), awake = aw.length >= 3 ? aw.reduce((s, x) => s + x, 0) / aw.length : null;
     return `<li style="display:block"><div class="row" style="justify-content:space-between"><strong>${esc(w)}</strong><span class="muted">${a.length} this week, ${p.length} the week before</span></div>`
-      + `<div class="muted">${a.length ? `Mostly ${strong < 1.5 ? 'mild' : strong < 2.5 ? 'moderate' : 'strong'}` : 'None this week'}${top ? `, most often when ${top.toLowerCase()}` : ''}.</div></li>`;
+      + `<div class="muted">${a.length ? `Mostly ${strong < 1.5 ? 'mild' : strong < 2.5 ? 'moderate' : 'strong'}` : 'None this week'}${top ? `, most often when ${top.toLowerCase()}` : ''}.${awake !== null ? ` On average he'd been awake ${dur(awake)} beforehand.` : ''}</div></li>`;
   }).join('') || '<li class="muted">Nothing logged in the last two weeks</li>';
   const recent = S.behaviours.filter(b => b.t >= now - 4 * WEEK), groups = {};
   recent.forEach(b => { const k = b.what + '|' + b.did; (groups[k] = groups[k] || []).push(b); });
@@ -890,7 +1017,7 @@ function render() {
   $('pupName').value = S.name; $('pupDob').value = S.dob;
   $('pupBreed').value = BREEDS.includes(S.breed) || TYPES.includes(S.breed) ? '' : S.breed;
   $('pupBreedSel').value = ''; $('pupKind').value = S.kind; $('pupBreed2').value = S.breed2; kindUI();
-  renderToilet(); renderTraining(); renderBeh(); renderVax(); renderTreatments();
+  renderToilet(); renderTraining(); renderSocial(); renderSleep(); renderBeh(); renderVax(); renderTreatments();
   renderWeight(); renderOther(); renderFood();
 }
 render();
