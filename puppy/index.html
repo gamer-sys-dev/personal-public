@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6f5e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Puppy">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Puppy tracker</title>
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1b; --muted:#6b6a65; --line:#e3e1db; --accent:#2f6f5e; --good:#2f7d4f; --bad:#b4442f; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --card:#232321; --ink:#eeede9; --muted:#a3a29c; --line:#34332f; --accent:#5fb39b; --good:#5fbf86; --bad:#e07a62; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--ink); padding-bottom: 80px; }
+  header { padding: 16px; font-weight: 600; font-size: 1.15rem; }
+  main { padding: 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  h2 { font-size:1rem; margin:0 0 10px; }
+  .muted { color:var(--muted); font-size:.88rem; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button { font: inherit; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:10px 14px; }
+  button.big { flex:1; padding:22px 10px; font-size:1.05rem; font-weight:600; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.good { border-color:var(--good); color:var(--good); }
+  button.bad { border-color:var(--bad); color:var(--bad); }
+  input, select { font: inherit; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); width:100%; }
+  label { display:block; margin:8px 0 4px; font-size:.9rem; }
+  ul { list-style:none; padding:0; margin:0; }
+  li { padding:8px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  li:last-child { border-bottom:none; }
+  .stat { font-size:1.6rem; font-weight:700; }
+  .bar { height:10px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:6px; }
+  .bar > div { height:100%; background:var(--good); }
+  nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--card); border-top:1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  nav button { flex:1; border:none; border-radius:0; padding:14px 4px; font-size:.85rem; background:none; }
+  nav button.on { color:var(--accent); font-weight:700; }
+  .hidden { display:none; }
+  .tag { font-size:.75rem; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
+  .due { color:var(--bad); border-color:var(--bad); }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header id="title">Puppy tracker</header>
+<main>
+
+<section id="tab-toilet">
+  <div class="card">
+    <h2>Log a toilet trip</h2>
+    <div class="row">
+      <button class="big good" data-toilet="garden" data-kind="wee">Wee in garden</button>
+      <button class="big bad" data-toilet="inside" data-kind="wee">Wee inside</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="big good" data-toilet="garden" data-kind="poo">Poo in garden</button>
+      <button class="big bad" data-toilet="inside" data-kind="poo">Poo inside</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Last 7 days</h2>
+    <div class="stat" id="toiletRate">No logs yet</div>
+    <div class="bar"><div id="toiletBar" style="width:0"></div></div>
+    <p class="muted" id="toiletTrend"></p>
+  </div>
+  <div class="card">
+    <h2>Recent</h2>
+    <ul id="toiletList"></ul>
+  </div>
+</section>
+
+<section id="tab-training" class="hidden">
+  <div class="card">
+    <h2>Log a session</h2>
+    <label for="cmd">Command</label>
+    <select id="cmd"></select>
+    <div class="row" style="margin-top:8px">
+      <input id="newCmd" placeholder="Add a command, e.g. leave it" style="flex:1">
+      <button id="addCmd">Add</button>
+    </div>
+    <label for="reps">Reps tried</label>
+    <input id="reps" type="number" inputmode="numeric" min="1" value="10">
+    <label for="hits">Reps he got right</label>
+    <input id="hits" type="number" inputmode="numeric" min="0" value="7">
+    <button class="primary" id="logSession" style="width:100%;margin-top:12px">Save session</button>
+  </div>
+  <div class="card">
+    <h2>Progress</h2>
+    <ul id="trainList"></ul>
+    <p class="muted">Rule of thumb: short sessions of 5 to 10 reps. When he gets 80% or more in three sessions running, make it a bit harder (more distance, longer duration or more distraction). If he drops below 50%, go back a step.</p>
+  </div>
+</section>
+
+<section id="tab-care" class="hidden">
+  <div class="card" id="noDob">
+    <h2>Add his birth date</h2>
+    <p class="muted">Go to Settings and add the date of birth to build the care schedule.</p>
+  </div>
+  <div class="card">
+    <h2>Care schedule</h2>
+    <p class="muted">Typical UK timings. Your vet's plan comes first, so tick off what's done and add your own dates.</p>
+    <ul id="careList"></ul>
+    <button id="icsAll" class="primary" style="width:100%;margin-top:12px">Add upcoming to my calendar</button>
+  </div>
+  <div class="card">
+    <h2>Add your own reminder</h2>
+    <label for="evName">What</label>
+    <input id="evName" placeholder="e.g. Second jab">
+    <label for="evDate">When</label>
+    <input id="evDate" type="date">
+    <button id="addEv" style="width:100%;margin-top:12px">Add</button>
+  </div>
+</section>
+
+<section id="tab-advice" class="hidden">
+  <div class="card">
+    <h2>UK guidance</h2>
+    <ul>
+      <li><a href="https://www.pdsa.org.uk/pet-help-and-advice/looking-after-your-pet/puppies-dogs" target="_blank" rel="noopener">PDSA: puppy and dog care</a></li>
+      <li><a href="https://www.rspca.org.uk/adviceandwelfare/pets/dogs" target="_blank" rel="noopener">RSPCA: dog care and welfare</a></li>
+      <li><a href="https://www.dogstrust.org.uk/dog-advice" target="_blank" rel="noopener">Dogs Trust: dog advice</a></li>
+      <li><a href="https://www.thekennelclub.org.uk/health-and-dog-care/" target="_blank" rel="noopener">Kennel Club: health and care</a></li>
+      <li><a href="https://www.gov.uk/get-your-dog-microchipped" target="_blank" rel="noopener">GOV.UK: microchipping (legal requirement)</a></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Training method</h2>
+    <ul>
+      <li><a href="https://www.dogstrust.org.uk/dog-advice/training" target="_blank" rel="noopener">Dogs Trust: training guides</a></li>
+      <li><a href="https://www.akc.org/expert-advice/training/" target="_blank" rel="noopener">AKC: training articles (US, method only)</a></li>
+    </ul>
+    <p class="muted">This app isn't veterinary advice. If something's worrying you, ring your vet.</p>
+  </div>
+</section>
+
+<section id="tab-settings" class="hidden">
+  <div class="card">
+    <h2>Your puppy</h2>
+    <label for="pupName">Name (stays on this phone)</label>
+    <input id="pupName">
+    <label for="pupDob">Date of birth</label>
+    <input id="pupDob" type="date">
+    <button class="primary" id="saveSettings" style="width:100%;margin-top:12px">Save</button>
+  </div>
+  <div class="card">
+    <h2>Share with another phone</h2>
+    <p class="muted">Export makes a file you can send. Import on the other phone replaces what's there.</p>
+    <div class="row">
+      <button id="exportBtn" style="flex:1">Export</button>
+      <button id="importBtn" style="flex:1">Import</button>
+      <input id="importFile" type="file" accept="application/json" class="hidden">
+    </div>
+  </div>
+</section>
+
+</main>
+
+<nav>
+  <button data-tab="toilet" class="on">Toilet</button>
+  <button data-tab="training">Training</button>
+  <button data-tab="care">Care</button>
+  <button data-tab="advice">Advice</button>
+  <button data-tab="settings">Settings</button>
+</nav>
+
+<script>
+const KEY = 'puppy-tracker-v1';
+const blank = { name:'', dob:'', toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], done:{}, custom:[] };
+function load() { try { return Object.assign({}, blank, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) { return Object.assign({}, blank); } }
+let S = load();
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { alert('Could not save on this phone.'); } render(); }
+
+const $ = id => document.getElementById(id);
+const DAY = 86400000;
+const fmt = d => new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+const fmtFull = d => new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+const time = d => new Date(d).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// Tabs
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + b.dataset.tab));
+});
+
+// Toilet
+document.querySelectorAll('[data-toilet]').forEach(b => b.onclick = () => {
+  S.toilet.unshift({ t: Date.now(), where: b.dataset.toilet, kind: b.dataset.kind });
+  save();
+});
+function rate(from, to) {
+  const xs = S.toilet.filter(x => x.t >= from && x.t < to);
+  return xs.length ? { pct: Math.round(100 * xs.filter(x => x.where === 'garden').length / xs.length), n: xs.length } : null;
+}
+function renderToilet() {
+  const now = Date.now(), wk = rate(now - 7 * DAY, now + 1), prev = rate(now - 14 * DAY, now - 7 * DAY);
+  if (wk) {
+    $('toiletRate').textContent = wk.pct + '% in the garden (' + wk.n + ' trips)';
+    $('toiletBar').style.width = wk.pct + '%';
+    $('toiletTrend').textContent = prev ? (wk.pct > prev.pct ? 'Up from ' : wk.pct < prev.pct ? 'Down from ' : 'Same as ') + prev.pct + '% the week before.' : '';
+  }
+  $('toiletList').innerHTML = S.toilet.slice(0, 15).map((x, i) =>
+    `<li><span>${x.kind === 'poo' ? 'Poo' : 'Wee'} ${x.where === 'garden' ? 'in garden' : 'inside'}</span><span class="row"><span class="muted">${fmt(x.t)} ${time(x.t)}</span><button data-undo="${i}">x</button></span></li>`).join('') || '<li class="muted">Nothing logged yet</li>';
+  document.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => { S.toilet.splice(+b.dataset.undo, 1); save(); });
+}
+
+// Training
+$('addCmd').onclick = () => { const v = $('newCmd').value.trim(); if (v && !S.commands.includes(v)) { S.commands.push(v); $('newCmd').value = ''; save(); } };
+$('logSession').onclick = () => {
+  const reps = +$('reps').value, hits = +$('hits').value;
+  if (!reps || hits < 0 || hits > reps) { alert('Check the numbers: right answers can\'t be more than reps tried.'); return; }
+  S.sessions.unshift({ t: Date.now(), cmd: $('cmd').value, reps, hits });
+  save();
+};
+function advice(list) {
+  if (!list.length) return 'No sessions yet';
+  const last = list.slice(0, 3).map(s => s.hits / s.reps);
+  let streak = 0; for (const s of list) { if (s.hits / s.reps >= 0.8) streak++; else break; }
+  if (last[0] < 0.5) return 'Below 50% last time. Go back a step and make it easier.';
+  if (streak >= 3) return 'Three sessions at 80% or more. Make it a bit harder.';
+  return `${streak} of 3 sessions at 80%+ in a row. About ${3 - streak} more good session${3 - streak === 1 ? '' : 's'} before moving on.`;
+}
+function renderTraining() {
+  const sel = $('cmd'), cur = sel.value;
+  sel.innerHTML = S.commands.map(c => `<option${c === cur ? ' selected' : ''}>${esc(c)}</option>`).join('');
+  $('trainList').innerHTML = S.commands.map(c => {
+    const list = S.sessions.filter(s => s.cmd === c);
+    const last = list[0] ? Math.round(100 * list[0].hits / list[0].reps) + '% last time' : '';
+    return `<li style="display:block"><div class="row" style="justify-content:space-between"><strong>${esc(c)}</strong><span class="muted">${last}</span></div><div class="muted">${advice(list)}</div></li>`;
+  }).join('');
+}
+
+// Care schedule (typical UK timings, weeks from birth)
+function schedule() {
+  if (!S.dob) return [];
+  const b = new Date(S.dob).getTime(), w = n => b + n * 7 * DAY, items = [];
+  items.push({ id:'vac1', name:'First vaccination', d:w(8) });
+  items.push({ id:'vac2', name:'Second vaccination (usually 2 to 4 weeks after the first)', d:w(11) });
+  items.push({ id:'vac3', name:'First annual booster', d:w(60) });
+  for (let k = 2; k * 2 <= 12; k++) items.push({ id:'worm' + k * 2, name:'Worming (every 2 weeks to 12 weeks)', d:w(k * 2) });
+  for (let m = 4; m <= 6; m++) items.push({ id:'wormm' + m, name:'Worming (monthly to 6 months)', d:w(m * 4.35) });
+  for (let m = 9; m <= 24; m += 3) items.push({ id:'wormq' + m, name:'Worming (every 3 months)', d:w(m * 4.35) });
+  for (let m = 2; m <= 12; m++) items.push({ id:'flea' + m, name:'Flea treatment', d:w(m * 4.35) });
+  items.push({ id:'chk6', name:'Vet check and talk about neutering', d:w(26) });
+  S.custom.forEach((c, i) => items.push({ id:'c' + i, name:c.name, d:new Date(c.date).getTime(), custom:i }));
+  return items.sort((a, z) => a.d - z.d);
+}
+function renderCare() {
+  $('noDob').classList.toggle('hidden', !!S.dob);
+  const now = Date.now(), all = schedule();
+  // Items more than 3 weeks old are usually ones the breeder or vet already did, so tuck them away
+  const old = all.filter(x => !S.done[x.id] && x.d < now - 21 * DAY);
+  const items = all.filter(x => !old.includes(x) && (!S.done[x.id] || x.d > now - 30 * DAY));
+  const shown = showOld ? old.concat(items) : items;
+  $('careList').innerHTML = (old.length ? `<li><button id="toggleOld" style="width:100%">${showOld ? 'Hide' : 'Show'} ${old.length} earlier item${old.length === 1 ? '' : 's'} (tick off what the breeder or vet did)</button></li>` : '') + shown.map(x => {
+    const done = !!S.done[x.id], overdue = !done && x.d < now;
+    return `<li><label class="row" style="margin:0;flex:1"><input type="checkbox" data-done="${x.id}" ${done ? 'checked' : ''} style="width:auto"> <span${done ? ' class="muted"' : ''}>${esc(x.name)}</span></label><span class="tag${overdue ? ' due' : ''}">${overdue ? 'Due ' : ''}${fmt(x.d)}</span></li>`;
+  }).join('') || '<li class="muted">Nothing scheduled yet</li>';
+  document.querySelectorAll('[data-done]').forEach(c => c.onchange = () => { S.done[c.dataset.done] = c.checked; save(); });
+  if ($('toggleOld')) $('toggleOld').onclick = () => { showOld = !showOld; renderCare(); };
+}
+let showOld = false;
+$('addEv').onclick = () => { const n = $('evName').value.trim(), d = $('evDate').value; if (n && d) { S.custom.push({ name:n, date:d }); $('evName').value = ''; save(); } };
+
+// Calendar export (.ics)
+function ics(items) {
+  const pad = n => String(n).padStart(2, '0');
+  const day = t => { const d = new Date(t); return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); };
+  const who = S.name ? S.name + ': ' : 'Puppy: ';
+  const ev = items.map(x => ['BEGIN:VEVENT', 'UID:' + x.id + '-' + day(x.d) + '@puppy-tracker', 'DTSTAMP:' + day(Date.now()) + 'T000000Z',
+    'DTSTART;VALUE=DATE:' + day(x.d), 'SUMMARY:' + who + x.name.replace(/[,;]/g, ' '), 'BEGIN:VALARM', 'TRIGGER:-PT15H', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM', 'END:VEVENT'].join('\r\n'));
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//puppy-tracker//EN', ...ev, 'END:VCALENDAR'].join('\r\n');
+}
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+$('icsAll').onclick = () => {
+  const now = Date.now(), up = schedule().filter(x => !S.done[x.id] && x.d >= now - DAY && x.d < now + 120 * DAY);
+  if (!up.length) { alert('Nothing due in the next four months.'); return; }
+  download('puppy-reminders.ics', ics(up), 'text/calendar');
+};
+
+// Settings and sharing
+$('saveSettings').onclick = () => { S.name = $('pupName').value.trim(); S.dob = $('pupDob').value; save(); };
+$('exportBtn').onclick = () => download('puppy-data.json', JSON.stringify(S), 'application/json');
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => { try { const d = JSON.parse(t); if (confirm('Replace the data on this phone with the imported file?')) { S = Object.assign({}, blank, d); save(); } } catch (err) { alert('That file could not be read.'); } });
+};
+
+function render() {
+  $('title').textContent = S.name ? S.name + "'s tracker" : 'Puppy tracker';
+  document.title = $('title').textContent;
+  $('pupName').value = S.name; $('pupDob').value = S.dob;
+  renderToilet(); renderTraining(); renderCare();
+}
+render();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
