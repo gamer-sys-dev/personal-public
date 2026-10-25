@@ -113,12 +113,15 @@
     <h3>Log a jab</h3>
     <label for="vaxDate">Date given</label>
     <input id="vaxDate" type="date">
-    <label for="vaxWhat">What was given</label>
-    <input id="vaxWhat" list="vaxOptions" placeholder="e.g. DHP and Lepto (first dose)">
-    <datalist id="vaxOptions">
-      <option value="DHP and Lepto (first dose)"><option value="DHP and Lepto (second dose)"><option value="Lepto only"><option value="DHP only"><option value="Kennel cough (intranasal)"><option value="Annual booster">
-    </datalist>
-    <label class="row" style="margin-top:10px"><input type="checkbox" id="vaxFinal"> This completes the puppy course</label>
+    <label>What was given (tick all that apply)</label>
+    <div class="row">
+      <label class="row" style="margin:0"><input type="checkbox" class="vaxType" value="DHP"> DHP (e.g. Nobivac DHP)</label>
+      <label class="row" style="margin:0"><input type="checkbox" class="vaxType" value="L4"> Lepto (e.g. Nobivac L4)</label>
+      <label class="row" style="margin:0"><input type="checkbox" class="vaxType" value="KC"> Kennel cough</label>
+    </div>
+    <label for="vaxWhat">Product name or notes (optional)</label>
+    <input id="vaxWhat" placeholder="e.g. Nobivac DHP and Nobivac L4, given by breeder">
+    <label class="row" style="margin-top:10px"><input type="checkbox" id="vaxFinal"> This completes the puppy course for what's ticked</label>
     <button class="primary wide" id="addVax">Save jab</button>
     <div class="next" id="vaxNext"></div>
     <label for="vaxDue">Next jab due (from your vet, overrides the suggestion)</label>
@@ -345,27 +348,40 @@ function renderTraining() {
 }
 
 // ---------- Vaccinations ----------
+const VAX = {
+  DHP: { name:'DHP (distemper, hepatitis, parvo)', gap:2, booster:365, after:3 * 365, rule:'Second puppy dose usually 2 to 4 weeks after the first. First booster at 12 months, then usually every 3 years.' },
+  L4:  { name:'Lepto', gap:4, booster:365, after:365, rule:'Two puppy doses about 4 weeks apart, then a booster every year.' },
+  KC:  { name:'Kennel cough', gap:0, booster:365, after:365, rule:'Usually once a year.' }
+};
+const LABEL = { DHP:'DHP', L4:'Lepto', KC:'Kennel cough' };
 $('addVax').onclick = () => {
-  const date = $('vaxDate').value, what = $('vaxWhat').value.trim();
-  if (!date || !what) { alert('Add the date and what was given.'); return; }
-  S.vax.push({ date, what, final: $('vaxFinal').checked });
-  $('vaxWhat').value = ''; $('vaxFinal').checked = false; save();
+  const date = $('vaxDate').value, types = [...document.querySelectorAll('.vaxType:checked')].map(c => c.value);
+  if (!date || !types.length) { alert('Add the date and tick what was given.'); return; }
+  S.vax.push({ date, types, what: $('vaxWhat').value.trim(), final: $('vaxFinal').checked });
+  $('vaxWhat').value = ''; $('vaxFinal').checked = false; document.querySelectorAll('.vaxType').forEach(c => c.checked = false); save();
 };
 $('vaxDue').onchange = () => { S.vaxDue = $('vaxDue').value; save(); };
+// Next due for one vaccine type, worked out from the doses logged for it
+function vaxNextFor(type) {
+  const v = VAX[type], doses = S.vax.filter(d => (d.types || []).includes(type)).sort(byDate);
+  if (!doses.length) return null;
+  const last = ts(doses[0].date), done = doses.findIndex(d => d.final);
+  if (done === -1) return v.gap ? { t: last + v.gap * WEEK, why: `Next puppy dose. ${v.rule}` } : { t: last + v.booster * DAY, why: v.rule };
+  const boostersSince = done; // doses logged after the course was finished
+  return { t: last + (boostersSince === 0 ? v.booster : v.after) * DAY, why: (boostersSince === 0 ? 'First booster. ' : 'Next booster. ') + v.rule };
+}
 function vaxNext() {
-  if (S.vaxDue) return { t: ts(S.vaxDue), why: 'Date from your vet' };
-  const doses = [...S.vax].sort(byDate);
-  const final = doses.find(d => d.final);
-  if (final) return { t: ts(final.date) + 365 * DAY, why: 'Annual booster, 12 months after the puppy course finished' };
-  if (doses.length) return { t: ts(doses[0].date) + 2 * WEEK, why: 'Usually 2 to 4 weeks after the last dose. Your vet will confirm, and tick "completes the course" on the last one' };
-  if (S.dob) return { t: ts(S.dob) + 8 * WEEK, why: 'First jab is usually from 8 weeks' };
-  return null;
+  if (S.vaxDue) return [{ type:'vet', t: ts(S.vaxDue), why: 'Date from your vet' }];
+  const out = Object.keys(VAX).map(k => { const n = vaxNextFor(k); return n && { type:k, ...n }; }).filter(Boolean);
+  if (!out.length && S.dob) out.push({ type:'first', t: ts(S.dob) + 8 * WEEK, why: 'First jabs are usually from 8 weeks' });
+  return out.sort((a, b) => a.t - b.t);
 }
 function renderVax() {
   const doses = S.vax.map((d, i) => ({ ...d, i })).sort(byDate);
-  $('vaxList').innerHTML = doses.map(d => `<li><span>${esc(d.what)}${d.final ? ' <span class="tag">course done</span>' : ''}</span><span class="row">${dateInput('vax', d.i, d.date)}${delBtn('vax', d.i)}</span></li>`).join('') || '<li class="muted">No jabs logged yet. Add the breeder\'s ones too.</li>';
-  const n = vaxNext();
-  $('vaxNext').innerHTML = n ? `<strong>Next jab:</strong> ${dueTag(n.t)}<div class="muted">${n.why}</div>` : '<span class="muted">Log a jab or add his birth date.</span>';
+  const label = d => (d.types && d.types.length ? d.types.map(t => LABEL[t]).join(' and ') : '') + (d.what ? (d.types && d.types.length ? ': ' : '') + esc(d.what) : '');
+  $('vaxList').innerHTML = doses.map(d => `<li><span>${label(d)}${d.final ? ' <span class="tag">course done</span>' : ''}</span><span class="row">${dateInput('vax', d.i, d.date)}${delBtn('vax', d.i)}</span></li>`).join('') || '<li class="muted">No jabs logged yet. Add the breeder\'s ones too.</li>';
+  const ns = vaxNext();
+  $('vaxNext').innerHTML = ns.length ? ns.map(n => `<div style="margin-bottom:6px"><strong>${n.type === 'vet' ? 'Next jab' : n.type === 'first' ? 'First jabs' : VAX[n.type].name}:</strong> ${dueTag(n.t)}<div class="muted">${n.why}</div></div>`).join('') : '<span class="muted">Log a jab or add his birth date.</span>';
   $('vaxDue').value = S.vaxDue;
   if (!$('vaxDate').value) $('vaxDate').value = today();
 }
@@ -423,8 +439,8 @@ function renderWeight() {
 // ---------- Other reminders and upcoming ----------
 $('addEv').onclick = () => { const n = $('evName').value.trim(), d = $('evDate').value; if (n && d) { S.custom.push({ name:n, date:d }); $('evName').value = ''; save(); } };
 function upcomingItems() {
-  const items = [], v = vaxNext(), w = treatNext('worm'), f = treatNext('flea');
-  if (v) items.push({ id:'vax', name:'Vaccination', t:v.t });
+  const items = [], w = treatNext('worm'), f = treatNext('flea');
+  vaxNext().forEach(v => items.push({ id:'vax-' + v.type, name: v.type === 'vet' || v.type === 'first' ? 'Vaccination' : 'Vaccination: ' + LABEL[v.type], t:v.t }));
   if (w) items.push({ id:'worm', name:'Worming' + (S.worm.product ? ' (' + S.worm.product + ')' : ''), t:w.t });
   if (f) items.push({ id:'flea', name:'Flea treatment' + (S.flea.product ? ' (' + S.flea.product + ')' : ''), t:f.t });
   if (S.dob) { const c = ts(S.dob) + 26 * WEEK; if (c > Date.now() - 30 * DAY) items.push({ id:'chk6', name:'Vet check at 6 months, talk about neutering', t:c }); }
