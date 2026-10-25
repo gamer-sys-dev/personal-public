@@ -10,42 +10,52 @@
 <link rel="apple-touch-icon" href="icon.svg">
 <title>Puppy tracker</title>
 <style>
-  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1b; --muted:#6b6a65; --line:#e3e1db; --accent:#2f6f5e; --good:#2f7d4f; --bad:#b4442f; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --card:#232321; --ink:#eeede9; --muted:#a3a29c; --line:#34332f; --accent:#5fb39b; --good:#5fbf86; --bad:#e07a62; } }
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1b; --muted:#6b6a65; --line:#e3e1db; --accent:#2f6f5e; --good:#2f7d4f; --bad:#b4442f; --warn:#a86b12; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --card:#232321; --ink:#eeede9; --muted:#a3a29c; --line:#34332f; --accent:#5fb39b; --good:#5fbf86; --bad:#e07a62; --warn:#e0a84f; } }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--ink); padding-bottom: 80px; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--ink); padding-bottom: 84px; }
   header { padding: 16px; font-weight: 600; font-size: 1.15rem; }
   main { padding: 0 16px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
   h2 { font-size:1rem; margin:0 0 10px; }
+  h3 { font-size:.92rem; margin:14px 0 6px; }
   .muted { color:var(--muted); font-size:.88rem; }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .row > * { min-width:0; }
   button { font: inherit; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:10px 14px; }
   button.big { flex:1; padding:22px 10px; font-size:1.05rem; font-weight:600; }
   button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
   button.good { border-color:var(--good); color:var(--good); }
   button.bad { border-color:var(--bad); color:var(--bad); }
-  input, select { font: inherit; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); width:100%; }
+  button.small { padding:6px 10px; font-size:.85rem; }
+  button.wide { width:100%; margin-top:12px; }
+  input, select, textarea { font: inherit; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); width:100%; }
+  input[type=checkbox] { width:auto; }
+  input.date { width:auto; padding:6px 8px; font-size:.88rem; }
   label { display:block; margin:8px 0 4px; font-size:.9rem; }
   ul { list-style:none; padding:0; margin:0; }
-  li { padding:8px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  li { padding:8px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap; }
   li:last-child { border-bottom:none; }
   .stat { font-size:1.6rem; font-weight:700; }
   .bar { height:10px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:6px; }
   .bar > div { height:100%; background:var(--good); }
   nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--card); border-top:1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
-  nav button { flex:1; border:none; border-radius:0; padding:14px 4px; font-size:.85rem; background:none; }
+  nav button { flex:1; border:none; border-radius:0; padding:14px 2px; font-size:.82rem; background:none; }
   nav button.on { color:var(--accent); font-weight:700; }
-  .hidden { display:none; }
+  .hidden { display:none !important; }
   .tag { font-size:.75rem; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
   .due { color:var(--bad); border-color:var(--bad); }
+  .soon { color:var(--warn); border-color:var(--warn); }
+  .next { padding:10px; border-radius:10px; background:var(--bg); margin-top:8px; }
   a { color:var(--accent); }
+  svg text { fill: var(--muted); font-size: 10px; }
 </style>
 </head>
 <body>
 <header id="title">Puppy tracker</header>
 <main>
 
+<!-- TOILET -->
 <section id="tab-toilet">
   <div class="card">
     <h2>Log a toilet trip</h2>
@@ -70,6 +80,7 @@
   </div>
 </section>
 
+<!-- TRAINING -->
 <section id="tab-training" class="hidden">
   <div class="card">
     <h2>Log a session</h2>
@@ -83,7 +94,7 @@
     <input id="reps" type="number" inputmode="numeric" min="1" value="10">
     <label for="hits">Reps he got right</label>
     <input id="hits" type="number" inputmode="numeric" min="0" value="7">
-    <button class="primary" id="logSession" style="width:100%;margin-top:12px">Save session</button>
+    <button class="primary wide" id="logSession">Save session</button>
   </div>
   <div class="card">
     <h2>Progress</h2>
@@ -92,56 +103,129 @@
   </div>
 </section>
 
-<section id="tab-care" class="hidden">
-  <div class="card" id="noDob">
-    <h2>Add his birth date</h2>
-    <p class="muted">Go to Settings and add the date of birth to build the care schedule.</p>
-  </div>
+<!-- HEALTH -->
+<section id="tab-health" class="hidden">
+  <div class="card" id="noDob"><h2>Add his birth date</h2><p class="muted">Go to More and add the date of birth so the app can suggest timings.</p></div>
+
   <div class="card">
-    <h2>Care schedule</h2>
-    <p class="muted">Typical UK timings. Your vet's plan comes first, so tick off what's done and add your own dates.</p>
-    <ul id="careList"></ul>
-    <button id="icsAll" class="primary" style="width:100%;margin-top:12px">Add upcoming to my calendar</button>
+    <h2>Vaccinations</h2>
+    <ul id="vaxList"></ul>
+    <h3>Log a jab</h3>
+    <label for="vaxDate">Date given</label>
+    <input id="vaxDate" type="date">
+    <label for="vaxWhat">What was given</label>
+    <input id="vaxWhat" list="vaxOptions" placeholder="e.g. DHP and Lepto (first dose)">
+    <datalist id="vaxOptions">
+      <option value="DHP and Lepto (first dose)"><option value="DHP and Lepto (second dose)"><option value="Lepto only"><option value="DHP only"><option value="Kennel cough (intranasal)"><option value="Annual booster">
+    </datalist>
+    <label class="row" style="margin-top:10px"><input type="checkbox" id="vaxFinal"> This completes the puppy course</label>
+    <button class="primary wide" id="addVax">Save jab</button>
+    <div class="next" id="vaxNext"></div>
+    <label for="vaxDue">Next jab due (from your vet, overrides the suggestion)</label>
+    <input id="vaxDue" type="date">
   </div>
+
   <div class="card">
-    <h2>Add your own reminder</h2>
-    <label for="evName">What</label>
-    <input id="evName" placeholder="e.g. Second jab">
-    <label for="evDate">When</label>
-    <input id="evDate" type="date">
-    <button id="addEv" style="width:100%;margin-top:12px">Add</button>
+    <h2>Worming</h2>
+    <div id="wormBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>Flea treatment</h2>
+    <div id="fleaBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>Weight</h2>
+    <div class="row">
+      <input id="wDate" type="date" style="flex:1">
+      <input id="wKg" type="number" inputmode="decimal" step="0.01" placeholder="kg" style="flex:1">
+      <button id="addW">Add</button>
+    </div>
+    <div id="wChart" style="margin-top:12px"></div>
+    <p class="muted" id="wGain"></p>
+    <ul id="wList"></ul>
+    <p class="muted">Puppies vary hugely by breed, so watch the trend rather than a single number and ask your vet if gain stalls or drops.</p>
+  </div>
+
+  <div class="card">
+    <h2>Other reminders</h2>
+    <ul id="customList"></ul>
+    <div class="row" style="margin-top:8px">
+      <input id="evName" placeholder="e.g. Microchip check" style="flex:2">
+      <input id="evDate" type="date" style="flex:1">
+      <button id="addEv">Add</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Coming up</h2>
+    <ul id="upcoming"></ul>
+    <button id="icsAll" class="primary wide">Add upcoming to my calendar</button>
   </div>
 </section>
 
-<section id="tab-advice" class="hidden">
+<!-- FOOD -->
+<section id="tab-food" class="hidden">
   <div class="card">
-    <h2>UK guidance</h2>
-    <ul>
-      <li><a href="https://www.pdsa.org.uk/pet-help-and-advice/looking-after-your-pet/puppies-dogs" target="_blank" rel="noopener">PDSA: puppy and dog care</a></li>
-      <li><a href="https://www.rspca.org.uk/adviceandwelfare/pets/dogs" target="_blank" rel="noopener">RSPCA: dog care and welfare</a></li>
-      <li><a href="https://www.dogstrust.org.uk/dog-advice" target="_blank" rel="noopener">Dogs Trust: dog advice</a></li>
-      <li><a href="https://www.thekennelclub.org.uk/health-and-dog-care/" target="_blank" rel="noopener">Kennel Club: health and care</a></li>
-      <li><a href="https://www.gov.uk/get-your-dog-microchipped" target="_blank" rel="noopener">GOV.UK: microchipping (legal requirement)</a></li>
-    </ul>
+    <h2>Current food</h2>
+    <div id="foodNow"></div>
   </div>
   <div class="card">
-    <h2>Training method</h2>
-    <ul>
-      <li><a href="https://www.dogstrust.org.uk/dog-advice/training" target="_blank" rel="noopener">Dogs Trust: training guides</a></li>
-      <li><a href="https://www.akc.org/expert-advice/training/" target="_blank" rel="noopener">AKC: training articles (US, method only)</a></li>
-    </ul>
-    <p class="muted">This app isn't veterinary advice. If something's worrying you, ring your vet.</p>
+    <h2>Start a new food</h2>
+    <label for="fBrand">Brand and product</label>
+    <input id="fBrand" list="foodHistory" placeholder="e.g. Brand X Puppy Large Breed">
+    <datalist id="foodHistory"></datalist>
+    <label for="fType">Type</label>
+    <select id="fType"><option>Dry</option><option>Wet</option><option>Raw</option><option>Fresh cooked</option><option>Mixed</option></select>
+    <label for="fStart">Start date</label>
+    <input id="fStart" type="date">
+    <label class="row" style="margin-top:10px"><input type="checkbox" id="fTransition" checked> Mix in gradually over 7 days</label>
+    <button class="primary wide" id="addFood">Start this food</button>
+  </div>
+  <div class="card">
+    <h2>Log a poo</h2>
+    <p class="muted">1 hard and dry, 2 firm (ideal), 3 soft but formed, 4 very soft, 5 runny</p>
+    <div class="row">
+      <button class="big good" data-stool="1">1</button><button class="big good" data-stool="2">2</button><button class="big" data-stool="3">3</button><button class="big bad" data-stool="4">4</button><button class="big bad" data-stool="5">5</button>
+    </div>
+    <ul id="stoolList" style="margin-top:8px"></ul>
+  </div>
+  <div class="card">
+    <h2>Food history</h2>
+    <ul id="foodList"></ul>
+  </div>
+  <div class="card">
+    <h2>Comparing foods</h2>
+    <p class="muted">For independent ratings of UK dog foods by ingredients, see <a href="https://www.allaboutdogfood.co.uk/" target="_blank" rel="noopener">All About Dog Food</a>. The PFMA has <a href="https://www.ukpetfood.org/" target="_blank" rel="noopener">UK pet food guidance</a>. Your own stool and weight logs are the best guide to what suits him.</p>
   </div>
 </section>
 
-<section id="tab-settings" class="hidden">
+<!-- MORE -->
+<section id="tab-more" class="hidden">
   <div class="card">
     <h2>Your puppy</h2>
     <label for="pupName">Name (stays on this phone)</label>
     <input id="pupName">
     <label for="pupDob">Date of birth</label>
     <input id="pupDob" type="date">
-    <button class="primary" id="saveSettings" style="width:100%;margin-top:12px">Save</button>
+    <label for="pupBreed">Breed</label>
+    <input id="pupBreed" placeholder="e.g. Greyhound">
+    <label class="row" style="margin-top:10px"><input type="checkbox" id="pupCross"> Cross or mixed breed</label>
+    <input id="pupBreed2" class="hidden" placeholder="Crossed with, e.g. Saluki and Collie" style="margin-top:8px">
+    <button class="primary wide" id="saveSettings">Save</button>
+  </div>
+  <div class="card">
+    <h2>UK guidance</h2>
+    <ul>
+      <li><a href="https://www.pdsa.org.uk/pet-help-and-advice/looking-after-your-pet/puppies-dogs" target="_blank" rel="noopener">PDSA: puppy and dog care</a></li>
+      <li><a href="https://www.rspca.org.uk/adviceandwelfare/pets/dogs" target="_blank" rel="noopener">RSPCA: dog care and welfare</a></li>
+      <li><a href="https://www.dogstrust.org.uk/dog-advice" target="_blank" rel="noopener">Dogs Trust: dog advice and training</a></li>
+      <li><a href="https://www.thekennelclub.org.uk/health-and-dog-care/" target="_blank" rel="noopener">Kennel Club: health and care</a></li>
+      <li><a href="https://www.gov.uk/get-your-dog-microchipped" target="_blank" rel="noopener">GOV.UK: microchipping (legal requirement)</a></li>
+      <li><a href="https://www.akc.org/expert-advice/training/" target="_blank" rel="noopener">AKC: training articles (US, method only)</a></li>
+    </ul>
+    <p class="muted">This app isn't veterinary advice. If something's worrying you, ring your vet.</p>
   </div>
   <div class="card">
     <h2>Share with another phone</h2>
@@ -159,65 +243,94 @@
 <nav>
   <button data-tab="toilet" class="on">Toilet</button>
   <button data-tab="training">Training</button>
-  <button data-tab="care">Care</button>
-  <button data-tab="advice">Advice</button>
-  <button data-tab="settings">Settings</button>
+  <button data-tab="health">Health</button>
+  <button data-tab="food">Food</button>
+  <button data-tab="more">More</button>
 </nav>
 
 <script>
 const KEY = 'puppy-tracker-v1';
-const blank = { name:'', dob:'', toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], done:{}, custom:[] };
-function load() { try { return Object.assign({}, blank, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) { return Object.assign({}, blank); } }
+const blank = {
+  name:'', dob:'', breed:'', cross:false, breed2:'',
+  toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], custom:[],
+  vax:[], vaxDue:'',
+  worm:{ product:'', every:0, log:[] }, flea:{ product:'', every:4, log:[] },
+  weights:[], foods:[], stools:[]
+};
+function load() {
+  let d = {};
+  try { d = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+  const s = Object.assign(JSON.parse(JSON.stringify(blank)), d);
+  delete s.done; // version one schedule ticks, replaced by real logs
+  return s;
+}
 let S = load();
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { alert('Could not save on this phone.'); } render(); }
 
 const $ = id => document.getElementById(id);
-const DAY = 86400000;
-const fmt = d => new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
-const fmtFull = d => new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
-const time = d => new Date(d).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+const DAY = 86400000, WEEK = 7 * DAY;
+const today = () => new Date().toISOString().slice(0, 10);
+const ts = d => new Date(d + 'T12:00:00').getTime();
+const iso = t => new Date(t).toISOString().slice(0, 10);
+const fmt = d => new Date(typeof d === 'number' ? d : ts(d)).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' });
+const time = t => new Date(t).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ageWeeks = t => S.dob ? (t - ts(S.dob)) / WEEK : null;
+const byDate = (a, b) => (a.date < b.date ? 1 : -1);
+function dueTag(t) {
+  const n = Date.now(), cls = t < n ? 'due' : t < n + 7 * DAY ? 'soon' : '';
+  return `<span class="tag ${cls}">${t < n ? 'Overdue ' : 'Due '}${fmt(t)}</span>`;
+}
 
 // Tabs
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
   document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + b.dataset.tab));
+  window.scrollTo(0, 0);
 });
 
-// Toilet
-document.querySelectorAll('[data-toilet]').forEach(b => b.onclick = () => {
-  S.toilet.unshift({ t: Date.now(), where: b.dataset.toilet, kind: b.dataset.kind });
-  save();
+// Generic date editor: any input with data-edit="list|index|field" updates that entry
+document.addEventListener('change', e => {
+  const el = e.target; if (!el.dataset.edit) return;
+  const [path, i, field] = el.dataset.edit.split('|');
+  const list = path.split('.').reduce((o, k) => o[k], S);
+  list[+i][field] = el.value; save();
 });
+document.addEventListener('click', e => {
+  const el = e.target; if (!el.dataset.del) return;
+  const [path, i] = el.dataset.del.split('|');
+  if (!confirm('Delete this entry?')) return;
+  path.split('.').reduce((o, k) => o[k], S).splice(+i, 1); save();
+});
+const dateInput = (path, i, val) => `<input type="date" class="date" value="${esc(val)}" data-edit="${path}|${i}|date">`;
+const delBtn = (path, i) => `<button class="small" data-del="${path}|${i}">x</button>`;
+
+// ---------- Toilet ----------
+document.querySelectorAll('[data-toilet]').forEach(b => b.onclick = () => { S.toilet.unshift({ t: Date.now(), where: b.dataset.toilet, kind: b.dataset.kind }); save(); });
 function rate(from, to) {
   const xs = S.toilet.filter(x => x.t >= from && x.t < to);
   return xs.length ? { pct: Math.round(100 * xs.filter(x => x.where === 'garden').length / xs.length), n: xs.length } : null;
 }
 function renderToilet() {
-  const now = Date.now(), wk = rate(now - 7 * DAY, now + 1), prev = rate(now - 14 * DAY, now - 7 * DAY);
-  if (wk) {
-    $('toiletRate').textContent = wk.pct + '% in the garden (' + wk.n + ' trips)';
-    $('toiletBar').style.width = wk.pct + '%';
-    $('toiletTrend').textContent = prev ? (wk.pct > prev.pct ? 'Up from ' : wk.pct < prev.pct ? 'Down from ' : 'Same as ') + prev.pct + '% the week before.' : '';
-  }
+  const now = Date.now(), wk = rate(now - WEEK, now + 1), prev = rate(now - 2 * WEEK, now - WEEK);
+  $('toiletRate').textContent = wk ? wk.pct + '% in the garden (' + wk.n + ' trips)' : 'No logs yet';
+  $('toiletBar').style.width = (wk ? wk.pct : 0) + '%';
+  $('toiletTrend').textContent = wk && prev ? (wk.pct > prev.pct ? 'Up from ' : wk.pct < prev.pct ? 'Down from ' : 'Same as ') + prev.pct + '% the week before.' : '';
   $('toiletList').innerHTML = S.toilet.slice(0, 15).map((x, i) =>
-    `<li><span>${x.kind === 'poo' ? 'Poo' : 'Wee'} ${x.where === 'garden' ? 'in garden' : 'inside'}</span><span class="row"><span class="muted">${fmt(x.t)} ${time(x.t)}</span><button data-undo="${i}">x</button></span></li>`).join('') || '<li class="muted">Nothing logged yet</li>';
-  document.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => { S.toilet.splice(+b.dataset.undo, 1); save(); });
+    `<li><span>${x.kind === 'poo' ? 'Poo' : 'Wee'} ${x.where === 'garden' ? 'in garden' : 'inside'}</span><span class="row"><span class="muted">${fmt(x.t)} ${time(x.t)}</span>${delBtn('toilet', i)}</span></li>`).join('') || '<li class="muted">Nothing logged yet</li>';
 }
 
-// Training
+// ---------- Training ----------
 $('addCmd').onclick = () => { const v = $('newCmd').value.trim(); if (v && !S.commands.includes(v)) { S.commands.push(v); $('newCmd').value = ''; save(); } };
 $('logSession').onclick = () => {
   const reps = +$('reps').value, hits = +$('hits').value;
-  if (!reps || hits < 0 || hits > reps) { alert('Check the numbers: right answers can\'t be more than reps tried.'); return; }
-  S.sessions.unshift({ t: Date.now(), cmd: $('cmd').value, reps, hits });
-  save();
+  if (!reps || hits < 0 || hits > reps) { alert("Check the numbers: right answers can't be more than reps tried."); return; }
+  S.sessions.unshift({ t: Date.now(), cmd: $('cmd').value, reps, hits }); save();
 };
 function advice(list) {
   if (!list.length) return 'No sessions yet';
-  const last = list.slice(0, 3).map(s => s.hits / s.reps);
   let streak = 0; for (const s of list) { if (s.hits / s.reps >= 0.8) streak++; else break; }
-  if (last[0] < 0.5) return 'Below 50% last time. Go back a step and make it easier.';
+  if (list[0].hits / list[0].reps < 0.5) return 'Below 50% last time. Go back a step and make it easier.';
   if (streak >= 3) return 'Three sessions at 80% or more. Make it a bit harder.';
   return `${streak} of 3 sessions at 80%+ in a row. About ${3 - streak} more good session${3 - streak === 1 ? '' : 's'} before moving on.`;
 }
@@ -231,72 +344,164 @@ function renderTraining() {
   }).join('');
 }
 
-// Care schedule (typical UK timings, weeks from birth)
-function schedule() {
-  if (!S.dob) return [];
-  const b = new Date(S.dob).getTime(), w = n => b + n * 7 * DAY, items = [];
-  items.push({ id:'vac1', name:'First vaccination', d:w(8) });
-  items.push({ id:'vac2', name:'Second vaccination (usually 2 to 4 weeks after the first)', d:w(11) });
-  items.push({ id:'vac3', name:'First annual booster', d:w(60) });
-  for (let k = 2; k * 2 <= 12; k++) items.push({ id:'worm' + k * 2, name:'Worming (every 2 weeks to 12 weeks)', d:w(k * 2) });
-  for (let m = 4; m <= 6; m++) items.push({ id:'wormm' + m, name:'Worming (monthly to 6 months)', d:w(m * 4.35) });
-  for (let m = 9; m <= 24; m += 3) items.push({ id:'wormq' + m, name:'Worming (every 3 months)', d:w(m * 4.35) });
-  for (let m = 2; m <= 12; m++) items.push({ id:'flea' + m, name:'Flea treatment', d:w(m * 4.35) });
-  items.push({ id:'chk6', name:'Vet check and talk about neutering', d:w(26) });
-  S.custom.forEach((c, i) => items.push({ id:'c' + i, name:c.name, d:new Date(c.date).getTime(), custom:i }));
-  return items.sort((a, z) => a.d - z.d);
+// ---------- Vaccinations ----------
+$('addVax').onclick = () => {
+  const date = $('vaxDate').value, what = $('vaxWhat').value.trim();
+  if (!date || !what) { alert('Add the date and what was given.'); return; }
+  S.vax.push({ date, what, final: $('vaxFinal').checked });
+  $('vaxWhat').value = ''; $('vaxFinal').checked = false; save();
+};
+$('vaxDue').onchange = () => { S.vaxDue = $('vaxDue').value; save(); };
+function vaxNext() {
+  if (S.vaxDue) return { t: ts(S.vaxDue), why: 'Date from your vet' };
+  const doses = [...S.vax].sort(byDate);
+  const final = doses.find(d => d.final);
+  if (final) return { t: ts(final.date) + 365 * DAY, why: 'Annual booster, 12 months after the puppy course finished' };
+  if (doses.length) return { t: ts(doses[0].date) + 2 * WEEK, why: 'Usually 2 to 4 weeks after the last dose. Your vet will confirm, and tick "completes the course" on the last one' };
+  if (S.dob) return { t: ts(S.dob) + 8 * WEEK, why: 'First jab is usually from 8 weeks' };
+  return null;
 }
-function renderCare() {
-  $('noDob').classList.toggle('hidden', !!S.dob);
-  const now = Date.now(), all = schedule();
-  // Items more than 3 weeks old are usually ones the breeder or vet already did, so tuck them away
-  const old = all.filter(x => !S.done[x.id] && x.d < now - 21 * DAY);
-  const items = all.filter(x => !old.includes(x) && (!S.done[x.id] || x.d > now - 30 * DAY));
-  const shown = showOld ? old.concat(items) : items;
-  $('careList').innerHTML = (old.length ? `<li><button id="toggleOld" style="width:100%">${showOld ? 'Hide' : 'Show'} ${old.length} earlier item${old.length === 1 ? '' : 's'} (tick off what the breeder or vet did)</button></li>` : '') + shown.map(x => {
-    const done = !!S.done[x.id], overdue = !done && x.d < now;
-    return `<li><label class="row" style="margin:0;flex:1"><input type="checkbox" data-done="${x.id}" ${done ? 'checked' : ''} style="width:auto"> <span${done ? ' class="muted"' : ''}>${esc(x.name)}</span></label><span class="tag${overdue ? ' due' : ''}">${overdue ? 'Due ' : ''}${fmt(x.d)}</span></li>`;
-  }).join('') || '<li class="muted">Nothing scheduled yet</li>';
-  document.querySelectorAll('[data-done]').forEach(c => c.onchange = () => { S.done[c.dataset.done] = c.checked; save(); });
-  if ($('toggleOld')) $('toggleOld').onclick = () => { showOld = !showOld; renderCare(); };
+function renderVax() {
+  const doses = S.vax.map((d, i) => ({ ...d, i })).sort(byDate);
+  $('vaxList').innerHTML = doses.map(d => `<li><span>${esc(d.what)}${d.final ? ' <span class="tag">course done</span>' : ''}</span><span class="row">${dateInput('vax', d.i, d.date)}${delBtn('vax', d.i)}</span></li>`).join('') || '<li class="muted">No jabs logged yet. Add the breeder\'s ones too.</li>';
+  const n = vaxNext();
+  $('vaxNext').innerHTML = n ? `<strong>Next jab:</strong> ${dueTag(n.t)}<div class="muted">${n.why}</div>` : '<span class="muted">Log a jab or add his birth date.</span>';
+  $('vaxDue').value = S.vaxDue;
+  if (!$('vaxDate').value) $('vaxDate').value = today();
 }
-let showOld = false;
-$('addEv').onclick = () => { const n = $('evName').value.trim(), d = $('evDate').value; if (n && d) { S.custom.push({ name:n, date:d }); $('evName').value = ''; save(); } };
 
-// Calendar export (.ics)
-function ics(items) {
-  const pad = n => String(n).padStart(2, '0');
-  const day = t => { const d = new Date(t); return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); };
-  const who = S.name ? S.name + ': ' : 'Puppy: ';
-  const ev = items.map(x => ['BEGIN:VEVENT', 'UID:' + x.id + '-' + day(x.d) + '@puppy-tracker', 'DTSTAMP:' + day(Date.now()) + 'T000000Z',
-    'DTSTART;VALUE=DATE:' + day(x.d), 'SUMMARY:' + who + x.name.replace(/[,;]/g, ' '), 'BEGIN:VALARM', 'TRIGGER:-PT15H', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM', 'END:VEVENT'].join('\r\n'));
-  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//puppy-tracker//EN', ...ev, 'END:VCALENDAR'].join('\r\n');
+// ---------- Worming and flea ----------
+// Default worming gap by age: every 2 weeks to 12 weeks, monthly to 6 months, then every 3 months
+function wormGap(t) { const a = ageWeeks(t); if (a === null) return 4; return a < 12 ? 2 : a < 26 ? 4 : 13; }
+function treatNext(key) {
+  const o = S[key], last = [...o.log].sort(byDate)[0];
+  if (!last) return null;
+  const gap = o.every ? +o.every : key === 'worm' ? wormGap(ts(last.date)) : 4;
+  return { t: ts(last.date) + gap * WEEK, gap, auto: !o.every };
 }
+function renderTreat(key, label) {
+  const o = S[key], box = $(key === 'worm' ? 'wormBox' : 'fleaBox'), n = treatNext(key);
+  const log = o.log.map((d, i) => ({ ...d, i })).sort(byDate);
+  box.innerHTML = `
+    <label>Product</label><input data-field="${key}.product" value="${esc(o.product)}" placeholder="e.g. product name from your vet">
+    <label>Repeat every (weeks)</label>
+    <input data-field="${key}.every" type="number" inputmode="numeric" min="0" value="${o.every || ''}" placeholder="${key === 'worm' ? 'Blank = by age (2, 4 then 13 weeks)' : '4'}">
+    <div class="next">${n ? `<strong>Next due:</strong> ${dueTag(n.t)}<div class="muted">Every ${n.gap} weeks${n.auto && key === 'worm' ? ', based on his age' : ''}</div>` : '<span class="muted">Log the last one given to work out the next.</span>'}</div>
+    <div class="row" style="margin-top:8px"><input type="date" id="${key}Date" value="${today()}" style="flex:1"><button class="primary" data-give="${key}">Log given</button></div>
+    <ul style="margin-top:8px">${log.map(d => `<li><span>${esc(d.product || label)}</span><span class="row">${dateInput(key + '.log', d.i, d.date)}${delBtn(key + '.log', d.i)}</span></li>`).join('')}</ul>`;
+}
+document.addEventListener('change', e => {
+  const f = e.target.dataset.field; if (!f) return;
+  const [k, prop] = f.split('.'); S[k][prop] = prop === 'every' ? +e.target.value || 0 : e.target.value; save();
+});
+document.addEventListener('click', e => {
+  const k = e.target.dataset.give; if (!k) return;
+  const date = $(k + 'Date').value; if (!date) return;
+  S[k].log.push({ date, product: S[k].product }); save();
+});
+
+// ---------- Weight ----------
+$('addW').onclick = () => {
+  const date = $('wDate').value, kg = parseFloat($('wKg').value);
+  if (!date || !(kg > 0)) { alert('Add a date and a weight in kg.'); return; }
+  S.weights.push({ date, kg }); $('wKg').value = ''; save();
+};
+function renderWeight() {
+  if (!$('wDate').value) $('wDate').value = today();
+  const w = S.weights.map((d, i) => ({ ...d, i })).sort((a, b) => (a.date > b.date ? 1 : -1));
+  $('wList').innerHTML = [...w].reverse().map(d => `<li><span>${d.kg} kg${S.dob ? ` <span class="muted">at ${Math.round(ageWeeks(ts(d.date)))} weeks</span>` : ''}</span><span class="row">${dateInput('weights', d.i, d.date)}${delBtn('weights', d.i)}</span></li>`).join('') || '<li class="muted">No weights yet</li>';
+  if (w.length >= 2) {
+    const a = w[w.length - 2], b = w[w.length - 1], weeks = (ts(b.date) - ts(a.date)) / WEEK;
+    $('wGain').textContent = weeks > 0 ? `Gaining ${((b.kg - a.kg) / weeks).toFixed(2)} kg a week since the last weigh in.` : '';
+    const W = 320, H = 120, P = 20, t0 = ts(w[0].date), t1 = ts(w[w.length - 1].date) || t0 + 1, k0 = Math.min(...w.map(x => x.kg)), k1 = Math.max(...w.map(x => x.kg));
+    const x = t => P + (W - 2 * P) * (ts(t) - t0) / Math.max(t1 - t0, 1), y = k => H - P - (H - 2 * P) * (k - k0) / Math.max(k1 - k0, 0.1);
+    const pts = w.map(d => `${x(d.date).toFixed(1)},${y(d.kg).toFixed(1)}`).join(' ');
+    $('wChart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Weight chart"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2"/>${w.map(d => `<circle cx="${x(d.date)}" cy="${y(d.kg)}" r="3" fill="var(--accent)"/>`).join('')}<text x="${P}" y="${H - 4}">${fmt(w[0].date)}</text><text x="${W - P}" y="${H - 4}" text-anchor="end">${fmt(w[w.length - 1].date)}</text><text x="2" y="${y(k1) + 3}">${k1}kg</text><text x="2" y="${y(k0) + 3}">${k0}kg</text></svg>`;
+  } else { $('wChart').innerHTML = ''; $('wGain').textContent = ''; }
+}
+
+// ---------- Other reminders and upcoming ----------
+$('addEv').onclick = () => { const n = $('evName').value.trim(), d = $('evDate').value; if (n && d) { S.custom.push({ name:n, date:d }); $('evName').value = ''; save(); } };
+function upcomingItems() {
+  const items = [], v = vaxNext(), w = treatNext('worm'), f = treatNext('flea');
+  if (v) items.push({ id:'vax', name:'Vaccination', t:v.t });
+  if (w) items.push({ id:'worm', name:'Worming' + (S.worm.product ? ' (' + S.worm.product + ')' : ''), t:w.t });
+  if (f) items.push({ id:'flea', name:'Flea treatment' + (S.flea.product ? ' (' + S.flea.product + ')' : ''), t:f.t });
+  if (S.dob) { const c = ts(S.dob) + 26 * WEEK; if (c > Date.now() - 30 * DAY) items.push({ id:'chk6', name:'Vet check at 6 months, talk about neutering', t:c }); }
+  S.custom.forEach((c, i) => items.push({ id:'c' + i, name:c.name, t:ts(c.date) }));
+  return items.sort((a, b) => a.t - b.t);
+}
+function renderOther() {
+  $('customList').innerHTML = S.custom.map((c, i) => `<li><span>${esc(c.name)}</span><span class="row">${dateInput('custom', i, c.date)}${delBtn('custom', i)}</span></li>`).join('') || '<li class="muted">None yet</li>';
+  $('upcoming').innerHTML = upcomingItems().filter(x => x.t > Date.now() - 60 * DAY).map(x => `<li><span>${esc(x.name)}</span>${dueTag(x.t)}</li>`).join('') || '<li class="muted">Log jabs and treatments to see what\'s next</li>';
+  $('noDob').classList.toggle('hidden', !!S.dob);
+}
+
+// ---------- Food ----------
+const currentFood = () => S.foods.filter(f => !f.end).sort(byDate)[0];
+$('addFood').onclick = () => {
+  const brand = $('fBrand').value.trim(), date = $('fStart').value;
+  if (!brand || !date) { alert('Add the food and a start date.'); return; }
+  const prev = currentFood(); if (prev) prev.end = date;
+  S.foods.push({ brand, type: $('fType').value, date, transition: $('fTransition').checked, from: prev ? prev.brand : '' });
+  $('fBrand').value = ''; save();
+};
+document.querySelectorAll('[data-stool]').forEach(b => b.onclick = () => {
+  const f = currentFood(); S.stools.unshift({ t: Date.now(), score: +b.dataset.stool, food: f ? f.brand : '' }); save();
+});
+function transitionText(f) {
+  if (!f.transition || !f.from) return '';
+  const day = Math.floor((Date.now() - ts(f.date)) / DAY) + 1;
+  if (day > 7) return '';
+  const pct = day <= 2 ? 25 : day <= 4 ? 50 : day <= 6 ? 75 : 100;
+  return `<div class="next"><strong>Day ${day} of 7:</strong> about ${pct}% new food, ${100 - pct}% ${esc(f.from)}. Slow down if poos go soft.</div>`;
+}
+function stoolAvg(brand) { const xs = S.stools.filter(s => s.food === brand); return xs.length ? (xs.reduce((a, s) => a + s.score, 0) / xs.length).toFixed(1) + ` from ${xs.length}` : 'no poo logs'; }
+function renderFood() {
+  if (!$('fStart').value) $('fStart').value = today();
+  const f = currentFood();
+  $('foodNow').innerHTML = f ? `<strong>${esc(f.brand)}</strong> <span class="tag">${esc(f.type)}</span><div class="muted">Since ${fmt(f.date)}. Average poo score ${stoolAvg(f.brand)}.</div>${transitionText(f)}` : '<span class="muted">No food logged yet. Start with what the breeder had him on.</span>';
+  $('foodHistory').innerHTML = [...new Set(S.foods.map(x => x.brand))].map(b => `<option value="${esc(b)}">`).join('');
+  $('foodList').innerHTML = S.foods.map((x, i) => ({ ...x, i })).sort(byDate).map(x =>
+    `<li style="display:block"><div class="row" style="justify-content:space-between"><strong>${esc(x.brand)}</strong>${delBtn('foods', x.i)}</div><div class="row muted">From ${dateInput('foods', x.i, x.date)} ${x.end ? 'to ' + fmt(x.end) : '(current)'}</div><div class="muted">Average poo score ${stoolAvg(x.brand)}</div></li>`).join('') || '<li class="muted">None yet</li>';
+  $('stoolList').innerHTML = S.stools.slice(0, 7).map((s, i) => `<li><span>Score ${s.score}${s.food ? ` <span class="muted">on ${esc(s.food)}</span>` : ''}</span><span class="row"><span class="muted">${fmt(s.t)} ${time(s.t)}</span>${delBtn('stools', i)}</span></li>`).join('');
+}
+
+// ---------- Settings and sharing ----------
+$('pupCross').onchange = () => $('pupBreed2').classList.toggle('hidden', !$('pupCross').checked);
+$('saveSettings').onclick = () => {
+  S.name = $('pupName').value.trim(); S.dob = $('pupDob').value; S.breed = $('pupBreed').value.trim();
+  S.cross = $('pupCross').checked; S.breed2 = $('pupBreed2').value.trim(); save(); alert('Saved');
+};
 function download(name, text, type) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type }));
   a.download = name; document.body.appendChild(a); a.click(); a.remove();
 }
-$('icsAll').onclick = () => {
-  const now = Date.now(), up = schedule().filter(x => !S.done[x.id] && x.d >= now - DAY && x.d < now + 120 * DAY);
-  if (!up.length) { alert('Nothing due in the next four months.'); return; }
-  download('puppy-reminders.ics', ics(up), 'text/calendar');
-};
-
-// Settings and sharing
-$('saveSettings').onclick = () => { S.name = $('pupName').value.trim(); S.dob = $('pupDob').value; save(); };
 $('exportBtn').onclick = () => download('puppy-data.json', JSON.stringify(S), 'application/json');
 $('importBtn').onclick = () => $('importFile').click();
 $('importFile').onchange = e => {
   const f = e.target.files[0]; if (!f) return;
-  f.text().then(t => { try { const d = JSON.parse(t); if (confirm('Replace the data on this phone with the imported file?')) { S = Object.assign({}, blank, d); save(); } } catch (err) { alert('That file could not be read.'); } });
+  f.text().then(t => { try { const d = JSON.parse(t); if (confirm('Replace the data on this phone with the imported file?')) { localStorage.setItem(KEY, JSON.stringify(d)); S = load(); save(); } } catch (err) { alert('That file could not be read.'); } });
+};
+
+// ---------- Calendar export ----------
+$('icsAll').onclick = () => {
+  const now = Date.now(), up = upcomingItems().filter(x => x.t >= now - DAY && x.t < now + 180 * DAY);
+  if (!up.length) { alert('Nothing due in the next six months.'); return; }
+  const pad = n => String(n).padStart(2, '0'), day = t => { const d = new Date(t); return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()); };
+  const who = S.name ? S.name + ': ' : 'Puppy: ';
+  const ev = up.map(x => ['BEGIN:VEVENT', 'UID:' + x.id + '-' + day(x.t) + '@puppy-tracker', 'DTSTAMP:' + day(now) + 'T000000Z', 'DTSTART;VALUE=DATE:' + day(x.t),
+    'SUMMARY:' + who + x.name.replace(/[,;]/g, ' '), 'BEGIN:VALARM', 'TRIGGER:-PT15H', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM', 'END:VEVENT'].join('\r\n'));
+  download('puppy-reminders.ics', ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//puppy-tracker//EN', ...ev, 'END:VCALENDAR'].join('\r\n'), 'text/calendar');
 };
 
 function render() {
   $('title').textContent = S.name ? S.name + "'s tracker" : 'Puppy tracker';
   document.title = $('title').textContent;
-  $('pupName').value = S.name; $('pupDob').value = S.dob;
-  renderToilet(); renderTraining(); renderCare();
+  $('pupName').value = S.name; $('pupDob').value = S.dob; $('pupBreed').value = S.breed;
+  $('pupCross').checked = S.cross; $('pupBreed2').value = S.breed2; $('pupBreed2').classList.toggle('hidden', !S.cross);
+  renderToilet(); renderTraining(); renderVax(); renderTreat('worm', 'Wormer'); renderTreat('flea', 'Flea treatment');
+  renderWeight(); renderOther(); renderFood();
 }
 render();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
