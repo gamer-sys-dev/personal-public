@@ -14,7 +14,7 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Treatments: one entry per product with what it covers (fleas, ticks, mites, each worm type, lungworm, heartworm), a repeat interval, an optional weight band and a dose log. All in one chews are logged once. Shows what is covered now and the gaps, and warns when the latest weight is outside the product band. Older worm and flea data migrates in.
 - Weight log with a simple chart and weekly gain.
 - Settings: kind of dog (pedigree, type bred to type such as Lurcher, first cross, mixed), breed or type from a drop down (Other lets you type one in), and free text ancestry (e.g. 7/8 Lurcher, 1/8 Collie). Sighthound types get a lean build and anaesthetic note.
-- Food tab: food history with start dates, a 7 day transition guide and a 1 to 5 poo score logged against the current food.
+- Food tab: food history with start dates and a 1 to 5 poo score. See foods in roles below.
 - Food ratings: link out to All About Dog Food rather than building a ratings database.
 
 ## Version three (25 October 2026)
@@ -26,6 +26,13 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Behaviour tab: what happened, how strong, what was going on, what you did and how he responded. Shows weekly counts, what's working per behaviour (last 4 weeks) and short tips.
 - Socialisation checklist on the Training tab: 47 items in six areas plus the user's own, each logged as happy, unsure then OK, or scared. Shows the socialisation window by age (closes around 12 to 16 weeks). Scared items are flagged to retry from further away.
 - Sleep log on the Behaviour tab: fell asleep and woke up buttons, last 24 hours and daily average against 18 to 20 hours. Behaviour trends show how long he'd been awake beforehand when the sleep log covers it.
+
+## Foods in roles (25 October 2026)
+
+- A dog can be on several foods at once. Each food has a role: main food, wet meal or topper, or treats and training. Adding a food only replaces a food in the same role, chosen from a drop down, or it can be extra.
+- Switch over length is 0, 5, 7, 10 or 14 days. Both foods stay active during the switch and the old one ends on start date plus days (the end date is the first day without it). The old food can stop or carry on as treats and training, which adds a treats entry from that date.
+- "He's fully on it now" ends a switch early. "Move to treats" and "Stop" act from today. Start and end dates are editable in history.
+- Poo scores record every non treat food he was on at the time. The feeding guide works out mixed from what's active and takes wet as grams a day (default one 85 g pouch), with dry making up the rest. Older single food data migrates in.
 
 ## Ideas for later
 
