@@ -234,9 +234,9 @@
       <option value="cross">First cross of two breeds</option>
       <option value="mixed">Mixed or not known</option>
     </select>
-    <label for="pupBreed">Breed or type</label>
-    <input id="pupBreed" list="breedList" placeholder="e.g. Lurcher">
-    <datalist id="breedList"></datalist>
+    <label for="pupBreedSel">Breed or type</label>
+    <select id="pupBreedSel"></select>
+    <input id="pupBreed" class="hidden" placeholder="Type the breed or type" style="margin-top:8px">
     <div id="pupBreed2Wrap" class="hidden">
       <label for="pupBreed2">Known ancestry</label>
       <input id="pupBreed2" placeholder="e.g. 7/8 Lurcher, 1/8 Collie">
@@ -545,8 +545,9 @@ function renderFood() {
 
 // ---------- Settings and sharing ----------
 // Kennel Club breeds people often ask about, plus types and crosses that aren't breeds
-const BREEDS = ['Beagle', 'Bichon Frise', 'Border Collie', 'Border Terrier', 'Boxer', 'Cavalier King Charles Spaniel', 'Chihuahua', 'Cocker Spaniel', 'Dachshund', 'Deerhound', 'English Springer Spaniel', 'French Bulldog', 'German Shepherd', 'Golden Retriever', 'Greyhound', 'Jack Russell Terrier', 'Labrador Retriever', 'Miniature Schnauzer', 'Pug', 'Saluki', 'Shih Tzu', 'Staffordshire Bull Terrier', 'Whippet', 'Yorkshire Terrier'];
-const TYPES = ['Lurcher', 'Longdog', 'Collie cross', 'Cockapoo', 'Cavapoo', 'Labradoodle', 'Goldendoodle', 'Sprocker', 'Patterdale type', 'Sheepdog (working type)'];
+const BREEDS = ['Airedale Terrier', 'Akita', 'Australian Shepherd', 'Basset Hound', 'Beagle', 'Bearded Collie', 'Bedlington Terrier', 'Bernese Mountain Dog', 'Bichon Frise', 'Border Collie', 'Border Terrier', 'Borzoi', 'Boston Terrier', 'Boxer', 'Bull Terrier', 'Bulldog', 'Cairn Terrier', 'Cavalier King Charles Spaniel', 'Chihuahua', 'Cocker Spaniel', 'Dachshund', 'Dalmatian', 'Deerhound', 'Dobermann', 'English Springer Spaniel', 'Flat Coated Retriever', 'French Bulldog', 'German Shepherd', 'German Shorthaired Pointer', 'Golden Retriever', 'Great Dane', 'Greyhound', 'Hungarian Vizsla', 'Irish Wolfhound', 'Jack Russell Terrier', 'Labrador Retriever', 'Lhasa Apso', 'Maltese', 'Miniature Schnauzer', 'Newfoundland', 'Pointer', 'Pomeranian', 'Poodle', 'Pug', 'Rottweiler', 'Rough Collie', 'Saluki', 'Samoyed', 'Shetland Sheepdog', 'Shiba Inu', 'Shih Tzu', 'Siberian Husky', 'Staffordshire Bull Terrier', 'Weimaraner', 'Welsh Springer Spaniel', 'West Highland White Terrier', 'Whippet', 'Yorkshire Terrier'];
+const TYPES = ['Lurcher', 'Longdog', 'Cavachon', 'Cavapoo', 'Cockapoo', 'Collie cross', 'Goldendoodle', 'Jug', 'Labradoodle', 'Maltipoo', 'Patterdale type', 'Sheepdog (working type)', 'Sprocker', 'Staffie cross'];
+const OTHER = '__other';
 const SIGHT = /lurcher|longdog|greyhound|whippet|saluki|deerhound|wolfhound|borzoi|sloughi|galgo|azawakh/i;
 const KIND_NOTE = {
   pedigree: '',
@@ -554,17 +555,26 @@ const KIND_NOTE = {
   cross: 'Put the two parent breeds in ancestry, e.g. Whippet and Bedlington.',
   mixed: 'Pick the type that best describes your dog and add anything you know in ancestry.'
 };
+function breedValue() { const v = $('pupBreedSel').value; return v === OTHER ? $('pupBreed').value.trim() : v; }
 function kindUI() {
-  const k = $('pupKind').value, list = k === 'pedigree' ? BREEDS : TYPES.concat(BREEDS);
-  $('breedList').innerHTML = list.map(b => `<option value="${b}">`).join('');
+  const k = $('pupKind').value, sel = $('pupBreedSel'), cur = sel.value || S.breed;
+  const opts = list => list.map(b => `<option value="${b}">${b}</option>`).join('');
+  sel.innerHTML = '<option value="">Choose</option>'
+    + (k === 'pedigree' ? opts(BREEDS) : `<optgroup label="Types and crosses">${opts(TYPES)}</optgroup><optgroup label="Breeds">${opts(BREEDS)}</optgroup>`)
+    + `<option value="${OTHER}">Other, type it in</option>`;
+  // Anything not on the list, or an old typed value, shows as Other with the text kept
+  sel.value = cur === OTHER || [...sel.options].some(o => o.value === cur) ? cur : (cur ? OTHER : '');
+  if (sel.value === OTHER && cur !== OTHER && !$('pupBreed').value) $('pupBreed').value = cur;
+  $('pupBreed').classList.toggle('hidden', sel.value !== OTHER);
   $('pupBreed2Wrap').classList.toggle('hidden', k === 'pedigree');
-  const sight = SIGHT.test($('pupBreed').value + ' ' + $('pupBreed2').value);
+  const sight = SIGHT.test(breedValue() + ' ' + $('pupBreed2').value);
   $('kindNote').textContent = [KIND_NOTE[k], sight ? 'Sighthound types run lean, so a healthy weight looks thinner than on most dogs. Tell the vet before any anaesthetic.' : ''].filter(Boolean).join(' ');
 }
 $('pupKind').onchange = kindUI;
+$('pupBreedSel').onchange = kindUI;
 $('pupBreed').oninput = $('pupBreed2').oninput = kindUI;
 $('saveSettings').onclick = () => {
-  S.name = $('pupName').value.trim(); S.dob = $('pupDob').value; S.breed = $('pupBreed').value.trim();
+  S.name = $('pupName').value.trim(); S.dob = $('pupDob').value; S.breed = breedValue();
   S.kind = $('pupKind').value; S.breed2 = S.kind === 'pedigree' ? '' : $('pupBreed2').value.trim(); save(); alert('Saved');
 };
 function download(name, text, type) {
@@ -592,8 +602,9 @@ $('icsAll').onclick = () => {
 function render() {
   $('title').textContent = S.name ? S.name + "'s tracker" : 'Puppy tracker';
   document.title = $('title').textContent;
-  $('pupName').value = S.name; $('pupDob').value = S.dob; $('pupBreed').value = S.breed;
-  $('pupKind').value = S.kind; $('pupBreed2').value = S.breed2; kindUI();
+  $('pupName').value = S.name; $('pupDob').value = S.dob;
+  $('pupBreed').value = BREEDS.includes(S.breed) || TYPES.includes(S.breed) ? '' : S.breed;
+  $('pupBreedSel').value = ''; $('pupKind').value = S.kind; $('pupBreed2').value = S.breed2; kindUI();
   renderToilet(); renderTraining(); renderVax(); renderTreatments();
   renderWeight(); renderOther(); renderFood();
 }
