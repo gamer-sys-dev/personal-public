@@ -12,6 +12,7 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 
 - Health tab: vaccinations are logged as real doses with a type (DHP, Lepto, kennel cough), any date, editable. Each type has its own next due: DHP second puppy dose about 2 weeks on, first booster at 12 months then every 3 years. Lepto (L4) two puppy doses 4 weeks apart then yearly. Kennel cough yearly. A vet date overrides all of it.
 - Treatments: one entry per product with what it covers (fleas, ticks, mites, each worm type, lungworm, heartworm), a repeat interval, an optional weight band and a dose log. All in one chews are logged once. Shows what is covered now and the gaps, and warns when the latest weight is outside the product band. Older worm and flea data migrates in.
-- Weight log with a simple chart and weekly gain. Breed and cross breed in settings.
+- Weight log with a simple chart and weekly gain.
+- Settings: kind of dog (pedigree, type bred to type such as Lurcher, first cross, mixed), breed or type with suggestions, and free text ancestry (e.g. 7/8 Lurcher, 1/8 Collie). Sighthound types get a lean build and anaesthetic note.
 - Food tab: food history with start dates, a 7 day transition guide and a 1 to 5 poo score logged against the current food.
 - Food ratings: link out to All About Dog Food rather than building a ratings database.

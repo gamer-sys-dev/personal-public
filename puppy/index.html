@@ -227,10 +227,21 @@
     <input id="pupName">
     <label for="pupDob">Date of birth</label>
     <input id="pupDob" type="date">
-    <label for="pupBreed">Breed</label>
-    <input id="pupBreed" placeholder="e.g. Greyhound">
-    <label class="row" style="margin-top:10px"><input type="checkbox" id="pupCross"> Cross or mixed breed</label>
-    <input id="pupBreed2" class="hidden" placeholder="Crossed with, e.g. Saluki and Collie" style="margin-top:8px">
+    <label for="pupKind">What kind of dog</label>
+    <select id="pupKind">
+      <option value="pedigree">Pedigree breed</option>
+      <option value="type">Type bred to type, e.g. Lurcher</option>
+      <option value="cross">First cross of two breeds</option>
+      <option value="mixed">Mixed or not known</option>
+    </select>
+    <label for="pupBreed">Breed or type</label>
+    <input id="pupBreed" list="breedList" placeholder="e.g. Lurcher">
+    <datalist id="breedList"></datalist>
+    <div id="pupBreed2Wrap" class="hidden">
+      <label for="pupBreed2">Known ancestry</label>
+      <input id="pupBreed2" placeholder="e.g. 7/8 Lurcher, 1/8 Collie">
+    </div>
+    <p id="kindNote" class="muted"></p>
     <button class="primary wide" id="saveSettings">Save</button>
   </div>
   <div class="card">
@@ -269,7 +280,7 @@
 <script>
 const KEY = 'puppy-tracker-v1';
 const blank = {
-  name:'', dob:'', breed:'', cross:false, breed2:'',
+  name:'', dob:'', breed:'', kind:'', breed2:'',
   toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], custom:[],
   vax:[], vaxDue:'',
   treatments:[],
@@ -280,6 +291,9 @@ function load() {
   try { d = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
   const s = Object.assign(JSON.parse(JSON.stringify(blank)), d);
   delete s.done; // version one schedule ticks, replaced by real logs
+  // The old cross breed tick box becomes the kind of dog
+  if (!s.kind) s.kind = s.cross ? 'cross' : 'pedigree';
+  delete s.cross;
   // Version two kept worming and flea separately; fold them into treatments
   [['worm', ['Roundworm', 'Hookworm', 'Whipworm']], ['flea', ['Fleas']]].forEach(([k, covers]) => {
     const o = s[k];
@@ -530,10 +544,28 @@ function renderFood() {
 }
 
 // ---------- Settings and sharing ----------
-$('pupCross').onchange = () => $('pupBreed2').classList.toggle('hidden', !$('pupCross').checked);
+// Kennel Club breeds people often ask about, plus types and crosses that aren't breeds
+const BREEDS = ['Beagle', 'Bichon Frise', 'Border Collie', 'Border Terrier', 'Boxer', 'Cavalier King Charles Spaniel', 'Chihuahua', 'Cocker Spaniel', 'Dachshund', 'Deerhound', 'English Springer Spaniel', 'French Bulldog', 'German Shepherd', 'Golden Retriever', 'Greyhound', 'Jack Russell Terrier', 'Labrador Retriever', 'Miniature Schnauzer', 'Pug', 'Saluki', 'Shih Tzu', 'Staffordshire Bull Terrier', 'Whippet', 'Yorkshire Terrier'];
+const TYPES = ['Lurcher', 'Longdog', 'Collie cross', 'Cockapoo', 'Cavapoo', 'Labradoodle', 'Goldendoodle', 'Sprocker', 'Patterdale type', 'Sheepdog (working type)'];
+const SIGHT = /lurcher|longdog|greyhound|whippet|saluki|deerhound|wolfhound|borzoi|sloughi|galgo|azawakh/i;
+const KIND_NOTE = {
+  pedigree: '',
+  type: 'Lurchers and similar are types, not Kennel Club breeds, even when both parents and grandparents were the same type. Put any known mix in ancestry.',
+  cross: 'Put the two parent breeds in ancestry, e.g. Whippet and Bedlington.',
+  mixed: 'Pick the type that best describes your dog and add anything you know in ancestry.'
+};
+function kindUI() {
+  const k = $('pupKind').value, list = k === 'pedigree' ? BREEDS : TYPES.concat(BREEDS);
+  $('breedList').innerHTML = list.map(b => `<option value="${b}">`).join('');
+  $('pupBreed2Wrap').classList.toggle('hidden', k === 'pedigree');
+  const sight = SIGHT.test($('pupBreed').value + ' ' + $('pupBreed2').value);
+  $('kindNote').textContent = [KIND_NOTE[k], sight ? 'Sighthound types run lean, so a healthy weight looks thinner than on most dogs. Tell the vet before any anaesthetic.' : ''].filter(Boolean).join(' ');
+}
+$('pupKind').onchange = kindUI;
+$('pupBreed').oninput = $('pupBreed2').oninput = kindUI;
 $('saveSettings').onclick = () => {
   S.name = $('pupName').value.trim(); S.dob = $('pupDob').value; S.breed = $('pupBreed').value.trim();
-  S.cross = $('pupCross').checked; S.breed2 = $('pupBreed2').value.trim(); save(); alert('Saved');
+  S.kind = $('pupKind').value; S.breed2 = S.kind === 'pedigree' ? '' : $('pupBreed2').value.trim(); save(); alert('Saved');
 };
 function download(name, text, type) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type }));
@@ -561,7 +593,7 @@ function render() {
   $('title').textContent = S.name ? S.name + "'s tracker" : 'Puppy tracker';
   document.title = $('title').textContent;
   $('pupName').value = S.name; $('pupDob').value = S.dob; $('pupBreed').value = S.breed;
-  $('pupCross').checked = S.cross; $('pupBreed2').value = S.breed2; $('pupBreed2').classList.toggle('hidden', !S.cross);
+  $('pupKind').value = S.kind; $('pupBreed2').value = S.breed2; kindUI();
   renderToilet(); renderTraining(); renderVax(); renderTreatments();
   renderWeight(); renderOther(); renderFood();
 }
