@@ -129,13 +129,28 @@
   </div>
 
   <div class="card">
-    <h2>Worming</h2>
-    <div id="wormBox"></div>
-  </div>
-
-  <div class="card">
-    <h2>Flea treatment</h2>
-    <div id="fleaBox"></div>
+    <h2>Flea, tick and worm treatments</h2>
+    <div class="next" id="coverage"></div>
+    <div id="treatList"></div>
+    <h3>Add a treatment</h3>
+    <label for="tPreset">Quick pick</label>
+    <select id="tPreset">
+      <option value="">Choose, or fill in below</option>
+      <option value="lotmil">Lotilaner and milbemycin, monthly chew (e.g. Lotimil Plus, Credelio Plus)</option>
+      <option value="wormer">Wormer only</option>
+      <option value="flea">Flea treatment only</option>
+      <option value="tape">Tapeworm treatment</option>
+    </select>
+    <label for="tProduct">Product name</label>
+    <input id="tProduct" placeholder="e.g. Lotimil Plus 5.5 to 11kg">
+    <label>Covers</label>
+    <div class="row" id="tCovers"></div>
+    <div class="row">
+      <div style="flex:1"><label for="tEvery">Every (weeks)</label><input id="tEvery" type="number" inputmode="numeric" min="1" value="4"></div>
+      <div style="flex:1"><label for="tMin">From kg</label><input id="tMin" type="number" inputmode="decimal" step="0.1"></div>
+      <div style="flex:1"><label for="tMax">To kg</label><input id="tMax" type="number" inputmode="decimal" step="0.1"></div>
+    </div>
+    <button class="primary wide" id="addTreat">Add treatment</button>
   </div>
 
   <div class="card">
@@ -257,7 +272,7 @@ const blank = {
   name:'', dob:'', breed:'', cross:false, breed2:'',
   toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], custom:[],
   vax:[], vaxDue:'',
-  worm:{ product:'', every:0, log:[] }, flea:{ product:'', every:4, log:[] },
+  treatments:[],
   weights:[], foods:[], stools:[]
 };
 function load() {
@@ -265,6 +280,12 @@ function load() {
   try { d = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
   const s = Object.assign(JSON.parse(JSON.stringify(blank)), d);
   delete s.done; // version one schedule ticks, replaced by real logs
+  // Version two kept worming and flea separately; fold them into treatments
+  [['worm', ['Roundworm', 'Hookworm', 'Whipworm']], ['flea', ['Fleas']]].forEach(([k, covers]) => {
+    const o = s[k];
+    if (o && (o.product || (o.log && o.log.length))) s.treatments.push({ product: o.product || (k === 'worm' ? 'Wormer' : 'Flea treatment'), covers, every: o.every || 4, min: '', max: '', log: o.log || [] });
+    delete s[k];
+  });
   return s;
 }
 let S = load();
@@ -386,34 +407,60 @@ function renderVax() {
   if (!$('vaxDate').value) $('vaxDate').value = today();
 }
 
-// ---------- Worming and flea ----------
-// Default worming gap by age: every 2 weeks to 12 weeks, monthly to 6 months, then every 3 months
-function wormGap(t) { const a = ageWeeks(t); if (a === null) return 4; return a < 12 ? 2 : a < 26 ? 4 : 13; }
-function treatNext(key) {
-  const o = S[key], last = [...o.log].sort(byDate)[0];
-  if (!last) return null;
-  const gap = o.every ? +o.every : key === 'worm' ? wormGap(ts(last.date)) : 4;
-  return { t: ts(last.date) + gap * WEEK, gap, auto: !o.every };
+// ---------- Flea, tick and worm treatments ----------
+// One entry per product, ticking what it covers, so an all in one chew is logged once
+const PESTS = ['Fleas', 'Ticks', 'Mites', 'Roundworm', 'Hookworm', 'Whipworm', 'Tapeworm', 'Lungworm', 'Heartworm'];
+const PRESETS = {
+  lotmil: { product:'Lotilaner and milbemycin chew', covers:['Fleas', 'Ticks', 'Mites', 'Roundworm', 'Hookworm', 'Whipworm', 'Lungworm', 'Heartworm'], every:4 },
+  wormer: { product:'', covers:['Roundworm', 'Hookworm', 'Whipworm', 'Tapeworm'], every:4 },
+  flea:   { product:'', covers:['Fleas'], every:4 },
+  tape:   { product:'', covers:['Tapeworm'], every:13 }
+};
+$('tCovers').innerHTML = PESTS.map(p => `<label class="row" style="margin:0"><input type="checkbox" class="tCover" value="${p}"> ${p}</label>`).join('');
+$('tPreset').onchange = () => {
+  const p = PRESETS[$('tPreset').value]; if (!p) return;
+  if (p.product && !$('tProduct').value) $('tProduct').value = p.product;
+  document.querySelectorAll('.tCover').forEach(c => c.checked = p.covers.includes(c.value));
+  $('tEvery').value = p.every;
+};
+$('addTreat').onclick = () => {
+  const covers = [...document.querySelectorAll('.tCover:checked')].map(c => c.value), product = $('tProduct').value.trim();
+  if (!product || !covers.length) { alert('Add the product name and tick what it covers.'); return; }
+  S.treatments.push({ product, covers, every: +$('tEvery').value || 4, min: $('tMin').value, max: $('tMax').value, log: [] });
+  $('tProduct').value = ''; $('tMin').value = ''; $('tMax').value = ''; $('tPreset').value = ''; document.querySelectorAll('.tCover').forEach(c => c.checked = false);
+  save();
+};
+function treatNext(o) {
+  const last = [...o.log].sort(byDate)[0];
+  return last ? { t: ts(last.date) + (+o.every || 4) * WEEK } : null;
 }
-function renderTreat(key, label) {
-  const o = S[key], box = $(key === 'worm' ? 'wormBox' : 'fleaBox'), n = treatNext(key);
-  const log = o.log.map((d, i) => ({ ...d, i })).sort(byDate);
-  box.innerHTML = `
-    <label>Product</label><input data-field="${key}.product" value="${esc(o.product)}" placeholder="e.g. product name from your vet">
-    <label>Repeat every (weeks)</label>
-    <input data-field="${key}.every" type="number" inputmode="numeric" min="0" value="${o.every || ''}" placeholder="${key === 'worm' ? 'Blank = by age (2, 4 then 13 weeks)' : '4'}">
-    <div class="next">${n ? `<strong>Next due:</strong> ${dueTag(n.t)}<div class="muted">Every ${n.gap} weeks${n.auto && key === 'worm' ? ', based on his age' : ''}</div>` : '<span class="muted">Log the last one given to work out the next.</span>'}</div>
-    <div class="row" style="margin-top:8px"><input type="date" id="${key}Date" value="${today()}" style="flex:1"><button class="primary" data-give="${key}">Log given</button></div>
-    <ul style="margin-top:8px">${log.map(d => `<li><span>${esc(d.product || label)}</span><span class="row">${dateInput(key + '.log', d.i, d.date)}${delBtn(key + '.log', d.i)}</span></li>`).join('')}</ul>`;
+const latestKg = () => { const w = [...S.weights].sort(byDate)[0]; return w ? +w.kg : null; };
+function renderTreatments() {
+  const kg = latestKg();
+  $('treatList').innerHTML = S.treatments.map((o, i) => {
+    const n = treatNext(o), log = o.log.map((d, j) => ({ ...d, j })).sort(byDate);
+    const band = o.min || o.max ? `${o.min || 0} to ${o.max || '?'} kg` : '';
+    const out = kg && ((o.max && kg > +o.max) || (o.min && kg < +o.min));
+    return `<div class="next" style="background:none;border:1px solid var(--line);margin-top:10px">
+      <div class="row" style="justify-content:space-between"><strong>${esc(o.product)}</strong>${delBtn('treatments', i)}</div>
+      <div class="muted">${o.covers.map(esc).join(', ')}. Every ${o.every} weeks${band ? '. ' + band : ''}.</div>
+      ${out ? `<div style="color:var(--bad);margin-top:4px">He's now ${kg} kg, outside this product's ${band} band. Check the dose with your vet.</div>` : ''}
+      <div style="margin-top:6px">${n ? `<strong>Next:</strong> ${dueTag(n.t)}` : '<span class="muted">Log the last dose given to work out the next.</span>'}</div>
+      <div class="row" style="margin-top:8px"><input type="date" id="give${i}" value="${today()}" style="flex:1"><button class="primary" data-give="${i}">Log dose</button></div>
+      <ul style="margin-top:6px">${log.map(d => `<li><span class="muted">Given</span><span class="row">${dateInput('treatments.' + i + '.log', d.j, d.date)}${delBtn('treatments.' + i + '.log', d.j)}</span></li>`).join('')}</ul>
+    </div>`;
+  }).join('') || '<p class="muted">No treatments yet. Add what the breeder or vet gave him.</p>';
+  // Coverage summary across everything that's in date
+  const now = Date.now(), live = S.treatments.filter(o => { const n = treatNext(o); return n && n.t > now; });
+  const covered = new Set(live.flatMap(o => o.covers)), gaps = PESTS.filter(p => !covered.has(p));
+  $('coverage').innerHTML = S.treatments.length
+    ? `<strong>Covered now:</strong> ${covered.size ? [...covered].join(', ') : 'nothing in date'}${gaps.length ? `<div class="muted">Not covered: ${gaps.join(', ')}. Not every dog needs everything, so ask your vet what he needs where you live.</div>` : ''}`
+    : '<span class="muted">Add a treatment to see what he\'s covered for.</span>';
 }
-document.addEventListener('change', e => {
-  const f = e.target.dataset.field; if (!f) return;
-  const [k, prop] = f.split('.'); S[k][prop] = prop === 'every' ? +e.target.value || 0 : e.target.value; save();
-});
 document.addEventListener('click', e => {
-  const k = e.target.dataset.give; if (!k) return;
-  const date = $(k + 'Date').value; if (!date) return;
-  S[k].log.push({ date, product: S[k].product }); save();
+  const i = e.target.dataset.give; if (i === undefined) return;
+  const date = $('give' + i).value; if (!date) return;
+  S.treatments[+i].log.push({ date }); save();
 });
 
 // ---------- Weight ----------
@@ -439,10 +486,9 @@ function renderWeight() {
 // ---------- Other reminders and upcoming ----------
 $('addEv').onclick = () => { const n = $('evName').value.trim(), d = $('evDate').value; if (n && d) { S.custom.push({ name:n, date:d }); $('evName').value = ''; save(); } };
 function upcomingItems() {
-  const items = [], w = treatNext('worm'), f = treatNext('flea');
+  const items = [];
   vaxNext().forEach(v => items.push({ id:'vax-' + v.type, name: v.type === 'vet' || v.type === 'first' ? 'Vaccination' : 'Vaccination: ' + LABEL[v.type], t:v.t }));
-  if (w) items.push({ id:'worm', name:'Worming' + (S.worm.product ? ' (' + S.worm.product + ')' : ''), t:w.t });
-  if (f) items.push({ id:'flea', name:'Flea treatment' + (S.flea.product ? ' (' + S.flea.product + ')' : ''), t:f.t });
+  S.treatments.forEach((o, i) => { const n = treatNext(o); if (n) items.push({ id:'treat' + i, name: o.product, t:n.t }); });
   if (S.dob) { const c = ts(S.dob) + 26 * WEEK; if (c > Date.now() - 30 * DAY) items.push({ id:'chk6', name:'Vet check at 6 months, talk about neutering', t:c }); }
   S.custom.forEach((c, i) => items.push({ id:'c' + i, name:c.name, t:ts(c.date) }));
   return items.sort((a, b) => a.t - b.t);
@@ -516,7 +562,7 @@ function render() {
   document.title = $('title').textContent;
   $('pupName').value = S.name; $('pupDob').value = S.dob; $('pupBreed').value = S.breed;
   $('pupCross').checked = S.cross; $('pupBreed2').value = S.breed2; $('pupBreed2').classList.toggle('hidden', !S.cross);
-  renderToilet(); renderTraining(); renderVax(); renderTreat('worm', 'Wormer'); renderTreat('flea', 'Flea treatment');
+  renderToilet(); renderTraining(); renderVax(); renderTreatments();
   renderWeight(); renderOther(); renderFood();
 }
 render();
