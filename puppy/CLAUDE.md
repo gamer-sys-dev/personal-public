@@ -35,6 +35,10 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Poos are scored on the Toilet tab right after logging them, so there's one log for poos. Older separate poo scores still count. The Toilet tab shows the last 24 hours (wee and poo counts, poo times and scores) against his usual, with gentle flags for few wees, hard poos or repeated soft ones.
 - Sleep tab: night time buttons (bedtime, let out, back to bed, up for the day). Let out records what woke him (planned, cried, quiet), wee, poo and any accident first. These also write to the sleep and toilet logs.
 - Night plan is rule based: bed and up times, trips a night, longest stretch, age in months plus one hours as a rough hold guide, trips grouped by time of night with advice for each (accidents bring it forward, often nothing means later or drop, the last trip before morning is the one to stretch by 15 minutes after 3 dry nights), a catch him or wait for him verdict, mornings, last meal and night poos, and keep water down.
+- Each day's bowl can also have kibble grams a day, carried forward like the mix and split by the mix %. "Use guide" fills it from the feeding guide.
+- His usual meals (time and kibble, wet or both) turn a day's bowl into meal entries, eaten in full. Kibble is split evenly over kibble meals, wet pouches over wet meals. Each filled meal's amount and how much he ate can be changed, and the foods in it scale.
+- Fill in past days: a date range can set kibble grams and wet pouches (each day keeps its own mix) and fill usual meals. Days with meals logged by hand are left alone.
+- Summary for the vet: per day what he ate by food (from meals, or "planned" from the bowl when no meals are logged), poos with scores and wees, totals, weights, and day notes. Copies as plain text.
 
 ## Ideas for later
 
