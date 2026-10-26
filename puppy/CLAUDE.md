@@ -14,7 +14,7 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Treatments: one entry per product with what it covers (fleas, ticks, mites, each worm type, lungworm, heartworm), a repeat interval, an optional weight band and a dose log. All in one chews are logged once. Shows what is covered now and the gaps, and warns when the latest weight is outside the product band. Older worm and flea data migrates in.
 - Weight log with a simple chart and weekly gain.
 - Settings: kind of dog (pedigree, type bred to type such as Lurcher, first cross, mixed), breed or type from a drop down (Other lets you type one in), and free text ancestry (e.g. 7/8 Lurcher, 1/8 Collie). Sighthound types get a lean build and anaesthetic note.
-- Food tab: food history with start dates and a 1 to 5 poo score. See foods in roles below.
+- Food tab: see food, toilet and nights below.
 - Food ratings: link out to All About Dog Food rather than building a ratings database.
 
 ## Version three (25 October 2026)
@@ -25,14 +25,16 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Weight guide: rough adult weight range per breed or type (ADULT_KG), when that size usually stops growing, and an optional 1 to 9 body score with each weigh in.
 - Behaviour tab: what happened, how strong, what was going on, what you did and how he responded. Shows weekly counts, what's working per behaviour (last 4 weeks) and short tips.
 - Socialisation checklist on the Training tab: 47 items in six areas plus the user's own, each logged as happy, unsure then OK, or scared. Shows the socialisation window by age (closes around 12 to 16 weeks). Scared items are flagged to retry from further away.
-- Sleep log on the Behaviour tab: fell asleep and woke up buttons, last 24 hours and daily average against 18 to 20 hours. Behaviour trends show how long he'd been awake beforehand when the sleep log covers it.
+- Sleep log (now on the Sleep tab): fell asleep and woke up buttons, last 24 hours and daily average against 18 to 20 hours. Behaviour trends show how long he'd been awake beforehand when the sleep log covers it.
 
-## Foods in roles (25 October 2026)
+## Food, toilet and nights (26 October 2026)
 
-- A dog can be on several foods at once. Each food has a role: main food, wet meal or topper, or treats and training. Adding a food only replaces a food in the same role, chosen from a drop down, or it can be extra.
-- Switch over length is 0, 5, 7, 10 or 14 days. Both foods stay active during the switch and the old one ends on start date plus days (the end date is the first day without it). The old food can stop or carry on as treats and training, which adds a treats entry from that date.
-- "He's fully on it now" ends a switch early. "Move to treats" and "Stop" act from today. Start and end dates are editable in history.
-- Poo scores record every non treat food he was on at the time. The feeding guide works out mixed from what's active and takes wet as grams a day (default one 85 g pouch), with dry making up the rest. Older single food data migrates in.
+- Food is a list of his foods (name, type, optional short name) plus a record of what was in his bowl by day: kibble or main food as % of the bowl, and wet pouches a day. A day with no record carries on from the last one set. Nothing starts or stops by itself.
+- "Switching food gradually" fills in the bowl mix for each day of a switch (5 to 14 days) and keeps the wet as it was. Any day can be edited after.
+- Food and poos table: last 14 days of bowl mix against poo count, average score and wee count, plus comparisons (wet days against none, mid switch against not, each food at 100%) once there are 3 or more days of each.
+- Poos are scored on the Toilet tab right after logging them, so there's one log for poos. Older separate poo scores still count. The Toilet tab shows the last 24 hours (wee and poo counts, poo times and scores) against his usual, with gentle flags for few wees, hard poos or repeated soft ones.
+- Sleep tab: night time buttons (bedtime, let out, back to bed, up for the day). Let out records what woke him (planned, cried, quiet), wee, poo and any accident first. These also write to the sleep and toilet logs.
+- Night plan is rule based: bed and up times, trips a night, longest stretch, age in months plus one hours as a rough hold guide, trips grouped by time of night with advice for each (accidents bring it forward, often nothing means later or drop, the last trip before morning is the one to stretch by 15 minutes after 3 dry nights), a catch him or wait for him verdict, mornings, last meal and night poos, and keep water down.
 
 ## Ideas for later
 

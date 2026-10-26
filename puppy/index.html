@@ -40,9 +40,12 @@
   .bar { height:10px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:6px; }
   .bar > div { height:100%; background:var(--good); }
   nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--card); border-top:1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
-  nav button { flex:1; border:none; border-radius:0; padding:14px 2px; font-size:.82rem; background:none; }
+  nav button { flex:1 1 auto; border:none; border-radius:0; padding:14px 1px; font-size:.7rem; letter-spacing:-.01em; background:none; min-width:0; }
   nav button.on { color:var(--accent); font-weight:700; }
   .hidden { display:none !important; }
+  table { width:100%; border-collapse:collapse; font-size:.82rem; }
+  td, th { text-align:left; padding:5px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
   .tag { font-size:.75rem; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
   .due { color:var(--bad); border-color:var(--bad); }
   .soon { color:var(--warn); border-color:var(--warn); }
@@ -68,6 +71,16 @@
       <button class="big bad" data-toilet="inside" data-kind="poo">Poo inside</button>
     </div>
     <div data-when="toilet"></div>
+    <div class="next hidden" id="pooScore">
+      <strong>How was it?</strong> <span class="muted">1 hard, 2 firm (ideal), 3 soft but formed, 4 very soft, 5 runny</span>
+      <div class="row" style="margin-top:6px">
+        <button class="good" data-score="1">1</button><button class="good" data-score="2">2</button><button data-score="3">3</button><button class="bad" data-score="4">4</button><button class="bad" data-score="5">5</button><button data-score="0">Skip</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Last 24 hours</h2>
+    <div id="t24"></div>
   </div>
   <div class="card">
     <h2>Last 7 days</h2>
@@ -78,6 +91,50 @@
   <div class="card">
     <h2>Recent</h2>
     <ul id="toiletList"></ul>
+  </div>
+</section>
+
+<!-- SLEEP -->
+<section id="tab-sleep" class="hidden">
+  <div class="card">
+    <h2>Night time</h2>
+    <div class="next" id="nightNow"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="big" data-night="bed">Bedtime</button>
+      <button class="big" data-night="out">Let out</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="big" data-night="back">Back to bed</button>
+      <button class="big" data-night="up">Up for the day</button>
+    </div>
+    <div data-when="night"></div>
+    <div class="next hidden" id="outForm">
+      <label for="outBy">What woke him</label>
+      <select id="outBy"><option value="us">We woke him (planned)</option><option value="him">He cried or scratched</option><option value="quiet">He was awake but quiet</option></select>
+      <div class="row" style="margin-top:8px">
+        <label class="row" style="margin:0"><input type="checkbox" id="outWee" checked> Wee</label>
+        <label class="row" style="margin:0"><input type="checkbox" id="outPoo"> Poo</label>
+        <label class="row" style="margin:0"><input type="checkbox" id="outAcc"> Accident in his bed first</label>
+      </div>
+      <div class="row" style="margin-top:8px"><button class="primary" id="outSave" style="flex:1">Save trip</button><button id="outCancel">Cancel</button></div>
+    </div>
+    <ul id="nightList" style="margin-top:8px"></ul>
+  </div>
+  <div class="card">
+    <h2>Night plan</h2>
+    <div id="nightPlan"></div>
+    <p class="muted">Rules of thumb from your logs, not a vet's advice. Every puppy is different, so the test is whether he stays dry and settled.</p>
+  </div>
+  <div class="card">
+    <h2>Sleep and naps</h2>
+    <div class="next" id="sleepNow"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="big" id="sleepStart">Fell asleep</button>
+      <button class="big" id="sleepEnd">Woke up</button>
+    </div>
+    <div data-when="sleep"></div>
+    <p class="muted" id="sleepSum"></p>
+    <ul id="sleepList"></ul>
   </div>
 </section>
 
@@ -227,8 +284,39 @@
 <!-- FOOD -->
 <section id="tab-food" class="hidden">
   <div class="card">
-    <h2>What he's on now</h2>
-    <div id="foodNow"></div>
+    <h2>Day by day</h2>
+    <div class="row"><button id="dayPrev" aria-label="Previous day">&lsaquo;</button><input type="date" id="dayPick" style="flex:1"><button id="dayNext" aria-label="Next day">&rsaquo;</button></div>
+    <h3>What was in his bowl</h3>
+    <p class="muted" id="dietNote"></p>
+    <div id="dietEdit"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="small" id="dietAddMain">+ Kibble or main food</button>
+      <button class="small" id="dietAddWet">+ Wet food</button>
+    </div>
+    <input id="dietText" placeholder="Notes for the day (optional)" style="margin-top:8px">
+    <button class="primary wide" id="dietSave">Save for this day</button>
+    <h3>Logged this day</h3>
+    <p id="daySum"></p>
+    <ul id="dayList"></ul>
+    <p class="muted">Wees and poos come from the Toilet tab. Logging single feeds below is optional, for when you want amounts.</p>
+  </div>
+  <div class="card">
+    <h2>Food and poos</h2>
+    <div id="fpTable"></div>
+    <div id="fpNotes"></div>
+  </div>
+  <div class="card">
+    <h2>Switching food gradually</h2>
+    <p class="muted">Fills in his bowl mix for each day of the switch, keeping any wet food as it was. You can change any day afterwards.</p>
+    <div class="row">
+      <div style="flex:1"><label for="swFrom">From</label><select id="swFrom"></select></div>
+      <div style="flex:1"><label for="swTo">To</label><select id="swTo"></select></div>
+    </div>
+    <div class="row">
+      <div style="flex:1"><label for="swStart">First day</label><input id="swStart" type="date"></div>
+      <div style="flex:1"><label for="swDays">Over</label><select id="swDays"><option value="5">5 days</option><option value="7" selected>7 days</option><option value="10">10 days</option><option value="14">14 days</option></select></div>
+    </div>
+    <button class="primary wide" id="swGo">Fill in those days</button>
   </div>
   <div class="card">
     <h2>Log a feed</h2>
@@ -244,14 +332,6 @@
     <button class="primary wide" id="logFeed">Log feed</button>
   </div>
   <div class="card">
-    <h2>Day by day</h2>
-    <div class="row"><button id="dayPrev" aria-label="Previous day">&lsaquo;</button><input type="date" id="dayPick" style="flex:1"><button id="dayNext" aria-label="Next day">&rsaquo;</button></div>
-    <ul id="dayList" style="margin-top:8px"></ul>
-    <p class="muted" id="daySum"></p>
-    <h3>Last 7 days</h3>
-    <p class="muted" id="feedTrend"></p>
-  </div>
-  <div class="card">
     <h2>Feeding guide</h2>
     <div class="row">
       <div style="flex:1"><label for="gType">Food type</label>
@@ -265,48 +345,20 @@
       <div style="flex:1" id="gKwetWrap"><label for="gKwet">Wet kcal/100g</label><input id="gKwet" type="number" inputmode="numeric" placeholder="95"></div>
       <div style="flex:1" id="gKrawWrap"><label for="gKraw">Raw kcal/100g</label><input id="gKraw" type="number" inputmode="numeric" placeholder="150"></div>
     </div>
-    <div id="gWetWrap"><label for="gWetG">Wet food a day (g)</label>
-      <input id="gWetG" type="number" inputmode="numeric" placeholder="85, one pouch"></div>
+    <div id="gWetWrap"><label for="gWetG">Size of one wet pouch or portion (g)</label>
+      <input id="gWetG" type="number" inputmode="numeric" placeholder="85"></div>
     <div class="next" id="gOut"></div>
     <p class="muted">A rough guide only, worked out from his latest weight and age with a standard calorie formula. Foods differ a lot, so follow the manufacturer's feeding guide on the packet first and your vet's advice over both. Adjust by body score rather than sticking to a number, and count treats as part of the day (about 10% at most).</p>
   </div>
   <div class="card">
-    <h2>Add a food</h2>
-    <label for="fBrand">Brand and product</label>
-    <input id="fBrand" list="foodHistory" placeholder="e.g. Brand X Puppy Large Breed">
-    <datalist id="foodHistory"></datalist>
-    <div class="row">
-      <div style="flex:1"><label for="fType">Type</label>
-        <select id="fType"><option>Dry</option><option>Wet</option><option>Raw</option><option>Fresh cooked</option></select></div>
-      <div style="flex:1"><label for="fRole">Used as</label><select id="fRole"></select></div>
-    </div>
-    <label for="fStart">Start date</label>
-    <input id="fStart" type="date">
-    <div id="fReplaceWrap">
-      <label for="fReplace">Replacing</label>
-      <select id="fReplace"></select>
-      <div id="fSwitchWrap">
-        <label for="fDays">Switch over</label>
-        <select id="fDays"><option value="0">Straight away</option><option value="5">5 days</option><option value="7" selected>7 days</option><option value="10">10 days</option><option value="14">14 days</option></select>
-        <label for="fOld">When the switch is done, the old food</label>
-        <select id="fOld"><option value="stop">Stops</option><option value="treats">Carries on for treats and training</option></select>
-      </div>
-    </div>
-    <button class="primary wide" id="addFood">Add this food</button>
-    <p class="muted">Each role switches separately, so changing his dry food leaves his wet food and treats alone. Use the dates in history to correct anything.</p>
-  </div>
-  <div class="card">
-    <h2>Log a poo</h2>
-    <p class="muted">1 hard and dry, 2 firm (ideal), 3 soft but formed, 4 very soft, 5 runny</p>
-    <div class="row">
-      <button class="big good" data-stool="1">1</button><button class="big good" data-stool="2">2</button><button class="big" data-stool="3">3</button><button class="big bad" data-stool="4">4</button><button class="big bad" data-stool="5">5</button>
-    </div>
-    <div data-when="stool"></div>
-    <ul id="stoolList" style="margin-top:8px"></ul>
-  </div>
-  <div class="card">
-    <h2>Food history</h2>
+    <h2>His foods</h2>
     <ul id="foodList"></ul>
+    <h3>Add a food</h3>
+    <input id="fBrand" list="foodHistory" placeholder="e.g. Brand X Puppy Medium, Turkey and rice">
+    <datalist id="foodHistory"></datalist>
+    <input id="fShort" placeholder="Short name for the table, e.g. WW dry (optional)" style="margin-top:8px">
+    <div class="row" style="margin-top:8px"><select id="fType" style="flex:1"><option>Dry</option><option>Wet</option><option>Raw</option><option>Fresh cooked</option><option>Treats</option></select><button id="addFood">Add</button></div>
+    <p class="muted">Add each food once, treats too. Then set what was in his bowl each day above.</p>
   </div>
   <div class="card">
     <h2>Comparing foods</h2>
@@ -316,17 +368,6 @@
 
 <!-- BEHAVIOUR -->
 <section id="tab-behaviour" class="hidden">
-  <div class="card">
-    <h2>Sleep and naps</h2>
-    <div class="next" id="sleepNow"></div>
-    <div class="row" style="margin-top:8px">
-      <button class="big" id="sleepStart">Fell asleep</button>
-      <button class="big" id="sleepEnd">Woke up</button>
-    </div>
-    <div data-when="sleep"></div>
-    <p class="muted" id="sleepSum"></p>
-    <ul id="sleepList"></ul>
-  </div>
   <div class="card">
     <h2>Log behaviour</h2>
     <label for="bWhat">What happened</label>
@@ -417,6 +458,7 @@
 
 <nav>
   <button data-tab="toilet" class="on">Toilet</button>
+  <button data-tab="sleep">Sleep</button>
   <button data-tab="training">Training</button>
   <button data-tab="behaviour">Behaviour</button>
   <button data-tab="health">Health</button>
@@ -431,7 +473,7 @@ const blank = {
   toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], custom:[],
   vax:[], vaxDue:'',
   treatments:[],
-  weights:[], foods:[], stools:[], feeds:[], behaviours:[], sleep:[], social:[], socialOwn:[],
+  weights:[], foodList:[], diet:{}, stools:[], feeds:[], nights:[], behaviours:[], sleep:[], social:[], socialOwn:[],
   feedPlan:{ type:'', meals:0, kdry:'', kwet:'', kraw:'', wetG:'' }
 };
 function load() {
@@ -442,15 +484,18 @@ function load() {
   // The old cross breed tick box becomes the kind of dog
   if (!s.kind) s.kind = s.cross ? 'cross' : 'pedigree';
   delete s.cross;
-  // Foods used to be one at a time. Give each a role, and let old switches overlap for their 7 days.
-  s.foods.forEach(f => {
-    if (f.role) return;
-    f.role = f.type === 'Wet' ? 'wet' : 'main';
-    f.days = f.transition && f.from ? 7 : 0; delete f.transition;
-    const old = f.days && s.foods.find(o => o.brand === f.from && o.end === f.date);
-    if (old) old.end = new Date(new Date(f.date + 'T12:00:00').getTime() + f.days * 86400000).toISOString().slice(0, 10);
-  });
-  if (s.feedPlan) delete s.feedPlan.split;
+  // Foods used to start and stop. Now there's a list of foods and a record of what was in the bowl by day.
+  if (s.foods && s.foods.length && !s.foodList.length) {
+    const day = d => new Date(d + 'T12:00:00').getTime(), F = s.foods.map(f => ({ ...f, role: f.role || (f.type === 'Wet' ? 'wet' : 'main') }));
+    F.forEach(f => { if (!s.foodList.some(x => x.name === f.brand)) s.foodList.push({ name: f.brand, type: f.type === 'Mixed' ? 'Dry' : f.type }); });
+    [...new Set(F.flatMap(f => [f.date, f.end]).filter(Boolean))].sort().forEach(d => {
+      const on = F.filter(f => f.role !== 'treats' && day(f.date) <= day(d) && (!f.end || day(f.end) > day(d)));
+      const main = on.filter(f => f.type !== 'Wet'), wet = on.filter(f => f.type === 'Wet');
+      s.diet[d] = { main: main.map((f, i) => ({ food: f.brand, pct: i ? Math.floor(100 / main.length) : 100 - Math.floor(100 / main.length) * (main.length - 1) })), wet: wet.map(f => ({ food: f.brand, n: 1 })), note: '' };
+    });
+  }
+  delete s.foods;
+  if (s.feedPlan) { delete s.feedPlan.split; if (+s.feedPlan.wetG > 150) s.feedPlan.wetG = ''; }
   // Version two kept worming and flea separately; fold them into treatments
   [['worm', ['Roundworm', 'Hookworm', 'Whipworm']], ['flea', ['Fleas']]].forEach(([k, covers]) => {
     const o = s[k];
@@ -523,10 +568,24 @@ function when(id) {
 const addTimed = (list, x) => { list.push(x); list.sort((a, b) => b.t - a.t); };
 
 // ---------- Toilet ----------
+let pendingPoo = null;
 document.querySelectorAll('[data-toilet]').forEach(b => b.onclick = () => {
   const t = when('toilet'); if (t === null) return;
-  addTimed(S.toilet, { t, where: b.dataset.toilet, kind: b.dataset.kind }); save();
+  addTimed(S.toilet, { t, where: b.dataset.toilet, kind: b.dataset.kind });
+  pendingPoo = b.dataset.kind === 'poo' ? t : null; save();
 });
+document.querySelectorAll('[data-score]').forEach(b => b.onclick = () => {
+  const x = S.toilet.find(y => y.t === pendingPoo && y.kind === 'poo');
+  if (x && +b.dataset.score) x.score = +b.dataset.score;
+  pendingPoo = null; save();
+});
+// Wees and poos in a window, with poo scores (older poo scores were logged on their own)
+function toiletIn(from, to) {
+  const xs = S.toilet.filter(x => x.t >= from && x.t < to), poos = xs.filter(x => x.kind === 'poo');
+  const scores = poos.filter(x => x.score).map(x => x.score).concat(S.stools.filter(x => x.t >= from && x.t < to).map(x => x.score));
+  return { wees: xs.filter(x => x.kind === 'wee'), poos, scores, inside: xs.filter(x => x.where === 'inside').length };
+}
+const avg = xs => xs.length ? xs.reduce((a, x) => a + x, 0) / xs.length : null;
 function rate(from, to) {
   const xs = S.toilet.filter(x => x.t >= from && x.t < to);
   return xs.length ? { pct: Math.round(100 * xs.filter(x => x.where === 'garden').length / xs.length), n: xs.length } : null;
@@ -536,8 +595,20 @@ function renderToilet() {
   $('toiletRate').textContent = wk ? wk.pct + '% in the garden (' + wk.n + ' trips)' : 'No logs yet';
   $('toiletBar').style.width = (wk ? wk.pct : 0) + '%';
   $('toiletTrend').textContent = wk && prev ? (wk.pct > prev.pct ? 'Up from ' : wk.pct < prev.pct ? 'Down from ' : 'Same as ') + prev.pct + '% the week before.' : '';
+  $('pooScore').classList.toggle('hidden', pendingPoo === null);
+  const d = toiletIn(now - DAY, now + 1), past = [1, 2, 3, 4, 5, 6].map(k => toiletIn(now - (k + 1) * DAY, now - k * DAY)).filter(x => x.wees.length + x.poos.length);
+  const aw = avg(past.map(x => x.wees.length)), ap = avg(past.map(x => x.poos.length));
+  const flags = [];
+  if (aw >= 4 && d.wees.length < 0.6 * aw) flags.push(`Fewer wees logged than usual (about ${Math.round(aw)} a day). If you've logged them all, check he's drinking. Ring the vet if he's flat, off his food or his gums feel sticky.`);
+  if (d.scores.some(x => x === 1)) flags.push('A hard, dry poo can mean he needs more water. Make sure fresh water is always down.');
+  if (d.scores.filter(x => x >= 4).length >= 2) flags.push('Two or more very soft poos today. If you are switching food, slow it down. Ring the vet if it carries on past a day or two, or with blood, sickness or tiredness.');
+  $('t24').innerHTML = d.wees.length + d.poos.length ? `<div class="row"><span class="stat">${d.wees.length}</span><span>wees${d.inside ? ` <span class="muted">(${d.inside} inside)</span>` : ''}</span><span class="stat" style="margin-left:12px">${d.poos.length}</span><span>poos</span></div>`
+    + (aw !== null ? `<div class="muted">Usual: about ${Math.round(aw)} wees and ${Math.round(ap)} poos a day.</div>` : '')
+    + (d.poos.length ? `<div style="margin-top:6px">Poos at ${d.poos.slice().reverse().map(x => time(x.t) + (x.score ? ` (${x.score})` : '')).join(', ')}</div>` : '')
+    + flags.map(f => `<div class="muted" style="margin-top:6px;color:var(--warn)">${f}</div>`).join('')
+    : '<span class="muted">Nothing logged in the last 24 hours.</span>';
   $('toiletList').innerHTML = S.toilet.slice(0, 15).map((x, i) =>
-    `<li><span>${x.kind === 'poo' ? 'Poo' : 'Wee'} ${x.where === 'garden' ? 'in garden' : 'inside'}</span><span class="row"><span class="muted">${fmt(x.t)} ${time(x.t)}</span>${delBtn('toilet', i)}</span></li>`).join('') || '<li class="muted">Nothing logged yet</li>';
+    `<li><span>${x.kind === 'poo' ? 'Poo' : 'Wee'} ${x.where === 'garden' ? 'in garden' : 'inside'}${x.score ? ` <span class="tag">score ${x.score}</span>` : ''}${x.night ? ' <span class="tag">night</span>' : ''}</span><span class="row"><span class="muted">${fmt(x.t)} ${time(x.t)}</span>${delBtn('toilet', i)}</span></li>`).join('') || '<li class="muted">Nothing logged yet</li>';
 }
 
 // ---------- Training ----------
@@ -727,76 +798,123 @@ function renderOther() {
 }
 
 // ---------- Food ----------
-// A dog can be on several foods at once, each in a role. Switching only touches foods in the same role.
-const ROLES = { main:'Main food', wet:'Wet meal or topper', treats:'Treats and training' };
-const addDays = (d, n) => iso(ts(d) + n * DAY);
-// On a food at a moment: started by then and not yet ended (the end date is the first day without it)
-const onAt = (f, t) => ts(f.date) - DAY / 2 <= t && (!f.end || ts(f.end) - DAY / 2 > t);
-const activeAt = t => S.foods.filter(f => onAt(f, t)).sort(byDate);
-const active = () => activeAt(Date.now());
-const mainFoods = () => active().filter(f => f.role !== 'treats');
-const currentFood = () => mainFoods().find(f => f.role === 'main') || mainFoods()[0];
-$('fRole').innerHTML = Object.entries(ROLES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
-$('fType').onchange = () => { $('fRole').value = $('fType').value === 'Wet' ? 'wet' : 'main'; foodFormUI(); };
-$('fRole').onchange = $('fStart').onchange = $('fReplace').onchange = () => foodFormUI();
-function foodFormUI() {
-  const date = $('fStart').value || today(), role = $('fRole').value, cur = $('fReplace').value;
-  const xs = S.foods.map((f, i) => ({ ...f, i })).filter(f => f.role === role && onAt(f, ts(date)));
-  $('fReplace').innerHTML = '<option value="">Nothing, this is extra</option>' + xs.map(f => `<option value="${f.i}">${esc(f.brand)}</option>`).join('');
-  $('fReplace').value = xs.some(f => String(f.i) === cur) ? cur : xs.length && role !== 'treats' ? String(xs[0].i) : '';
-  $('fReplaceWrap').classList.toggle('hidden', !xs.length);
-  $('fSwitchWrap').classList.toggle('hidden', $('fReplace').value === '');
+// A list of his foods, and what was in his bowl each day. A day with no entry carries on from the last one set.
+const ftype = name => (S.foodList.find(f => f.name === name) || {}).type || 'Dry';
+const prevDay = d => localDay(dayStart(d) - DAY / 2), nextDay = d => localDay(dayStart(d) + 1.5 * DAY);
+function dietFor(d) {
+  if (S.diet[d]) return { ...S.diet[d], set: d };
+  const k = Object.keys(S.diet).filter(x => x < d).sort().pop();
+  return k ? { ...S.diet[k], set: k } : null;
 }
-$('addFood').onclick = () => {
-  const brand = $('fBrand').value.trim(), date = $('fStart').value, role = $('fRole').value;
-  if (!brand || !date) { alert('Add the food and a start date.'); return; }
-  const r = $('fReplace').value, old = r === '' ? null : S.foods[+r], days = old ? +$('fDays').value : 0;
-  if (old) {
-    const end = addDays(date, days);
-    if ($('fOld').value === 'treats' && old.role !== 'treats') S.foods.push({ brand: old.brand, type: old.type, role: 'treats', date: end, days: 0, from: '' });
-    old.end = end;
-  }
-  S.foods.push({ brand, type: $('fType').value, role, date, days, from: old ? old.brand : '' });
-  $('fBrand').value = ''; save();
+const short = n => (S.foodList.find(f => f.name === n) || {}).short || n;
+const mixText = (x, sh) => { const nm = sh ? short : n => n; return x ? [...x.main.map(m => (x.main.length > 1 ? m.pct + '% ' : '') + nm(m.food)), ...x.wet.map(w => (+w.n > 1 ? w.n + ' x ' : '') + nm(w.food))].join(', ') : ''; };
+const clone = x => JSON.parse(JSON.stringify(x));
+let draft = null, draftDay = null;
+const mainOpts = () => S.foodList.filter(f => f.type !== 'Wet' && f.type !== 'Treats'), wetOpts = () => S.foodList.filter(f => f.type === 'Wet');
+function renderDiet() {
+  if (draftDay !== day) { const d = dietFor(day); draft = d ? { main: clone(d.main), wet: clone(d.wet), note: S.diet[day] ? d.note || '' : '' } : { main: [], wet: [], note: '' }; draftDay = day; }
+  const d = dietFor(day);
+  $('dietNote').textContent = !S.foodList.length ? 'Add his foods at the bottom of this tab first.'
+    : S.diet[day] ? 'Saved for this day.' : d ? `Not set for this day, so it carries on from ${fmt(d.set)}. Change it and save if this day was different.` : 'Nothing set yet. Pick what he had and save.';
+  const sel = (list, cur, attr) => `<select ${attr} style="flex:2">${list.map(f => `<option${f.name === cur ? ' selected' : ''}>${esc(f.name)}</option>`).join('')}${list.some(f => f.name === cur) || !cur ? '' : `<option selected>${esc(cur)}</option>`}</select>`;
+  $('dietEdit').innerHTML = (draft.main.length ? '<div class="muted">Kibble or main food, % of the bowl</div>' : '')
+    + draft.main.map((m, i) => `<div class="row" style="margin-top:6px">${sel(mainOpts(), m.food, `data-dm="main|${i}|food"`)}<input type="number" inputmode="numeric" min="0" max="100" value="${m.pct}" data-dm="main|${i}|pct" style="flex:1">%<button class="small" data-dx="main|${i}">x</button></div>`).join('')
+    + (draft.wet.length ? '<div class="muted" style="margin-top:8px">Wet food, pouches a day</div>' : '')
+    + draft.wet.map((w, i) => `<div class="row" style="margin-top:6px">${sel(wetOpts(), w.food, `data-dm="wet|${i}|food"`)}<input type="number" inputmode="numeric" min="0" step="0.5" value="${w.n}" data-dm="wet|${i}|n" style="flex:1"><button class="small" data-dx="wet|${i}">x</button></div>`).join('');
+  $('dietText').value = draft.note;
+}
+$('dietEdit').addEventListener('change', e => {
+  const k = e.target.dataset.dm; if (!k) return;
+  const [part, i, field] = k.split('|'); draft[part][+i][field] = field === 'food' ? e.target.value : +e.target.value;
+});
+$('dietEdit').addEventListener('click', e => {
+  const k = e.target.dataset.dx; if (!k) return;
+  const [part, i] = k.split('|'); draft[part].splice(+i, 1);
+  if (part === 'main' && draft.main.length === 1) draft.main[0].pct = 100;
+  renderDiet();
+});
+$('dietAddMain').onclick = () => {
+  const o = mainOpts(); if (!o.length) { alert('Add a dry or main food at the bottom of this tab first.'); return; }
+  const used = draft.main.reduce((a, m) => a + m.pct, 0), f = o.find(x => !draft.main.some(m => m.food === x.name)) || o[0];
+  draft.main.push({ food: f.name, pct: Math.max(0, 100 - used) }); renderDiet();
 };
-document.addEventListener('click', e => {
-  const el = e.target.closest('[data-foodact]'); if (!el) return;
-  const [act, i] = el.dataset.foodact.split('|'), f = S.foods[+i], d = today();
-  if (act === 'treats') { if (!confirm(`Move ${f.brand} to treats and training from today?`)) return; f.end = d; S.foods.push({ brand: f.brand, type: f.type, role: 'treats', date: d, days: 0, from: '' }); }
-  if (act === 'stop') { if (!confirm(`Stop ${f.brand} from today?`)) return; f.end = d; }
-  if (act === 'done') { // finish a switch early, ending the old food today
-    S.foods.forEach(o => { if (o.brand === f.from && o.role === f.role && o.end && o.end > d) { o.end = d; S.foods.filter(x => x.brand === o.brand && x.role === 'treats' && x.date > d).forEach(x => x.date = d); } });
-    f.days = Math.max(1, Math.round((ts(d) - ts(f.date)) / DAY));
-  }
-  save();
-});
-document.querySelectorAll('[data-stool]').forEach(b => b.onclick = () => {
-  const t = when('stool'); if (t === null) return;
-  const foods = activeAt(t).filter(f => f.role !== 'treats').map(f => f.brand);
-  addTimed(S.stools, { t, score: +b.dataset.stool, foods }); save();
-});
-const stoolFoods = x => x.foods || (x.food ? [x.food] : []);
-function transitionText(f) {
-  if (!f.days || !f.from) return '';
-  const day = Math.floor((Date.now() - ts(f.date)) / DAY) + 1;
-  if (day > f.days || day < 1) return '';
-  const pct = Math.round(100 * day / f.days / 5) * 5;
-  return `<div class="next"><strong>Switching, day ${day} of ${f.days}:</strong> about ${pct}% ${esc(f.brand)}, ${100 - pct}% ${esc(f.from)}. Slow down if poos go soft.
-    <div class="row" style="margin-top:6px"><button class="small" data-foodact="done|${S.foods.indexOf(f)}">He's fully on it now</button></div></div>`;
+$('dietAddWet').onclick = () => {
+  const o = wetOpts(); if (!o.length) { alert('Add a wet food at the bottom of this tab first.'); return; }
+  draft.wet.push({ food: o[0].name, n: 1 }); renderDiet();
+};
+$('dietText').onchange = () => { draft.note = $('dietText').value.trim(); };
+$('dietSave').onclick = () => {
+  const sum = draft.main.reduce((a, m) => a + (+m.pct || 0), 0);
+  if (draft.main.length && sum !== 100) { alert(`The kibble mix adds up to ${sum}%. Make it 100%.`); return; }
+  draft.note = $('dietText').value.trim();
+  S.diet[day] = { main: draft.main.filter(m => m.pct > 0), wet: draft.wet.filter(w => w.n > 0), note: draft.note };
+  draftDay = null; save();
+};
+$('swGo').onclick = () => {
+  const from = $('swFrom').value, to = $('swTo').value, start = $('swStart').value, n = +$('swDays').value;
+  if (!from || !to || from === to || !start) { alert('Pick two different foods and the first day.'); return; }
+  const days = [...Array(n + 1)].map((_, i) => localDay(dayStart(start) + (i + 0.5) * DAY));
+  if (days.some(d => S.diet[d]) && !confirm('Some of those days are already set. Replace them?')) return;
+  days.forEach((d, i) => {
+    const pct = i >= n ? 100 : Math.round(100 * (i + 1) / n / 5) * 5, base = dietFor(d);
+    S.diet[d] = { main: [{ food: to, pct }, { food: from, pct: 100 - pct }].filter(m => m.pct > 0), wet: base ? clone(base.wet) : [], note: S.diet[d] ? S.diet[d].note || '' : '' };
+  });
+  draftDay = null; save(); alert(`Filled in ${n} days. The day after carries on with ${to}.`);
+};
+$('addFood').onclick = () => {
+  const name = $('fBrand').value.trim(); if (!name) return;
+  if (S.foodList.some(f => f.name === name)) { alert('That food is already on the list.'); return; }
+  S.foodList.push({ name, type: $('fType').value, short: $('fShort').value.trim() }); $('fBrand').value = ''; $('fShort').value = ''; save();
+};
+// Poo and wee counts against what he ate, by day
+function foodDays(n) {
+  return [...Array(n)].map((_, k) => localDay(Date.now() - k * DAY)).map(d => {
+    const from = dayStart(d), t = toiletIn(from, dayStart(nextDay(d)));
+    return { d, diet: dietFor(d), wees: t.wees.length, poos: t.poos.length, score: avg(t.scores), logged: t.wees.length + t.poos.length > 0 };
+  });
 }
-function stoolAvg(brand, from, to) {
-  const xs = S.stools.filter(s => stoolFoods(s).includes(brand) && (!from || (s.t >= ts(from) - DAY / 2 && (!to || s.t < ts(to) - DAY / 2))));
-  return xs.length ? (xs.reduce((a, s) => a + s.score, 0) / xs.length).toFixed(1) + ` from ${xs.length}` : 'no poo logs';
+function renderFoodPoo() {
+  const rows = foodDays(14).filter(r => r.diet || r.logged);
+  $('fpTable').innerHTML = rows.length ? `<table><tr><th>Day</th><th>In his bowl</th><th>Poos</th><th>Score</th><th>Wees</th></tr>${rows.map(r =>
+    `<tr><td>${new Date(dayStart(r.d)).toLocaleDateString('en-GB', { weekday:'short', day:'numeric' })}</td><td>${esc(mixText(r.diet, true)) || '<span class="muted">not set</span>'}</td><td>${r.logged ? r.poos : ''}</td><td${r.score >= 3.5 ? ' style="color:var(--bad)"' : ''}>${r.score ? r.score.toFixed(1) : ''}</td><td>${r.logged ? r.wees : ''}</td></tr>`).join('')}</table>`
+    : '<p class="muted">Set what was in his bowl and log toilet trips to see them side by side.</p>';
+  // Simple comparisons once there's enough to go on
+  const scored = foodDays(28).filter(r => r.score && r.diet), notes = [];
+  const cmp = (label, a, b) => { if (a.length >= 3 && b.length >= 3) notes.push(`${label}: average poo score ${avg(a.map(r => r.score)).toFixed(1)} (${a.length} days) against ${avg(b.map(r => r.score)).toFixed(1)} (${b.length} days).`); };
+  cmp('Days with wet food', scored.filter(r => r.diet.wet.length), scored.filter(r => !r.diet.wet.length));
+  cmp('Days mid switch', scored.filter(r => r.diet.main.length > 1), scored.filter(r => r.diet.main.length === 1));
+  [...new Set(scored.flatMap(r => r.diet.main.map(m => m.food)))].forEach(f => {
+    const on = scored.filter(r => r.diet.main.some(m => m.food === f && m.pct === 100));
+    if (on.length >= 3) notes.push(`Fully on ${esc(f)}: average poo score ${avg(on.map(r => r.score)).toFixed(1)} over ${on.length} days.`);
+  });
+  $('fpNotes').innerHTML = (notes.length ? notes.map(n => `<p class="muted">${n}</p>`).join('') : '<p class="muted">Comparisons appear after a few days of each. 2 is ideal. A creep towards 3 to 4 during a switch usually means slow down.</p>');
+}
+function renderFood() {
+  renderDiet(); renderFoodPoo();
+  const names = S.foodList.map(f => f.name), opt = (cur) => names.map(n => `<option${n === cur ? ' selected' : ''}>${esc(n)}</option>`).join('');
+  const nonWet = S.foodList.filter(f => f.type !== 'Wet' && f.type !== 'Treats').map(f => f.name);
+  const sf = $('swFrom').value, st = $('swTo').value;
+  $('swFrom').innerHTML = nonWet.map(n => `<option${n === sf ? ' selected' : ''}>${esc(n)}</option>`).join('');
+  $('swTo').innerHTML = nonWet.map(n => `<option${n === st ? ' selected' : ''}>${esc(n)}</option>`).join('');
+  if (!st && nonWet.length > 1) $('swTo').value = nonWet[nonWet.length - 1];
+  if (!$('swStart').value) $('swStart').value = localDay(Date.now());
+  $('foodHistory').innerHTML = names.map(n => `<option value="${esc(n)}">`).join('');
+  $('foodList').innerHTML = S.foodList.map((f, i) => {
+    const days = Object.keys(S.diet).filter(d => [...S.diet[d].main, ...S.diet[d].wet].some(x => x.food === f.name)).sort();
+    return `<li><span>${esc(f.name)} <span class="tag">${f.type}</span>${f.short ? ` <span class="muted">(${esc(f.short)})</span>` : ''}${days.length ? `<div class="muted">In his bowl from ${fmt(days[0])}</div>` : ''}</span>${delBtn('foodList', i)}</li>`;
+  }).join('') || '<li class="muted">No foods yet</li>';
+  renderGuide(); renderFeeds();
 }
 // ---------- Feeding guide ----------
 const KCAL = { dry:380, wet:95, raw:150 };
-// Work out the guide type from what he's on, unless the user has picked one
+// Work out the guide type from today's bowl, unless the user has picked one
 function planType() {
   if (S.feedPlan.type) return S.feedPlan.type;
-  const m = mainFoods(), main = m.find(f => f.role === 'main'), wet = m.some(f => f.role === 'wet' || f.type === 'Wet');
-  const t = main ? ({ Dry:'dry', Wet:'wet', Raw:'raw', 'Fresh cooked':'wet' }[main.type] || 'dry') : wet ? 'wet' : 'dry';
-  return t === 'dry' && wet ? 'mixed' : t;
+  const d = dietFor(localDay(Date.now())); if (!d) return 'dry';
+  const main = d.main.slice().sort((a, b) => b.pct - a.pct)[0], t = main ? ({ Dry:'dry', Wet:'wet', Raw:'raw', 'Fresh cooked':'wet' }[ftype(main.food)] || 'dry') : 'wet';
+  return t === 'dry' && d.wet.length ? 'mixed' : t;
 }
+const pouches = () => { const d = dietFor(localDay(Date.now())); return d && d.wet.length ? d.wet.reduce((a, w) => a + (+w.n || 1), 0) : 1; };
 function suggestedMeals(wk) { return wk < 12 ? 4 : wk < 26 ? 3 : 2; }
 function feedGuide() {
   const kg = latestKg(), wk = S.dob ? ageWeeks(Date.now()) : null;
@@ -808,7 +926,7 @@ function feedGuide() {
   const k = t => +p['k' + t] || KCAL[t], r5 = x => Math.round(x / 5) * 5, kcal = [rer * lo, rer * hi];
   if (type !== 'mixed') return { kg, wk, meals, type, kcal: kcal.map(Math.round), foods: [{ t: type, typical: !+p['k' + type], day: kcal.map(c => r5(c / k(type) * 100)) }] };
   // Mixed: a set amount of wet a day, with dry making up the rest
-  const wetG = +p.wetG || 85, wetKcal = wetG * k('wet') / 100;
+  const wetG = (+p.wetG || 85) * pouches(), wetKcal = wetG * k('wet') / 100;
   return { kg, wk, meals, type, kcal: kcal.map(Math.round), wetG, wetKcal: Math.round(wetKcal),
     foods: [{ t:'dry', typical: !+p.kdry, day: kcal.map(c => r5(Math.max(0, c - wetKcal) / k('dry') * 100)) }, { t:'wet', typical: !+p.kwet, day: [wetG, wetG], fixed: true }] };
 }
@@ -835,7 +953,7 @@ function renderGuide() {
       return `<div style="margin-top:6px"><strong>${NAMES[f.t]}:</strong> ${f.day[0]} to ${f.day[1]} g a day${g.type === 'mixed' ? ' on top of the wet' : ''}, so about ${Math.round(f.day[0] / n)} to ${Math.round(f.day[1] / n)} g per feed over ${n} ${g.type === 'mixed' ? 'dry ' : ''}feeds.${typ}</div>`;
     }).join('')
     + (g.type === 'mixed' ? '<div class="muted" style="margin-top:6px">Assumes the wet is one of his feeds. If you add it on top of every meal, split the dry across all of them instead.</div>' : '')
-    + (active().some(f => f.role === 'treats') ? '<div class="muted" style="margin-top:6px">If you train with a lot of kibble or treats, take that out of his meals.</div>' : '')
+    + '<div class="muted" style="margin-top:6px">If you train with a lot of kibble or treats, take that out of his meals.</div>'
     + (g.meals !== sug ? `<div class="muted" style="margin-top:6px">Most dogs his age have ${sug} feeds a day.</div>` : '')
     + (sight ? '<div class="muted" style="margin-top:6px">Deep chested dogs like sighthounds are more prone to bloat. Stick to two or more smaller meals for life and avoid hard exercise for about an hour either side of a meal.</div>' : '');
 }
@@ -849,10 +967,10 @@ $('logFeed').onclick = () => {
 $('feedG').oninput = () => { $('feedG').dataset.typed = 1; };
 // Suggested amount for one feed of a food, from the guide
 function portion(brand) {
-  const g = feedGuide(), f = S.foods.find(x => x.brand === brand); if (!g || !f) return '';
-  const t = { Dry:'dry', Wet:'wet', Raw:'raw', 'Fresh cooked':'wet' }[f.type], x = g.foods.find(y => y.t === t);
+  const g = feedGuide(); if (!g || !brand) return '';
+  const t = { Dry:'dry', Wet:'wet', Raw:'raw', 'Fresh cooked':'wet' }[ftype(brand)], x = g.foods.find(y => y.t === t);
   if (!x) return '';
-  return x.fixed ? x.day[0] : Math.round((x.day[0] + x.day[1]) / 2 / (g.type === 'mixed' ? Math.max(1, g.meals - 1) : g.meals));
+  return x.fixed ? Math.round(x.day[0] / pouches()) : Math.round((x.day[0] + x.day[1]) / 2 / (g.type === 'mixed' ? Math.max(1, g.meals - 1) : g.meals));
 }
 document.addEventListener('click', e => {
   const b = e.target.dataset.feedpick; if (b === undefined) return;
@@ -866,46 +984,32 @@ $('dayPick').onchange = () => { day = $('dayPick').value || localDay(Date.now())
 $('dayPrev').onclick = () => { day = localDay(new Date(day + 'T12:00').getTime() - DAY); renderFood(); };
 $('dayNext').onclick = () => { day = localDay(new Date(day + 'T12:00').getTime() + DAY); renderFood(); };
 function feedStats(from, to) {
-  const xs = S.feeds.filter(x => x.t >= from && x.t < to), ps = S.stools.filter(x => x.t >= from && x.t < to);
+  const xs = S.feeds.filter(x => x.t >= from && x.t < to), tl = toiletIn(from, to);
   const days = new Set(xs.map(x => localDay(x.t))).size;
-  return { n: xs.length, days, left: xs.filter(x => x.ate < 1).length, poo: ps.length ? ps.reduce((a, x) => a + x.score, 0) / ps.length : null };
+  return { n: xs.length, days, left: xs.filter(x => x.ate < 1).length, poo: avg(tl.scores) };
 }
+const dayStart = d => new Date(d + 'T00:00').getTime();
 function renderFeeds() {
   $('dayPick').value = day;
+  const from = dayStart(day), to = dayStart(localDay(from + 1.5 * DAY)), tl = toiletIn(from, to);
   const items = [
-    ...S.feeds.map((x, i) => ({ ...x, i, kind:'feeds' })),
-    ...S.stools.map((x, i) => ({ ...x, i, kind:'stools' }))
-  ].filter(x => localDay(x.t) === day).sort((a, b) => a.t - b.t);
-  $('dayList').innerHTML = items.map(x => `<li><span>${x.kind === 'feeds'
-      ? `${esc(x.food)}${x.g ? ' ' + x.g + ' g' : ''} <span class="muted">${ATE[x.ate]}</span>`
-      : `Poo score ${x.score}`}</span><span class="row"><span class="muted">${time(x.t)}</span>${delBtn(x.kind, x.i)}</span></li>`).join('') || '<li class="muted">Nothing logged this day</li>';
-  const fs = items.filter(x => x.kind === 'feeds'), eaten = Math.round(fs.reduce((a, x) => a + x.g * x.ate, 0)), g = feedGuide();
-  $('daySum').textContent = fs.length ? `${fs.length} feed${fs.length === 1 ? '' : 's'}${eaten ? `, about ${eaten} g eaten` : ''}.${g && eaten ? ` Guide ${g.foods.map(f => f.fixed ? f.day[0] + ' g wet' : f.day[0] + ' to ' + f.day[1] + ' g' + (g.type === 'mixed' ? ' dry' : '')).join(' plus ')}.` : ''}` : '';
+    ...S.feeds.map((x, i) => ({ ...x, i, src:'feeds' })),
+    ...S.toilet.map((x, i) => ({ ...x, i, src:'toilet' }))
+  ].filter(x => x.t >= from && x.t < to).sort((a, b) => a.t - b.t);
+  $('dayList').innerHTML = items.map(x => `<li><span>${x.src === 'feeds'
+      ? `Fed ${esc(x.food)}${x.g ? ' ' + x.g + ' g' : ''} <span class="muted">${ATE[x.ate]}</span>`
+      : `${x.kind === 'poo' ? 'Poo' : 'Wee'} ${x.where === 'garden' ? '' : 'inside'}${x.score ? ` <span class="tag">score ${x.score}</span>` : ''}`}</span><span class="row"><span class="muted">${time(x.t)}</span>${delBtn(x.src, x.i)}</span></li>`).join('') || '<li class="muted">Nothing logged this day</li>';
+  const fs = items.filter(x => x.src === 'feeds'), eaten = Math.round(fs.reduce((a, x) => a + x.g * x.ate, 0)), g = feedGuide();
+  $('daySum').innerHTML = `<strong>${tl.wees.length} wees, ${tl.poos.length} poos</strong>${tl.inside ? ` (${tl.inside} inside)` : ''}${tl.scores.length ? `. Poo scores ${tl.scores.join(', ')}` : ''}.`
+    + (fs.length ? ` ${fs.length} feed${fs.length === 1 ? '' : 's'} logged${eaten ? `, about ${eaten} g eaten` : ''}.` : '');
   const now = Date.now(), a = feedStats(now - WEEK, now + 1), b = feedStats(now - 2 * WEEK, now - WEEK);
   const line = st => `${st.days ? (st.n / st.days).toFixed(1) : 0} feeds a day, ${st.n ? Math.round(100 * st.left / st.n) : 0}% not finished${st.poo ? `, average poo ${st.poo.toFixed(1)}` : ''}`;
-  $('feedTrend').textContent = a.n ? line(a) + '.' + (b.n ? ' Week before: ' + line(b) + '.' : '') + (a.n >= 6 && a.left / a.n > 0.4 ? ' He\'s leaving a lot. If he\'s otherwise well and holding weight, he may need less, or fewer feeds.' : '') : 'Log feeds to see a trend.';
-  const on = mainFoods();
-  $('feedChips').innerHTML = on.length > 1 ? on.map(f => `<button class="small" data-feedpick="${esc(f.brand)}">${esc(f.brand)}</button>`).join('') : '';
-  if (!$('feedFood').dataset.typed) { const f = currentFood(); $('feedFood').value = f ? f.brand : ''; }
+  if ($('feedTrend')) $('feedTrend').textContent = a.n ? line(a) + '.' + (b.n ? ' Week before: ' + line(b) + '.' : '') + (a.n >= 6 && a.left / a.n > 0.4 ? ' He\'s leaving a lot. If he\'s otherwise well and holding weight, he may need less, or fewer feeds.' : '') : 'Log feeds to see a trend.';
+  const dd = dietFor(localDay(Date.now())), on = dd ? [...dd.main.slice().sort((a, b) => b.pct - a.pct), ...dd.wet].map(x => x.food) : [];
+  $('feedChips').innerHTML = on.length > 1 ? on.map(f => `<button class="small" data-feedpick="${esc(f)}">${esc(f)}</button>`).join('') : '';
+  if (!$('feedFood').dataset.typed) $('feedFood').value = on[0] || '';
   // Suggest a portion from the guide until the user types their own
   if (!$('feedG').dataset.typed) $('feedG').value = portion($('feedFood').value);
-}
-function renderFood() {
-  if (!$('fStart').value) $('fStart').value = today();
-  foodFormUI();
-  const on = active().map(f => ({ ...f, i: S.foods.indexOf(f) }));
-  $('foodNow').innerHTML = on.length ? Object.keys(ROLES).filter(r => on.some(f => f.role === r)).map(r => `<h3>${ROLES[r]}</h3>` + on.filter(f => f.role === r).map(f => {
-    const going = f.end ? `<div class="muted">Being switched off, last day ${fmt(ts(f.end) - DAY)}.</div>` : '';
-    const acts = f.end ? '' : `<div class="row" style="margin-top:6px">${r !== 'treats' ? `<button class="small" data-foodact="treats|${f.i}">Move to treats</button>` : ''}<button class="small" data-foodact="stop|${f.i}">Stop</button></div>`;
-    return `<div style="margin-bottom:10px"><strong>${esc(f.brand)}</strong> <span class="tag">${esc(f.type)}</span><div class="muted">Since ${fmt(f.date)}. Average poo score ${stoolAvg(f.brand, f.date, f.end)}.</div>${going}${transitionText(S.foods[f.i])}${acts}</div>`;
-  }).join('')).join('') : '<span class="muted">No food logged yet. Add what the breeder had him on, with the date he started it.</span>';
-  $('foodHistory').innerHTML = [...new Set(S.foods.map(x => x.brand))].map(b => `<option value="${esc(b)}">`).join('');
-  $('foodList').innerHTML = S.foods.map((x, i) => ({ ...x, i })).sort(byDate).map(x =>
-    `<li style="display:block"><div class="row" style="justify-content:space-between"><span><strong>${esc(x.brand)}</strong> <span class="tag">${ROLES[x.role]}</span></span>${delBtn('foods', x.i)}</div>`
-    + `<div class="row muted">From ${dateInput('foods', x.i, x.date)} to ${x.end ? dateInput('foods', x.i, x.end, 'end') : 'now'}</div>`
-    + `<div class="muted">${x.from ? `Replaced ${esc(x.from)}${x.days ? ` over ${x.days} days` : ''}. ` : ''}Average poo score ${stoolAvg(x.brand, x.date, x.end)}</div></li>`).join('') || '<li class="muted">None yet</li>';
-  renderGuide(); renderFeeds();
-  $('stoolList').innerHTML = S.stools.slice(0, 7).map((s, i) => `<li><span>Score ${s.score}${stoolFoods(s).length ? ` <span class="muted">on ${stoolFoods(s).map(esc).join(' and ')}</span>` : ''}</span><span class="row"><span class="muted">${fmt(s.t)} ${time(s.t)}</span>${delBtn('stools', i)}</span></li>`).join('');
 }
 
 // ---------- Socialisation ----------
@@ -995,6 +1099,97 @@ function renderSleep() {
   const first = S.sleep.length ? Math.min(...S.sleep.map(x => x.t)) : now, days = Math.min(7, Math.max(1, (now - first) / DAY));
   $('sleepSum').textContent = S.sleep.length ? `Last 24 hours: ${dur(sleptBetween(now - DAY, now))} asleep. Daily average over ${days < 7 ? 'what\'s logged' : 'the last 7 days'}: ${dur(sleptBetween(now - 7 * DAY, now) / days)}. Puppies need around 18 to 20 hours a day. This only counts what you log.` : '';
   $('sleepList').innerHTML = S.sleep.slice(0, 8).map((x, i) => `<li><span>${fmt(x.t)} ${time(x.t)} to ${x.end ? time(x.end) : 'now'} <span class="muted">${dur((x.end || now) - x.t)}</span></span>${delBtn('sleep', i)}</li>`).join('');
+}
+
+// ---------- Night ----------
+// Night events also feed the sleep log and toilet log, so counts stay in one place
+const NIGHT = { bed:'Bedtime', out:'Let out', back:'Back to bed', up:'Up for the day' };
+const BY = { us:'we woke him', him:'he cried', quiet:'awake, quiet' };
+let outAt = null;
+document.querySelectorAll('[data-night]').forEach(b => b.onclick = () => {
+  const t = when('night'); if (t === null) return;
+  const ev = b.dataset.night;
+  if (ev === 'out') { outAt = t; $('outForm').classList.remove('hidden'); return; }
+  const o = openNap();
+  if (ev === 'bed' || ev === 'back') { if (o && o.t < t) o.end = t; addTimed(S.sleep, { t, end: 0, night: true }); }
+  if (ev === 'up' && o && o.t < t) o.end = t;
+  addTimed(S.nights, { t, ev }); save();
+});
+$('outCancel').onclick = () => { outAt = null; $('outForm').classList.add('hidden'); };
+$('outSave').onclick = () => {
+  const t = outAt, wee = $('outWee').checked, poo = $('outPoo').checked, acc = $('outAcc').checked;
+  const o = openNap(); if (o && o.t < t) o.end = t;
+  addTimed(S.nights, { t, ev: 'out', by: $('outBy').value, wee, poo, acc });
+  if (acc) addTimed(S.toilet, { t: t - 60000, where: 'inside', kind: 'wee', night: true });
+  if (wee) addTimed(S.toilet, { t, where: 'garden', kind: 'wee', night: true });
+  if (poo) { addTimed(S.toilet, { t: t + 1000, where: 'garden', kind: 'poo', night: true }); pendingPoo = t + 1000; }
+  outAt = null; $('outForm').classList.add('hidden'); $('outWee').checked = true; $('outPoo').checked = false; $('outAcc').checked = false; save();
+};
+// Minutes past 6pm, so a night reads in order across midnight
+const eve = t => { const d = new Date(t); return (d.getHours() * 60 + d.getMinutes() - 18 * 60 + 1440) % 1440; };
+const clock = m => { const x = (m + 18 * 60) % 1440; return String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(Math.round(x % 60)).padStart(2, '0'); };
+const nightOf = t => localDay(t - 14 * 3600000); // anything before 2pm belongs to the night before
+function nightsLog() {
+  const by = {};
+  S.nights.forEach((x, i) => (by[nightOf(x.t)] = by[nightOf(x.t)] || []).push({ ...x, i }));
+  return Object.entries(by).sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([d, xs]) => {
+    xs.sort((a, b) => a.t - b.t);
+    const bed = xs.find(x => x.ev === 'bed'), up = [...xs].reverse().find(x => x.ev === 'up'), outs = xs.filter(x => x.ev === 'out');
+    const marks = [bed, ...outs, up].filter(Boolean).map(x => x.t), gaps = marks.slice(1).map((t, i) => t - marks[i]);
+    return { d, xs, bed, up, outs, longest: gaps.length ? Math.max(...gaps) : 0, acc: outs.some(x => x.acc) };
+  });
+}
+function nightAdvice() {
+  const ns = nightsLog().slice(0, 7).filter(n => n.bed || n.outs.length), out = [];
+  if (!ns.length) return '<p class="muted">Log bedtime, any trips out and when he gets up for a few nights to get a plan.</p>';
+  const beds = ns.filter(n => n.bed).map(n => eve(n.bed.t)), ups = ns.filter(n => n.up).map(n => eve(n.up.t));
+  const trips = ns.flatMap(n => n.outs), wk = S.dob ? ageWeeks(Date.now()) : null, months = wk ? wk / 4.35 : null, hold = months ? Math.min(8, months + 1) : null;
+  const span = xs => Math.min(...xs) === Math.max(...xs) ? `at ${clock(xs[0])}` : `between ${clock(Math.min(...xs))} and ${clock(Math.max(...xs))}`;
+  out.push(`<p><strong>Last ${ns.length} night${ns.length === 1 ? '' : 's'}:</strong> ${beds.length ? `bed ${span(beds)}` : 'no bedtimes logged'}${ups.length ? `, up ${span(ups)}` : ''}. ${(trips.length / ns.length).toFixed(1)} trips out a night. Longest stretch ${dur(Math.max(...ns.map(n => n.longest)))}.</p>`);
+  if (hold) out.push(`<p>At about ${months.toFixed(1)} months, a rough guide is that puppies can hold it for their age in months plus one, so around <strong>${Math.round(hold)} hours</strong> at night. Some manage more, some less.</p>`);
+  // Group trips by time of night
+  const ts2 = trips.map(x => ({ ...x, m: eve(x.t) })).sort((a, b) => a.m - b.m), groups = [];
+  ts2.forEach(x => { const g = groups[groups.length - 1]; if (g && x.m - g[g.length - 1].m <= 90) g.push(x); else groups.push([x]); });
+  const accN = ns.filter(n => n.acc).length;
+  groups.forEach((g, gi) => {
+    const lastTrip = gi === groups.length - 1;
+    const mid = g[Math.floor(g.length / 2)].m, did = g.filter(x => x.wee || x.poo).length, us = g.filter(x => x.by === 'us').length, him = g.filter(x => x.by === 'him').length, acc = g.filter(x => x.acc).length;
+    let tip = '';
+    if (acc) tip = `He had an accident before ${acc === 1 ? 'one of these trips' : acc + ' of these trips'}. Bring this trip forward by about 30 minutes until he's had a week of dry nights.`;
+    else if (g.length >= 3 && did / g.length < 0.5) tip = us >= him ? "He often doesn't go on this trip. Try it 15 to 30 minutes later, or drop it for a night and see if he stays dry." : "He often cries but doesn't go. Give it a few quiet minutes before getting up. If he keeps on, take him out calmly anyway, as an accident sets things back more.";
+    else if (g.length >= 3 && us >= him) tip = lastTrip
+      ? 'He goes and stays dry, so this trip is working. This is the one to stretch: after 3 dry nights in a row, try it 15 minutes later, until it meets his morning wake up.'
+      : "He goes and stays dry, so this trip is working. Leave it where it is while you stretch the later one. Once that has merged with his wake up, see if he can manage without this one.";
+    else if (g.length >= 3) tip = "He's waking and telling you, and he goes when he's out. That's what you want. Keep going out quickly and keep it dull.";
+    out.push(`<p><strong>Around ${clock(mid)}</strong> <span class="muted">(${g.length} trip${g.length === 1 ? '' : 's'}, went ${did} of ${g.length}, ${us} planned, ${him} after crying)</span>${tip ? '<br>' + tip : ''}</p>`);
+  });
+  // Catch him or wait for him
+  const plannedDry = trips.filter(x => x.by === 'us').length >= trips.length / 2 && !accN;
+  out.push('<h3>Catch him, or wait for him to ask?</h3><p>' + (accN
+    ? `He's had accidents on ${accN} of the last ${ns.length} nights, so catch him for now. Set an alarm and take him out before he needs to go. A clean bed teaches him to hold it. Waiting for him to cry only works once he's reliably dry.`
+    : plannedDry && ns.length >= 5
+      ? "He's dry with planned trips, so the habit is there. Keep catching him, but stretch the trips gradually, about 15 minutes every few dry nights. If he starts waking and crying before the alarm, go with that instead and drop the alarm."
+      : plannedDry
+        ? "Planned trips are keeping him dry. Stick with them for at least five dry nights before you start stretching them."
+        : "He's mostly telling you when he needs to go. If he goes each time, respond quickly. If he cries and doesn't go, wait a few quiet minutes first, as he may just be settling.") + '</p>');
+  out.push('<p class="muted">Keep night trips boring: lead on, garden, quiet praise for going, straight back to bed. No play, lights low.</p>');
+  // Morning and evening
+  if (ups.length >= 3) out.push(`<p><strong>Mornings.</strong> He's up ${span(ups)}. If he's up early for a wee, take him out quietly and put him straight back to bed. Push the start of the day back 10 to 15 minutes every few days, keeping the room dark. A later last trip helps more than a later bedtime.</p>`);
+  const fed = [...new Set(S.feeds.filter(f => f.t > Date.now() - WEEK).map(f => localDay(f.t)))].map(d => Math.max(...S.feeds.filter(f => localDay(f.t) === d).map(f => f.t)));
+  const lastMeal = fed.length >= 3 ? avg(fed.map(eve)) : null, bedAvg = beds.length ? avg(beds) : null;
+  const nightPoos = trips.filter(x => x.poo).length;
+  if (nightPoos >= 2) out.push(`<p><strong>Night poos.</strong> He's pooed on ${nightPoos} night trips. ${lastMeal !== null ? `His last meal is usually around ${clock(lastMeal)}. ` : ''}Try moving his last meal earlier, at least 2 to 3 hours before bed.</p>`);
+  else if (lastMeal !== null && bedAvg !== null && bedAvg - lastMeal < 120) out.push(`<p><strong>Last meal.</strong> Around ${clock(lastMeal)}, less than 2 hours before bed. An earlier last meal can mean fewer night trips.</p>`);
+  out.push('<p class="muted">Leave water down. Taking it away can make him dehydrated, so calm drinking earlier in the evening is a better way to cut night wees.</p>');
+  return out.join('');
+}
+function renderNight() {
+  const now = Date.now(), last = S.nights[0], o = openNap();
+  $('nightNow').innerHTML = !last || now - last.t > 16 * 3600000 ? '<span class="muted">Tap Bedtime when he goes down for the night.</span>'
+    : last.ev === 'up' ? `<strong>Up</strong> since ${time(last.t)}.`
+    : `<strong>${last.ev === 'out' ? 'Out' : 'In bed'}</strong> since ${time(last.t)}${o ? `, ${dur(now - o.t)} asleep so far` : ''}.`;
+  $('nightList').innerHTML = nightsLog().slice(0, 3).map(n => `<li style="display:block"><strong>Night of ${fmt(n.d)}</strong>${n.xs.map(x => `<div class="row" style="justify-content:space-between"><span class="muted">${time(x.t)} ${NIGHT[x.ev]}${x.ev === 'out' ? `, ${BY[x.by] || ''}${x.wee ? ', wee' : ''}${x.poo ? ', poo' : ''}${!x.wee && !x.poo ? ', did nothing' : ''}${x.acc ? ', accident first' : ''}` : ''}</span>${delBtn('nights', x.i)}</div>`).join('')}</li>`).join('');
+  $('nightPlan').innerHTML = nightAdvice();
 }
 
 // ---------- Behaviour ----------
@@ -1116,7 +1311,7 @@ function render() {
   $('pupName').value = S.name; $('pupDob').value = S.dob;
   $('pupBreed').value = BREEDS.includes(S.breed) || TYPES.includes(S.breed) ? '' : S.breed;
   $('pupBreedSel').value = ''; $('pupKind').value = S.kind; $('pupBreed2').value = S.breed2; kindUI();
-  renderToilet(); renderTraining(); renderSocial(); renderSleep(); renderBeh(); renderVax(); renderTreatments();
+  renderToilet(); renderTraining(); renderSocial(); renderSleep(); renderNight(); renderBeh(); renderVax(); renderTreatments();
   renderWeight(); renderOther(); renderFood();
 }
 render();
