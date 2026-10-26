@@ -485,12 +485,20 @@
   </div>
   <div class="card">
     <h2>Share with another phone</h2>
-    <p class="muted">Export makes a file you can send. Import on the other phone replaces what's there.</p>
+    <p class="muted">Both phones can log. Send an update from one and open it on the other. New entries are added, and edits and deletions carry across. Nothing gets overwritten wholesale. Swap both ways to keep both phones level.</p>
     <div class="row">
-      <button id="exportBtn" style="flex:1">Export</button>
-      <button id="importBtn" style="flex:1">Import</button>
-      <input id="importFile" type="file" accept="application/json" class="hidden">
+      <button id="exportBtn" class="primary" style="flex:1">Send an update</button>
+      <button id="importBtn" style="flex:1">Open an update</button>
+      <input id="importFile" type="file" accept=".json,application/json,text/plain" class="hidden">
     </div>
+    <p class="muted" id="syncNote"></p>
+    <details style="margin-top:8px"><summary class="muted">Other options</summary>
+      <div class="row" style="margin-top:8px">
+        <button id="backupBtn" class="small">Save a backup file</button>
+        <button id="replaceBtn" class="small">Replace this phone with a file</button>
+        <input id="replaceFile" type="file" accept=".json,application/json,text/plain" class="hidden">
+      </div>
+    </details>
   </div>
 </section>
 
@@ -545,7 +553,8 @@ function load() {
   return s;
 }
 let S = load();
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { alert('Could not save on this phone.'); } render(); }
+function store() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { alert('Could not save on this phone.'); } }
+function save() { track(true); store(); render(); }
 
 const $ = id => document.getElementById(id);
 const DAY = 86400000, WEEK = 7 * DAY;
@@ -1547,12 +1556,71 @@ function download(name, text, type) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type }));
   a.download = name; document.body.appendChild(a); a.click(); a.remove();
 }
-$('exportBtn').onclick = () => download('puppy-data.json', JSON.stringify(S), 'application/json');
-$('importBtn').onclick = () => $('importFile').click();
-$('importFile').onchange = e => {
-  const f = e.target.files[0]; if (!f) return;
-  f.text().then(t => { try { const d = JSON.parse(t); if (confirm('Replace the data on this phone with the imported file?')) { localStorage.setItem(KEY, JSON.stringify(d)); S = load(); save(); } } catch (err) { alert('That file could not be read.'); } });
+// ---------- Sync between phones ----------
+// Every entry carries an id and when it last changed, and deletions are remembered, so two phones' copies merge cleanly
+const LISTS = ['toilet', 'sessions', 'custom', 'vax', 'treatments', 'weights', 'foodList', 'stools', 'feeds', 'nights', 'behaviours', 'sleep', 'social'];
+const SETTINGS = ['name', 'dob', 'breed', 'kind', 'breed2', 'commands', 'vaxDue', 'adultKg', 'meals', 'socialOwn', 'feedPlan'];
+const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const hashOf = x => { const { u, ...r } = x; return JSON.stringify(r); };
+let seen = {};
+// Notice what changed since the last save: stamp new or edited entries, and remember deleted ones
+function track(stamp) {
+  const now = Date.now(), next = {}, mark = (id, x) => { if (!x.u || (stamp && seen[id] !== hashOf(x))) x.u = now; next[id] = hashOf(x); };
+  S.gone = S.gone || {};
+  LISTS.forEach(k => S[k].forEach(x => { if (!x.id) x.id = rid(); mark(x.id, x); }));
+  Object.keys(S.diet).forEach(d => mark('diet:' + d, S.diet[d]));
+  const set = JSON.stringify(SETTINGS.map(k => S[k]));
+  // A phone that hasn't filled in the puppy's details never wins a merge; details filled in before this existed count as old
+  if (stamp && seen.settings !== set && 'settings' in seen) S.su = now;
+  else if (!S.su) S.su = S.name || S.dob || S.breed || S.adultKg || S.meals.length ? 1 : 0;
+  next.settings = set;
+  if (stamp) Object.keys(seen).forEach(id => { if (!(id in next)) S.gone[id] = now; });
+  seen = next;
+}
+function mergeIn(R) {
+  const gone = { ...(R.gone || {}) }, n = { added: 0, changed: 0 };
+  Object.entries(S.gone || {}).forEach(([k, v]) => { gone[k] = Math.max(v, gone[k] || 0); });
+  const pick = (m, x) => { if (!m) { n.added++; return x; } if ((x.u || 0) > (m.u || 0)) { if (hashOf(x) !== hashOf(m)) n.changed++; return x; } return m; };
+  LISTS.forEach(k => {
+    const mine = new Map(S[k].map(x => [x.id, x]));
+    (R[k] || []).forEach(x => { if (x && x.id) mine.set(x.id, pick(mine.get(x.id), x)); });
+    S[k] = [...mine.values()].filter(x => !(gone[x.id] >= (x.u || 0)));
+    if (S[k].some(x => 't' in x)) S[k].sort((a, b) => b.t - a.t);
+  });
+  Object.entries(R.diet || {}).forEach(([d, x]) => { S.diet[d] = pick(S.diet[d], x); });
+  Object.keys(S.diet).forEach(d => { if (gone['diet:' + d] >= (S.diet[d].u || 0)) delete S.diet[d]; });
+  if ((R.su || 0) > (S.su || 0)) { SETTINGS.forEach(k => { if (k in R) S[k] = R[k]; }); S.su = R.su; }
+  S.gone = gone;
+  return n;
+}
+const META = 'puppy-tracker-sync';
+const meta = () => { try { return JSON.parse(localStorage.getItem(META)) || {}; } catch (e) { return {}; } };
+const setMeta = m => { try { localStorage.setItem(META, JSON.stringify({ ...meta(), ...m })); } catch (e) {} };
+function renderSync() {
+  const m = meta();
+  $('syncNote').textContent = [m.sent ? `Last sent ${fmt(m.sent)} ${time(m.sent)}` : '', m.got ? `last opened ${fmt(m.got)} ${time(m.got)}` : ''].filter(Boolean).join(', ') || 'Not shared yet.';
+}
+$('exportBtn').onclick = () => {
+  const name = `puppy-update-${localDay(Date.now())}.json`, text = JSON.stringify(S);
+  // text/plain shares more reliably than JSON on Android
+  const file = typeof File === 'function' ? new File([text], name, { type: 'text/plain' }) : null;
+  setMeta({ sent: Date.now() }); renderSync();
+  if (file && navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: 'Puppy tracker update' }).catch(() => {});
+  else download(name, text, 'application/json');
 };
+const readFile = (input, fn) => { const f = input.files[0]; if (!f) return; f.text().then(t => { input.value = ''; let d; try { d = JSON.parse(t); } catch (err) { alert('That file could not be read.'); return; } fn(d); }); };
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = () => readFile($('importFile'), d => {
+  const n = mergeIn(d); track(false); store(); setMeta({ got: Date.now() }); render();
+  alert(n.added || n.changed ? `Done. ${n.added} new, ${n.changed} updated.` : 'Already up to date.');
+});
+$('backupBtn').onclick = () => download(`puppy-backup-${localDay(Date.now())}.json`, JSON.stringify(S), 'application/json');
+$('replaceBtn').onclick = () => $('replaceFile').click();
+$('replaceFile').onchange = () => readFile($('replaceFile'), d => {
+  if (!confirm('Replace everything on this phone with that file? Anything logged here and not in the file will be lost.')) return;
+  localStorage.setItem(KEY, JSON.stringify(d)); S = load(); seen = {}; track(false); store(); render();
+});
+track(false); store();
 
 // ---------- Calendar export ----------
 $('icsAll').onclick = () => {
@@ -1572,7 +1640,7 @@ function render() {
   $('pupBreed').value = BREEDS.includes(S.breed) || TYPES.includes(S.breed) ? '' : S.breed;
   $('pupBreedSel').value = ''; $('pupKind').value = S.kind; $('pupBreed2').value = S.breed2; kindUI();
   renderToilet(); renderTraining(); renderSocial(); renderSleep(); renderNight(); renderBeh(); renderVax(); renderTreatments();
-  renderWeight(); renderOther(); renderFood();
+  renderWeight(); renderOther(); renderFood(); renderSync();
 }
 render();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -5,7 +5,7 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Everything the user enters is saved in localStorage on the phone. Nothing is sent anywhere.
 - Schedules are typical UK timings and are labelled as such. The vet's plan always wins and the user can edit or add items.
 - Reminders go out as .ics calendar files so they land in Google Calendar or Apple Calendar.
-- Export and import JSON is the stopgap for sharing between two phones. Proper sync (shared backend) is version two.
+- Two phones share by sending an update file and opening it on the other phone, which merges rather than replaces (see sync below). Live sync would need a shared backend.
 - Advice links: UK sources first (PDSA, RSPCA, Dogs Trust, Kennel Club, BVA). US sources only for training method, never for legal or health rules.
 
 ## Version two (25 October 2026)
@@ -48,6 +48,12 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - A food without a packet guide falls back to calories: 70 x kg^0.75 times 3 under 16 weeks, 2 while growing, 1.7 as an adult, using the weight nearest that day, divided by its kcal.
 - A bowl: each wet pouch covers (pouch grams / that wet food's grams for a whole day) of the day. Kibble fills the rest, split by the mix using each food's own guide (harmonic, so energy adds up).
 - "Use packet guide" on a day, the switch helper and fill in past days can all set kibble grams from this. The switch helper does kibble to kibble, wet to wet or wet to none, in quarter pouches.
+
+## Sync between phones (26 October 2026)
+
+- Every entry in the lists (toilet, sessions, custom, vax, treatments, weights, foodList, stools, feeds, nights, behaviours, sleep, social) gets an id and u (last changed). Diet days use the id diet:YYYY-MM-DD. save() compares each entry with its last saved version to stamp u, and records deleted ids in S.gone.
+- Opening an update merges: union by id, newer u wins, anything in either phone's S.gone is dropped. Settings (name, dob, breed, kind, breed2, commands, vaxDue, adultKg, meals, socialOwn, feedPlan) go as one block, newest wins. A phone with no puppy details never wins.
+- Send an update uses the share sheet with a text/plain .json file, falling back to a download. "Replace this phone with a file" and "Save a backup file" sit under Other options.
 
 ## Ideas for later
 
