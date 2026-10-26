@@ -257,6 +257,8 @@
       <option value="8">8 of 9: very heavy</option>
       <option value="9">9 of 9: obese</option>
     </select>
+    <label for="wAdult">Expected adult weight (kg)</label>
+    <input id="wAdult" type="number" inputmode="decimal" step="0.5" placeholder="Used to read food packet guides">
     <div class="next" id="wGuide"></div>
     <div id="wChart" style="margin-top:12px"></div>
     <p class="muted" id="wGain"></p>
@@ -295,9 +297,10 @@
     </div>
     <div class="row" style="margin-top:8px;align-items:flex-end">
       <div style="flex:1"><label for="dietG">Kibble a day, all meals (g)</label><input id="dietG" type="number" inputmode="numeric" min="0"></div>
-      <button class="small" id="dietUseGuide">Use guide</button>
+      <button class="small" id="dietUseGuide">Use packet guide</button>
     </div>
     <p class="muted" id="dietSplit"></p>
+    <div class="next" id="dietPacket"></div>
     <input id="dietText" placeholder="Notes for the day (optional)" style="margin-top:8px">
     <button class="primary wide" id="dietSave">Save for this day</button>
     <h3>Logged this day</h3>
@@ -321,6 +324,7 @@
     <label class="row" style="margin-top:10px"><input type="checkbox" id="bfSetG"> Kibble a day was <input id="bfG" type="number" inputmode="numeric" min="0" style="width:90px"> g</label>
     <label class="row"><input type="checkbox" id="bfSetWet"> Wet a day was <input id="bfWetN" type="number" inputmode="decimal" min="0" step="0.5" value="1" style="width:70px"> pouch of</label>
     <select id="bfWetFood"></select>
+    <label class="row"><input type="checkbox" id="bfPacket"> Or work out kibble grams each day from the packet guides</label>
     <label class="row"><input type="checkbox" id="bfMeals" checked> Fill in his usual meals, eaten in full</label>
     <button class="primary wide" id="bfGo">Fill in these days</button>
     <p class="muted">Each day keeps its own mix, so a switch still shows the right grams of each food. Days with meals you logged by hand are left alone.</p>
@@ -342,7 +346,7 @@
   </div>
   <div class="card">
     <h2>Switching food gradually</h2>
-    <p class="muted">Fills in his bowl mix for each day of the switch, keeping any wet food as it was. You can change any day afterwards.</p>
+    <p class="muted">Fills in his bowl for each day of the switch. Works for kibble to kibble, wet to wet, or weaning off wet altogether. You can change any day afterwards.</p>
     <div class="row">
       <div style="flex:1"><label for="swFrom">From</label><select id="swFrom"></select></div>
       <div style="flex:1"><label for="swTo">To</label><select id="swTo"></select></div>
@@ -351,6 +355,7 @@
       <div style="flex:1"><label for="swStart">First day</label><input id="swStart" type="date"></div>
       <div style="flex:1"><label for="swDays">Over</label><select id="swDays"><option value="5">5 days</option><option value="7" selected>7 days</option><option value="10">10 days</option><option value="14">14 days</option></select></div>
     </div>
+    <label class="row" style="margin-top:10px"><input type="checkbox" id="swPacket" checked> Work out kibble grams each day from the packet guides</label>
     <button class="primary wide" id="swGo">Fill in those days</button>
   </div>
   <div class="card">
@@ -393,7 +398,7 @@
     <datalist id="foodHistory"></datalist>
     <input id="fShort" placeholder="Short name for the table, e.g. WW dry (optional)" style="margin-top:8px">
     <div class="row" style="margin-top:8px"><select id="fType" style="flex:1"><option>Dry</option><option>Wet</option><option>Raw</option><option>Fresh cooked</option><option>Treats</option></select><button id="addFood">Add</button></div>
-    <p class="muted">Add each food once, treats too. Then set what was in his bowl each day above.</p>
+    <p class="muted">Add each food once, treats too. Then open its packet guide and copy in the feeding table from the bag or tin, one row per line of the table.</p>
   </div>
   <div class="card">
     <h2>Comparing foods</h2>
@@ -508,7 +513,7 @@ const blank = {
   toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], custom:[],
   vax:[], vaxDue:'',
   treatments:[],
-  weights:[], foodList:[], diet:{}, meals:[], stools:[], feeds:[], nights:[], behaviours:[], sleep:[], social:[], socialOwn:[],
+  weights:[], adultKg:'', foodList:[], diet:{}, meals:[], stools:[], feeds:[], nights:[], behaviours:[], sleep:[], social:[], socialOwn:[],
   feedPlan:{ type:'', meals:0, kdry:'', kwet:'', kraw:'', wetG:'' }
 };
 function load() {
@@ -798,11 +803,13 @@ function renderWeight() {
   if (!$('wDate').value) $('wDate').value = today();
   const r = adultRange(), last = [...S.weights].sort(byDate)[0], bcs = [...S.weights].sort(byDate).find(x => x.bcs);
   const sight = SIGHT.test(S.breed + ' ' + S.breed2);
-  $('wGuide').innerHTML = (r
+  $('wAdult').value = S.adultKg || ''; $('wAdult').placeholder = r ? `Blank uses ${(r[0] + r[1]) / 2} kg, the middle of the ${S.breed} range` : 'Used to read food packet guides';
+  $('wGuide').innerHTML = (S.adultKg ? `<div style="margin-bottom:6px"><strong>Expected adult:</strong> ${S.adultKg} kg. Used to read the food packet guides.</div>` : '') + (r
     ? `<strong>Typical adult ${esc(S.breed)}:</strong> ${r[0]} to ${r[1]} kg. Dogs that size usually finish growing at ${growth(r)[1]}.${S.kind !== 'pedigree' ? ' Types and crosses vary a lot, so take this loosely.' : ''}`
     : '<span class="muted">Pick a breed or type in More to see a typical adult weight.</span>')
     + (r && last && +last.kg > r[1] ? `<div class="muted">He's already above the typical adult range, so he may be a bigger one. Body score is the better check.</div>` : '')
     + (bcs ? `<div style="margin-top:6px"><strong>Last body score:</strong> ${bcs.bcs} of 9, ${+bcs.bcs <= 2 ? 'thin. Talk to your vet.' : +bcs.bcs === 3 ? (sight ? 'lean, which is often normal for a sighthound.' : 'lean. Consider feeding about 10% more.') : +bcs.bcs <= 5 ? 'ideal.' : +bcs.bcs === 6 ? 'a bit heavy. Consider feeding about 10% less.' : 'heavy. Talk to your vet.'}</div>` : '')
+    + '<div class="muted" style="margin-top:6px">For expected adult weight, his parents\' adult weights are the best guide. Ask the breeder, or your vet at the next weigh in.</div>'
     + (sight ? '<div class="muted">Sighthounds are naturally lean and often look right with two or three ribs just visible.</div>' : '');
   const w = S.weights.map((d, i) => ({ ...d, i })).sort((a, b) => (a.date > b.date ? 1 : -1));
   $('wList').innerHTML = [...w].reverse().map(d => `<li><span>${d.kg} kg${d.bcs ? ` <span class="tag">body ${d.bcs}/9</span>` : ''}${S.dob ? ` <span class="muted">at ${Math.round(ageWeeks(ts(d.date)))} weeks</span>` : ''}</span><span class="row">${dateInput('weights', d.i, d.date)}${delBtn('weights', d.i)}</span></li>`).join('') || '<li class="muted">No weights yet</li>';
@@ -862,13 +869,15 @@ function renderDiet() {
 // Show how the day's kibble splits by food and by meal
 function dietSplit() {
   const g = +draft.g, kib = S.meals.filter(m => m.what !== 'wet').length;
+  const b = bowlGuide(draft, noon(day));
+  $('dietPacket').innerHTML = b ? '<strong>Packet guide for this bowl:</strong> ' + packetText(b) : '<span class="muted">Add packet guides to his foods (bottom of this tab) and his expected adult weight (Health) to see what the packets say for this bowl.</span>';
   $('dietSplit').textContent = g && draft.main.length ? (draft.main.length > 1 ? draft.main.map(m => `${Math.round(g * m.pct / 100)} g ${short(m.food)}`).join(', ') + '. ' : '') + (kib ? `About ${Math.round(g / kib)} g per kibble meal over ${kib}.` : 'Set his usual meals below to split it by meal.') : '';
 }
 $('dietG').oninput = () => { draft.g = +$('dietG').value || ''; dietSplit(); };
 $('dietUseGuide').onclick = () => {
-  const g = feedGuide(), dry = g && g.foods.find(f => !f.fixed && f.t !== 'wet');
-  if (!dry) { alert('The guide needs his date of birth and a weight first.'); return; }
-  draft.g = Math.round((dry.day[0] + dry.day[1]) / 2 / 5) * 5; $('dietG').value = draft.g; dietSplit();
+  const b = bowlGuide(draft, noon(day));
+  if (!b || !b.foods.length) { alert('Needs his date of birth, a weight or expected adult weight, and kibble in the bowl.'); return; }
+  draft.g = b.kib; $('dietG').value = draft.g; dietSplit();
 };
 $('dietEdit').addEventListener('change', e => {
   const k = e.target.dataset.dm; if (!k) return;
@@ -898,22 +907,119 @@ $('dietSave').onclick = () => {
   S.diet[day] = { main: draft.main.filter(m => m.pct > 0), wet: draft.wet.filter(w => w.n > 0), g: +draft.g || 0, note: draft.note };
   draftDay = null; save();
 };
+const NOWET = '__nowet';
+$('swFrom').onchange = () => renderSwitch();
+function renderSwitch() {
+  const kinds = S.foodList.filter(f => f.type !== 'Treats'), sf = $('swFrom').value || (kinds[0] || {}).name, st = $('swTo').value;
+  $('swFrom').innerHTML = kinds.map(f => `<option${f.name === sf ? ' selected' : ''}>${esc(f.name)}</option>`).join('');
+  const wet = ftype(sf) === 'Wet', to = kinds.filter(f => f.name !== sf && (f.type === 'Wet') === wet);
+  $('swTo').innerHTML = to.map(f => `<option${f.name === st ? ' selected' : ''}>${esc(f.name)}</option>`).join('') + (wet ? `<option value="${NOWET}"${st === NOWET ? ' selected' : ''}>No wet food, all kibble</option>` : '');
+}
 $('swGo').onclick = () => {
-  const from = $('swFrom').value, to = $('swTo').value, start = $('swStart').value, n = +$('swDays').value;
+  const from = $('swFrom').value, to = $('swTo').value, start = $('swStart').value, n = +$('swDays').value, packet = $('swPacket').checked;
   if (!from || !to || from === to || !start) { alert('Pick two different foods and the first day.'); return; }
   const days = [...Array(n + 1)].map((_, i) => localDay(dayStart(start) + (i + 0.5) * DAY));
   if (days.some(d => S.diet[d]) && !confirm('Some of those days are already set. Replace them?')) return;
+  const wetSwitch = ftype(from) === 'Wet', before = dietFor(prevDay(start)) || dietFor(start) || { main: [], wet: [] };
+  const pouchesFrom = wetSwitch ? ((before.wet.find(w => w.food === from) || { n: 1 }).n) : 0;
+  const q = x => Math.round(x * 4) / 4; // quarter pouches
   days.forEach((d, i) => {
-    const pct = i >= n ? 100 : Math.round(100 * (i + 1) / n / 5) * 5, base = dietFor(d);
-    S.diet[d] = { main: [{ food: to, pct }, { food: from, pct: 100 - pct }].filter(m => m.pct > 0), wet: base ? clone(base.wet) : [], g: base ? base.g || 0 : 0, note: S.diet[d] ? S.diet[d].note || '' : '' };
+    const pct = i >= n ? 100 : Math.round(100 * (i + 1) / n / 5) * 5, base = dietFor(d) || { main: [], wet: [], g: 0 };
+    let main = clone(base.main), wet = clone(base.wet);
+    if (!wetSwitch) main = [{ food: to, pct }, { food: from, pct: 100 - pct }].filter(m => m.pct > 0);
+    else {
+      const nNew = q(pouchesFrom * pct / 100);
+      wet = wet.filter(w => w.food !== from && w.food !== to)
+        .concat(to === NOWET ? [] : [{ food: to, n: nNew }], [{ food: from, n: q(pouchesFrom - (to === NOWET ? pouchesFrom * pct / 100 : nNew)) }]).filter(w => w.n > 0);
+    }
+    const y = { main, wet, g: base.g || 0, note: S.diet[d] ? S.diet[d].note || '' : '' };
+    if (packet) { const b = bowlGuide(y, noon(d)); if (b && main.length) y.g = b.kib; }
+    S.diet[d] = y;
   });
-  draftDay = null; save(); alert(`Filled in ${n} days. The day after carries on with ${to}.`);
+  draftDay = null; save(); alert(`Filled in ${n} days. The day after carries on with ${to === NOWET ? 'no wet food' : to}.`);
 };
 $('addFood').onclick = () => {
   const name = $('fBrand').value.trim(); if (!name) return;
   if (S.foodList.some(f => f.name === name)) { alert('That food is already on the list.'); return; }
   S.foodList.push({ name, type: $('fType').value, short: $('fShort').value.trim() }); $('fBrand').value = ''; $('fShort').value = ''; save();
 };
+// ---------- Packet guides ----------
+// Each food can hold the feeding table from its packet: age band, expected adult weight and grams a day
+const pouchG = name => +(S.foodList.find(f => f.name === name) || {}).pouch || +S.feedPlan.wetG || 85;
+const expectedAdult = () => +S.adultKg || (adultRange() ? (adultRange()[0] + adultRange()[1]) / 2 : null);
+const monthsAt = t => S.dob ? (t - ts(S.dob)) / DAY / 30.44 : null;
+const TYPEKEY = { Dry:'dry', Wet:'wet', Raw:'raw', 'Fresh cooked':'wet', Treats:'dry' };
+const kcalOf = name => { const f = S.foodList.find(x => x.name === name) || {}; return +f.kcal || +S.feedPlan['k' + TYPEKEY[f.type || 'Dry']] || KCAL[TYPEKEY[f.type || 'Dry']]; };
+function packetG(name, t) {
+  const f = S.foodList.find(x => x.name === name), rows = (f && f.guide) || [], m = monthsAt(t), a = expectedAdult();
+  if (!rows.length || m === null || !a) return null;
+  const dist = r => m < +r.ageA ? +r.ageA - m : m > +r.ageB ? m - +r.ageB : 0;
+  const best = Math.min(...rows.map(dist)), at = rows.filter(r => dist(r) === best);
+  // A band row reads low grams for the small end of its adult weights and high grams for the big end
+  const pts = at.flatMap(r => +r.adA === +r.adB ? [[+r.adA, (+r.gA + +r.gB) / 2]] : [[+r.adA, +r.gA], [+r.adB, +r.gB]]).sort((x, y) => x[0] - y[0]);
+  let g;
+  if (a <= pts[0][0]) g = pts[0][1];
+  else if (a >= pts[pts.length - 1][0]) g = pts[pts.length - 1][1];
+  else { const j = pts.findIndex(q => q[0] >= a), [a0, g0] = pts[j - 1], [a1, g1] = pts[j]; g = g0 + (g1 - g0) * (a - a0) / (a1 - a0 || 1); }
+  return { g, src: 'packet', lo: Math.min(...at.map(r => Math.min(+r.gA, +r.gB))), hi: Math.max(...at.map(r => Math.max(+r.gA, +r.gB))),
+    outside: a < pts[0][0] || a > pts[pts.length - 1][0], offAge: best > 0, band: at[0] };
+}
+// Calories he needs on a day, from the nearest weight and his age then
+function needKcal(t) {
+  const ws = [...S.weights].sort(byDate), w = ws.find(x => ts(x.date) <= t + DAY) || ws[ws.length - 1]; if (!w || !S.dob) return null;
+  const wk = (t - ts(S.dob)) / WEEK, adultAt = growth(adultRange())[0] * 4.35, f = wk < 16 ? 3 : wk < adultAt ? 2 : 1.7;
+  return 70 * Math.pow(+w.kg, 0.75) * f;
+}
+function gramsAll(name, t) {
+  const pk = packetG(name, t); if (pk) return pk;
+  const k = needKcal(t); return k ? { g: k / kcalOf(name) * 100, src: 'calories' } : null;
+}
+// What the packets say for a whole bowl: wet pouches cover their share of the day, kibble makes up the rest
+function bowlGuide(x, t) {
+  if (!x || (!x.main.length && !x.wet.length)) return null;
+  let wetShare = 0; const wet = [];
+  for (const w of x.wet) { const all = gramsAll(w.food, t); if (!all) return null; const g = w.n * pouchG(w.food); wetShare += g / all.g; wet.push({ food: w.food, g, src: all.src }); }
+  const main = x.main.map(m => ({ ...m, all: gramsAll(m.food, t) }));
+  if (main.some(m => !m.all)) return null;
+  const left = Math.max(0, 1 - wetShare), inv = main.reduce((a, m) => a + m.pct / 100 / m.all.g, 0), kib = inv ? left / inv : 0;
+  return { kib: Math.round(kib / 5) * 5, wetShare, wet, foods: main.map(m => ({ food: m.food, g: kib * m.pct / 100, src: m.all.src, pk: m.all })),
+    calories: [...main.map(m => m.all), ...wet].some(z => z.src === 'calories') };
+}
+const noon = d => dayStart(d) + DAY / 2;
+function packetText(b) {
+  if (!b) return '';
+  const parts = [];
+  if (b.foods.length) parts.push(`about <strong>${b.kib} g kibble a day</strong>${b.foods.length > 1 ? ` (${b.foods.map(f => `${Math.round(f.g)} g ${esc(short(f.food))}`).join(', ')})` : ''}`);
+  if (b.wet.length) parts.push(`${b.wet.map(w => `${Math.round(w.g)} g ${esc(short(w.food))}`).join(' and ')}, which covers about ${Math.round(100 * Math.min(1, b.wetShare))}% of his day`);
+  return parts.join(', plus ') + '.' + (b.wetShare >= 1 ? ' On its packet guide the wet food covers his whole day by itself.' : '')
+    + (b.calories ? ' <span class="muted">Worked out from calories for any food without a packet guide.</span>' : '');
+}
+$('wAdult').onchange = () => { S.adultKg = $('wAdult').value; save(); };
+// Packet guide rows, added from each food's panel
+const openGuides = new Set();
+document.addEventListener('toggle', e => { const i = e.target.dataset && e.target.dataset.guide; if (i === undefined) return; e.target.open ? openGuides.add(i) : openGuides.delete(i); }, true);
+document.addEventListener('click', e => {
+  const i = e.target.dataset.gadd; if (i === undefined) return;
+  const v = k => $('g' + k + i).value, row = { ageA: v('ageA'), ageB: v('ageB'), adA: v('adA'), adB: v('adB') || v('adA'), gA: v('gA'), gB: v('gB') || v('gA') };
+  if (!row.ageA || !row.ageB || !row.adA || !row.gA) { alert('Fill in the age band, the adult weight and the grams.'); return; }
+  const f = S.foodList[+i]; f.guide = f.guide || []; f.guide.push(row); f.guide.sort((a, b) => a.ageA - b.ageA || a.adA - b.adA); save();
+});
+function guidePanel(f, i) {
+  const rows = f.guide || [], now = gramsAll(f.name, Date.now()), wet = f.type === 'Wet';
+  const inp = (k, ph) => `<input id="g${k}${i}" type="number" inputmode="decimal" placeholder="${ph}" style="flex:1;min-width:60px">`;
+  return `<details data-guide="${i}"${openGuides.has(String(i)) ? ' open' : ''} style="margin-top:6px"><summary class="muted">Packet feeding guide${rows.length ? ` (${rows.length} row${rows.length === 1 ? '' : 's'})` : ', not added'}</summary>
+    <ul>${rows.map((r, j) => `<li style="flex-wrap:nowrap"><span style="flex:1">${r.ageA} to ${r.ageB} months, adult ${+r.adA === +r.adB ? r.adA : r.adA + ' to ' + r.adB} kg: ${+r.gA === +r.gB ? r.gA : r.gA + ' to ' + r.gB} g a day</span>${delBtn('foodList.' + i + '.guide', j)}</li>`).join('')}</ul>
+    <div class="muted" style="margin-top:6px">Add a row from the packet's table</div>
+    <div class="row">${inp('ageA', 'months from')}${inp('ageB', 'to')}</div>
+    <div class="row" style="margin-top:6px">${inp('adA', 'adult kg from')}${inp('adB', 'to')}</div>
+    <div class="row" style="margin-top:6px">${inp('gA', 'g a day from')}${inp('gB', 'to')}</div>
+    <button class="small" data-gadd="${i}" style="margin-top:6px">Add row</button>
+    <div class="row" style="margin-top:8px"><label style="margin:0;flex:1">kcal per 100g <input type="number" inputmode="numeric" value="${esc(f.kcal || '')}" data-edit="foodList|${i}|kcal"></label>${wet ? `<label style="margin:0;flex:1">Pouch or tin (g) <input type="number" inputmode="numeric" value="${esc(f.pouch || '')}" data-edit="foodList|${i}|pouch"></label>` : ''}</div>
+    <p class="muted">For a single figure, put the same number in from and to, or leave "to" blank. A packet table with columns for adult sizes works best as one row per cell.${wet ? ' For wet food, use grams a day (pouches times pouch weight).' : ''}</p>
+  </details>`
+  + (now ? `<div class="muted">For him now, if it were all he ate: about ${Math.round(now.g / 5) * 5} g a day${now.src === 'packet' ? `, packet range ${now.lo} to ${now.hi} g for his age${now.outside ? '. His expected adult weight is outside this packet\'s sizes, so check the next size up or down.' : ''}${now.offAge ? '. His age is outside the packet rows, so this is from the nearest row.' : ''}` : ' from calories (add the packet guide for a better figure)'}${wet ? ` (${(now.g / pouchG(f.name)).toFixed(1)} pouches)` : ''}.</div>` : '');
+}
+
 // ---------- Meals ----------
 const MEAL = { kibble:'Kibble', wet:'Wet', both:'Kibble and wet' };
 const DEFAULT_MEALS = [{ time:'07:00', what:'kibble' }, { time:'11:00', what:'kibble' }, { time:'15:00', what:'kibble' }, { time:'18:30', what:'wet' }];
@@ -931,11 +1037,11 @@ $('mealAdd').onclick = () => { S.meals.push({ time:'12:00', what:'kibble' }); S.
 // His usual meals for a day, from that day's bowl
 function mealsFor(d) {
   const x = dietFor(d); if (!x || !S.meals.length) return [];
-  const kib = S.meals.filter(m => m.what !== 'wet').length, wetM = S.meals.filter(m => m.what !== 'kibble').length, pouch = +S.feedPlan.wetG || 85;
+  const kib = S.meals.filter(m => m.what !== 'wet').length, wetM = S.meals.filter(m => m.what !== 'kibble').length;
   return S.meals.map(m => {
     const items = [];
     if (m.what !== 'wet' && x.g && kib) x.main.forEach(f => items.push({ food: f.food, g: Math.round(x.g * f.pct / kib) / 100 }));
-    if (m.what !== 'kibble' && wetM) x.wet.forEach(w => items.push({ food: w.food, g: Math.round(100 * w.n * pouch / wetM) / 100, n: w.n / wetM }));
+    if (m.what !== 'kibble' && wetM) x.wet.forEach(w => items.push({ food: w.food, g: Math.round(100 * w.n * pouchG(w.food) / wetM) / 100, n: w.n / wetM }));
     if (!items.length) return null;
     const [h, mi] = m.time.split(':').map(Number);
     return { t: dayStart(d) + (h * 60 + mi) * 60000, items, food: items.map(it => short(it.food)).join(' + '), g: Math.round(items.reduce((a, it) => a + it.g, 0)), ate: 1, auto: true };
@@ -962,6 +1068,7 @@ document.addEventListener('change', e => {
 const daysBetween = (a, b) => { const out = []; for (let d = a; d <= b; d = nextDay(d)) out.push(d); return out; };
 $('bfGo').onclick = () => {
   const from = $('bfFrom').value, to = $('bfTo').value, setG = $('bfSetG').checked, g = +$('bfG').value, meals = $('bfMeals').checked;
+  const packet = $('bfPacket').checked; if (packet && $('bfSetG').checked) { alert('Pick either a set amount of kibble or the packet guides, not both.'); return; }
   const setWet = $('bfSetWet').checked, wetN = +$('bfWetN').value || 0, wetFood = $('bfWetFood').value;
   if (setWet && wetN && !wetFood) { alert('Add a wet food first.'); return; }
   if (!from || !to || from > to) { alert('Pick the first and last day.'); return; }
@@ -972,7 +1079,11 @@ $('bfGo').onclick = () => {
   let filled = 0, skipped = 0;
   days.forEach(d => {
     const x = dietFor(d); if (!x) return;
-    if (setG || setWet) { const { set, ...rest } = x; S.diet[d] = { ...clone(rest), ...(setG ? { g } : {}), ...(setWet ? { wet: wetN ? [{ food: wetFood, n: wetN }] : [] } : {}) }; }
+    if (setG || setWet || packet) {
+      const { set, ...rest } = x, y = { ...clone(rest), ...(setG ? { g } : {}), ...(setWet ? { wet: wetN ? [{ food: wetFood, n: wetN }] : [] } : {}) };
+      if (packet) { const b = bowlGuide(y, noon(d)); if (b) y.g = b.kib; }
+      S.diet[d] = y;
+    }
     if (meals) { if (handFeeds(d).length) skipped++; else { fillMeals(d); filled++; } }
   });
   save(); alert(`Done for ${days.length - none.length} day${days.length - none.length === 1 ? '' : 's'}.${meals ? ` Meals filled on ${filled}${skipped ? `, ${skipped} left alone as they had meals logged by hand` : ''}.` : ''}`);
@@ -984,7 +1095,7 @@ function eatenOn(d) {
   if (fs.length) { fs.forEach(f => (f.items || [{ food: f.food, g: f.g }]).forEach(it => add(it.food, it.g * +f.ate, (it.n || 0) * +f.ate))); return { foods: out, planned: false }; }
   const x = dietFor(d); if (!x) return null;
   x.main.forEach(m => x.g && add(m.food, x.g * m.pct / 100));
-  x.wet.forEach(w => add(w.food, w.n * (+S.feedPlan.wetG || 85), w.n));
+  x.wet.forEach(w => add(w.food, w.n * pouchG(w.food), w.n));
   return { foods: out, planned: true };
 }
 const foodsText = e => Object.entries(e.foods).filter(([, v]) => v.g > 0).map(([f, v]) => `${short(f)} ${Math.round(v.g)} g${v.n ? ` (${+v.n.toFixed(1)} pouch${v.n === 1 ? '' : 'es'})` : ''}`).join(', ');
@@ -1042,17 +1153,13 @@ function renderFood() {
   if (!$('bfFrom').value) { $('bfFrom').value = Object.keys(S.diet).sort()[0] || localDay(Date.now() - WEEK); $('bfTo').value = localDay(Date.now() - DAY); }
   if (!$('vsFrom').value) { $('vsFrom').value = localDay(Date.now() - 13 * DAY); $('vsTo').value = localDay(Date.now()); }
   $('vsOut').innerHTML = vetSummary().html;
-  const names = S.foodList.map(f => f.name), opt = (cur) => names.map(n => `<option${n === cur ? ' selected' : ''}>${esc(n)}</option>`).join('');
-  const nonWet = S.foodList.filter(f => f.type !== 'Wet' && f.type !== 'Treats').map(f => f.name);
-  const sf = $('swFrom').value, st = $('swTo').value;
-  $('swFrom').innerHTML = nonWet.map(n => `<option${n === sf ? ' selected' : ''}>${esc(n)}</option>`).join('');
-  $('swTo').innerHTML = nonWet.map(n => `<option${n === st ? ' selected' : ''}>${esc(n)}</option>`).join('');
-  if (!st && nonWet.length > 1) $('swTo').value = nonWet[nonWet.length - 1];
+  const names = S.foodList.map(f => f.name);
+  renderSwitch();
   if (!$('swStart').value) $('swStart').value = localDay(Date.now());
   $('foodHistory').innerHTML = names.map(n => `<option value="${esc(n)}">`).join('');
   $('foodList').innerHTML = S.foodList.map((f, i) => {
     const days = Object.keys(S.diet).filter(d => [...S.diet[d].main, ...S.diet[d].wet].some(x => x.food === f.name)).sort();
-    return `<li><span>${esc(f.name)} <span class="tag">${f.type}</span>${f.short ? ` <span class="muted">(${esc(f.short)})</span>` : ''}${days.length ? `<div class="muted">In his bowl from ${fmt(days[0])}</div>` : ''}</span>${delBtn('foodList', i)}</li>`;
+    return `<li style="display:block"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span style="flex:1">${esc(f.name)} <span class="tag">${f.type}</span>${f.short ? ` <span class="muted">(${esc(f.short)})</span>` : ''}</span>${delBtn('foodList', i)}</div>${days.length ? `<div class="muted">In his bowl from ${fmt(days[0])}</div>` : ''}${f.type !== 'Treats' ? guidePanel(f, i) : ''}</li>`;
   }).join('') || '<li class="muted">No foods yet</li>';
   renderGuide(); renderFeeds();
 }
@@ -1096,7 +1203,9 @@ function renderGuide() {
   $('gWetWrap').classList.toggle('hidden', type !== 'mixed');
   if (!g) { $('gOut').innerHTML = '<span class="muted">Add his date of birth in More and a weight in Health to see a guide.</span>'; return; }
   const sug = suggestedMeals(g.wk), sight = SIGHT.test(S.breed + ' ' + S.breed2);
-  $('gOut').innerHTML = `<div>At ${g.kg} kg and ${Math.round(g.wk)} weeks he needs roughly <strong>${g.kcal[0]} to ${g.kcal[1]} kcal a day</strong>.</div>`
+  const pb = bowlGuide(dietFor(localDay(Date.now())), Date.now());
+  $('gOut').innerHTML = (pb ? `<div><strong>From the packets, for today's bowl:</strong> ${packetText(pb)}</div><h3>Cross-check from calories</h3>` : '')
+    + `<div>At ${g.kg} kg and ${Math.round(g.wk)} weeks he needs roughly <strong>${g.kcal[0]} to ${g.kcal[1]} kcal a day</strong>.</div>`
     + g.foods.map(f => {
       const typ = f.typical ? ' <span class="muted">Using a typical ' + KCAL[f.t] + ' kcal/100g.</span>' : '';
       if (f.fixed) return `<div style="margin-top:6px"><strong>Wet:</strong> ${f.day[0]} g a day, about ${g.wetKcal} kcal.${typ}</div>`;
