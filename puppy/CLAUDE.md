@@ -55,6 +55,13 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Opening an update merges: union by id, newer u wins, anything in either phone's S.gone is dropped. Settings (name, dob, breed, kind, breed2, commands, vaxDue, adultKg, meals, socialOwn, feedPlan) go as one block, newest wins. A phone with no puppy details never wins.
 - Send an update uses the share sheet with a text/plain .json file, falling back to a download. "Replace this phone with a file" and "Save a backup file" sit under Other options.
 
+## Simpler Food tab and treats (27 October 2026)
+
+- Every Food tab card has a Hide button, and hidden cards are listed under "Add a section" at the bottom. The choice is per phone (stored in the sync meta, not synced). Shown by default: Day by day, Treats and extras, Food and poos, His usual meals, His foods. Switching food gradually shows itself while a switch is under way (2 or more kibbles or wets today, or a bowl set for a future day), unless hidden. A hidden switch card goes back to automatic once the switch ends.
+- Day by day shows the bowl as one line with "Change his bowl for this day". The editor only opens when asked, or when nothing is set yet.
+- Treats are foodList entries of type Treats with kcal per unit (teaspoon, gram or piece). Recipes (S.recipes) mix treats with "his kibble" from his allowance, which adds no calories. Treat logs (S.treats) copy the recipe's parts.
+- Treats advice for today: extra kcal and % of his day (warns over 10%), and how much to take out of his meals (kibble used in treats plus the extras' kcal as grams of his kibble mix). Filled meals take treats out automatically. If meals were filled before a treat, a button updates them. The vet summary includes treat kibble and extras.
+
 ## Ideas for later
 
 - Summary tab that analyses all the data and suggests causes and things to try. Needs an AI step, so data would leave the phone: make it opt in, and never put an API key in this public repo (use the user's own key stored on the device, or a small private backend).

@@ -1,5 +1,5 @@
 // Caches the app so it opens without signal. Bump VERSION when files change.
-const VERSION = 'puppy-v13';
+const VERSION = 'puppy-v14';
 const FILES = ['./', 'index.html', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', e => e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES))));

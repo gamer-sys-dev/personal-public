@@ -285,10 +285,13 @@
 
 <!-- FOOD -->
 <section id="tab-food" class="hidden">
-  <div class="card">
+  <div class="card" data-sec="day">
     <h2>Day by day</h2>
     <div class="row"><button id="dayPrev" aria-label="Previous day">&lsaquo;</button><input type="date" id="dayPick" style="flex:1"><button id="dayNext" aria-label="Next day">&rsaquo;</button></div>
     <h3>What was in his bowl</h3>
+    <div id="dietSummary"></div>
+    <button class="small" id="dietOpen" style="margin-top:6px">Change his bowl for this day</button>
+    <div id="dietBox" class="hidden">
     <p class="muted" id="dietNote"></p>
     <div id="dietEdit"></div>
     <div class="row" style="margin-top:8px">
@@ -302,20 +305,46 @@
     <p class="muted" id="dietSplit"></p>
     <div class="next" id="dietPacket"></div>
     <input id="dietText" placeholder="Notes for the day (optional)" style="margin-top:8px">
-    <button class="primary wide" id="dietSave">Save for this day</button>
+    <div class="row"><button class="primary" id="dietSave" style="flex:1;margin-top:12px">Save for this day</button><button id="dietClose" style="margin-top:12px">Cancel</button></div>
+    </div>
     <h3>Logged this day</h3>
     <p id="daySum"></p>
     <ul id="dayList"></ul>
     <button class="wide" id="dayMeals">Fill in his usual meals for this day</button>
-    <p class="muted">Meals are worked out from the bowl and his usual meals, eaten in full. Change the amount or how much he ate on any meal that was different. Wees and poos come from the Toilet tab.</p>
+    <p class="muted">Meals come from the bowl and his usual meals, eaten in full, with any treats taken out. Change any meal that was different. Wees and poos come from the Toilet tab.</p>
   </div>
-  <div class="card">
+  <div class="card" data-sec="treats">
+    <h2>Treats and extras</h2>
+    <div class="next" id="trToday"></div>
+    <div class="row" id="trQuick" style="margin-top:8px"></div>
+    <div data-when="treat"></div>
+    <ul id="trList" style="margin-top:6px"></ul>
+    <details id="trSetup" style="margin-top:8px"><summary class="muted">Set up treats and recipes</summary>
+      <h3>Treats</h3>
+      <ul id="trItems"></ul>
+      <input id="trName" placeholder="e.g. Peanut butter (xylitol free)">
+      <div class="row" style="margin-top:6px">
+        <select id="trUnit" style="flex:1"><option value="tsp">per teaspoon</option><option value="g">per gram</option><option value="piece">per piece</option></select>
+        <input id="trKcal" type="number" inputmode="decimal" placeholder="kcal" style="flex:1">
+        <button id="trAdd">Add</button>
+      </div>
+      <p class="muted">Calories for one teaspoon, gram or piece, from the label. A level teaspoon is about 5 g. Peanut butter must be xylitol free (sometimes listed as birch sugar), as xylitol is poisonous to dogs.</p>
+      <h3>Recipes</h3>
+      <ul id="trRecipes"></ul>
+      <input id="rcName" placeholder="e.g. Kong">
+      <div id="rcParts"></div>
+      <button class="small" id="rcAddPart" style="margin-top:6px">+ Add to the recipe</button>
+      <button class="primary wide" id="rcSave">Save recipe</button>
+      <p class="muted">"His kibble" comes out of his daily allowance, so it adds no calories. Everything else is extra.</p>
+    </details>
+  </div>
+  <div class="card" data-sec="meals">
     <h2>His usual meals</h2>
     <div id="mealList"></div>
     <button class="small" id="mealAdd" style="margin-top:8px">+ Add a meal</button>
     <p class="muted">Kibble is split evenly across the kibble meals, by each day's mix. Wet pouches go in the wet meals. Pouch size comes from the feeding guide (85 g if blank).</p>
   </div>
-  <div class="card">
+  <div class="card" data-sec="backfill">
     <h2>Fill in past days</h2>
     <div class="row">
       <div style="flex:1"><label for="bfFrom">From</label><input id="bfFrom" type="date"></div>
@@ -329,7 +358,7 @@
     <button class="primary wide" id="bfGo">Fill in these days</button>
     <p class="muted">Each day keeps its own mix, so a switch still shows the right grams of each food. Days with meals you logged by hand are left alone.</p>
   </div>
-  <div class="card">
+  <div class="card" data-sec="vet">
     <h2>Summary for the vet</h2>
     <div class="row">
       <div style="flex:1"><label for="vsFrom">From</label><input id="vsFrom" type="date"></div>
@@ -339,12 +368,12 @@
     <button class="wide" id="vsCopy">Copy as text</button>
     <textarea id="vsText" class="hidden" rows="8" readonly style="margin-top:8px"></textarea>
   </div>
-  <div class="card">
+  <div class="card" data-sec="foodpoo">
     <h2>Food and poos</h2>
     <div id="fpTable"></div>
     <div id="fpNotes"></div>
   </div>
-  <div class="card">
+  <div class="card" data-sec="switch">
     <h2>Switching food gradually</h2>
     <p class="muted">Fills in his bowl for each day of the switch. Works for kibble to kibble, wet to wet, or weaning off wet altogether. You can change any day afterwards.</p>
     <div class="row">
@@ -358,8 +387,8 @@
     <label class="row" style="margin-top:10px"><input type="checkbox" id="swPacket" checked> Work out kibble grams each day from the packet guides</label>
     <button class="primary wide" id="swGo">Fill in those days</button>
   </div>
-  <div class="card">
-    <h2>Log a feed</h2>
+  <div class="card" data-sec="feed">
+    <h2>Log a single feed</h2>
     <label for="feedFood">Food</label>
     <input id="feedFood" list="foodHistory">
     <div class="row" id="feedChips" style="margin-top:6px"></div>
@@ -371,8 +400,8 @@
     <div data-when="feed"></div>
     <button class="primary wide" id="logFeed">Log feed</button>
   </div>
-  <div class="card">
-    <h2>Feeding guide</h2>
+  <div class="card" data-sec="guide">
+    <h2>Calorie guide</h2>
     <div class="row">
       <div style="flex:1"><label for="gType">Food type</label>
         <select id="gType"><option value="dry">Dry</option><option value="wet">Wet</option><option value="raw">Raw</option><option value="mixed">Mixed dry and wet</option></select></div>
@@ -390,19 +419,24 @@
     <div class="next" id="gOut"></div>
     <p class="muted">A rough guide only, worked out from his latest weight and age with a standard calorie formula. Foods differ a lot, so follow the manufacturer's feeding guide on the packet first and your vet's advice over both. Adjust by body score rather than sticking to a number, and count treats as part of the day (about 10% at most).</p>
   </div>
-  <div class="card">
+  <div class="card" data-sec="foods">
     <h2>His foods</h2>
     <ul id="foodList"></ul>
     <h3>Add a food</h3>
     <input id="fBrand" list="foodHistory" placeholder="e.g. Brand X Puppy Medium, Turkey and rice">
     <datalist id="foodHistory"></datalist>
     <input id="fShort" placeholder="Short name for the table, e.g. WW dry (optional)" style="margin-top:8px">
-    <div class="row" style="margin-top:8px"><select id="fType" style="flex:1"><option>Dry</option><option>Wet</option><option>Raw</option><option>Fresh cooked</option><option>Treats</option></select><button id="addFood">Add</button></div>
-    <p class="muted">Add each food once, treats too. Then open its packet guide and copy in the feeding table from the bag or tin, one row per line of the table.</p>
+    <div class="row" style="margin-top:8px"><select id="fType" style="flex:1"><option>Dry</option><option>Wet</option><option>Raw</option><option>Fresh cooked</option></select><button id="addFood">Add</button></div>
+    <p class="muted">Add each food once. Treats go in Treats and extras. Then open its packet guide and copy in the feeding table from the bag or tin, one row per line of the table.</p>
   </div>
-  <div class="card">
+  <div class="card" data-sec="compare">
     <h2>Comparing foods</h2>
     <p class="muted">For independent ratings of UK dog foods by ingredients, see <a href="https://www.allaboutdogfood.co.uk/" target="_blank" rel="noopener">All About Dog Food</a>. The PFMA has <a href="https://www.ukpetfood.org/" target="_blank" rel="noopener">UK pet food guidance</a>. Your own stool and weight logs are the best guide to what suits him.</p>
+  </div>
+  <div class="card" id="secAdd">
+    <h2>Add a section</h2>
+    <div class="row" id="secChips"></div>
+    <p class="muted">Hide anything you don't use with the Hide button on its card. Nothing you've logged is lost.</p>
   </div>
 </section>
 
@@ -521,7 +555,7 @@ const blank = {
   toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], custom:[],
   vax:[], vaxDue:'',
   treatments:[],
-  weights:[], adultKg:'', foodList:[], diet:{}, meals:[], stools:[], feeds:[], nights:[], behaviours:[], sleep:[], social:[], socialOwn:[],
+  weights:[], adultKg:'', foodList:[], diet:{}, meals:[], stools:[], feeds:[], treats:[], recipes:[], nights:[], behaviours:[], sleep:[], social:[], socialOwn:[],
   feedPlan:{ type:'', meals:0, kdry:'', kwet:'', kraw:'', wetG:'' }
 };
 function load() {
@@ -862,7 +896,15 @@ const mixText = (x, sh) => { const nm = sh ? short : n => n; return x ? [...x.ma
 const clone = x => JSON.parse(JSON.stringify(x));
 let draft = null, draftDay = null;
 const mainOpts = () => S.foodList.filter(f => f.type !== 'Wet' && f.type !== 'Treats'), wetOpts = () => S.foodList.filter(f => f.type === 'Wet');
+let dietOpen = false;
+$('dietOpen').onclick = () => { dietOpen = true; renderDiet(); };
+$('dietClose').onclick = () => { dietOpen = false; draftDay = null; renderDiet(); };
 function renderDiet() {
+  const cur = dietFor(day);
+  $('dietSummary').innerHTML = cur ? `<strong>${esc(mixText(cur, true))}</strong>${cur.g ? `, ${cur.g} g kibble a day` : ''}${S.diet[day] ? '' : `<div class="muted">Same as ${fmt(cur.set)}</div>`}${S.diet[day] && S.diet[day].note ? `<div class="muted">${esc(S.diet[day].note)}</div>` : ''}`
+    : '<span class="muted">Not set yet.</span>';
+  $('dietBox').classList.toggle('hidden', !(dietOpen || !cur));
+  $('dietOpen').classList.toggle('hidden', dietOpen || !cur);
   if (draftDay !== day) { const d = dietFor(day); draft = d ? { main: clone(d.main), wet: clone(d.wet), g: d.g || '', note: S.diet[day] ? d.note || '' : '' } : { main: [], wet: [], g: '', note: '' }; draftDay = day; }
   const d = dietFor(day);
   $('dietNote').textContent = !S.foodList.length ? 'Add his foods at the bottom of this tab first.'
@@ -914,7 +956,7 @@ $('dietSave').onclick = () => {
   if (draft.main.length && sum !== 100) { alert(`The kibble mix adds up to ${sum}%. Make it 100%.`); return; }
   draft.note = $('dietText').value.trim();
   S.diet[day] = { main: draft.main.filter(m => m.pct > 0), wet: draft.wet.filter(w => w.n > 0), g: +draft.g || 0, note: draft.note };
-  draftDay = null; save();
+  draftDay = null; dietOpen = false; save();
 };
 const NOWET = '__nowet';
 $('swFrom').onchange = () => renderSwitch();
@@ -1029,6 +1071,112 @@ function guidePanel(f, i) {
   + (now ? `<div class="muted">For him now, if it were all he ate: about ${Math.round(now.g / 5) * 5} g a day${now.src === 'packet' ? `, packet range ${now.lo} to ${now.hi} g for his age${now.outside ? '. His expected adult weight is outside this packet\'s sizes, so check the next size up or down.' : ''}${now.offAge ? '. His age is outside the packet rows, so this is from the nearest row.' : ''}` : ' from calories (add the packet guide for a better figure)'}${wet ? ` (${(now.g / pouchG(f.name)).toFixed(1)} pouches)` : ''}.</div>` : '');
 }
 
+// ---------- Treats ----------
+// Treats are foodList entries of type Treats with kcal per unit. Recipes mix treats with kibble from his allowance.
+const KIBBLE = '__kibble', UNIT = { tsp:'tsp', g:'g', piece:'piece' };
+const treatItems = () => S.foodList.filter(f => f.type === 'Treats');
+const kcalU = name => +(S.foodList.find(f => f.name === name) || {}).kcalU || 0;
+const unitOf = name => (S.foodList.find(f => f.name === name) || {}).unit || 'piece';
+// Calories in a gram of his kibble that day, by the mix
+function kibbleKcalG(d) { const x = dietFor(d); return x && x.main.length ? x.main.reduce((a, m) => a + m.pct / 100 * kcalOf(m.food) / 100, 0) : (+S.feedPlan.kdry || KCAL.dry) / 100; }
+function treatsOn(d) {
+  const xs = S.treats.filter(x => localDay(x.t) === d), extras = {};
+  let kibble = 0, kcal = 0;
+  xs.forEach(x => x.parts.forEach(p => {
+    if (p.food === KIBBLE) { kibble += +p.qty; return; }
+    const k = (extras[p.food] = extras[p.food] || { name: p.food, qty: 0, unit: unitOf(p.food), kcal: 0 });
+    k.qty += +p.qty; k.kcal += +p.qty * kcalU(p.food); kcal += +p.qty * kcalU(p.food);
+  }));
+  return { logs: xs, kibble, kcal, extras: Object.values(extras), cover: kcal / kibbleKcalG(d) };
+}
+// Kibble left for meals once treats are taken out
+function mealKibble(d) { const x = dietFor(d); if (!x || !x.g) return 0; const t = treatsOn(d); return Math.max(0, x.g - t.kibble - t.cover); }
+$('trAdd').onclick = () => {
+  const name = $('trName').value.trim(), kcal = +$('trKcal').value;
+  if (!name || !(kcal >= 0) || $('trKcal').value === '') { alert('Add the treat and its calories.'); return; }
+  if (S.foodList.some(f => f.name === name)) { alert('That name is already used.'); return; }
+  S.foodList.push({ name, type: 'Treats', unit: $('trUnit').value, kcalU: kcal }); $('trName').value = ''; $('trKcal').value = ''; save();
+};
+let rcDraft = [{ food: KIBBLE, qty: 30 }];
+const partOpts = cur => `<option value="${KIBBLE}"${cur === KIBBLE ? ' selected' : ''}>His kibble (g)</option>` + treatItems().map(f => `<option${f.name === cur ? ' selected' : ''}>${esc(f.name)}</option>`).join('');
+function renderRecipeDraft() {
+  $('rcParts').innerHTML = rcDraft.map((p, i) => `<div class="row" style="margin-top:6px"><select data-rc="${i}|food" style="flex:2">${partOpts(p.food)}</select><input type="number" inputmode="decimal" step="0.25" value="${p.qty}" data-rc="${i}|qty" style="flex:1"><span class="muted">${p.food === KIBBLE ? 'g' : UNIT[unitOf(p.food)]}</span><button class="small" data-rcx="${i}">x</button></div>`).join('');
+}
+$('rcParts').addEventListener('change', e => { const k = e.target.dataset.rc; if (!k) return; const [i, f] = k.split('|'); rcDraft[+i][f] = f === 'qty' ? +e.target.value : e.target.value; renderRecipeDraft(); });
+$('rcParts').addEventListener('click', e => { const i = e.target.dataset.rcx; if (i !== undefined) { rcDraft.splice(+i, 1); renderRecipeDraft(); } });
+$('rcAddPart').onclick = () => { const t = treatItems()[0]; rcDraft.push(t ? { food: t.name, qty: 1 } : { food: KIBBLE, qty: 10 }); renderRecipeDraft(); };
+$('rcSave').onclick = () => {
+  const name = $('rcName').value.trim(), parts = rcDraft.filter(p => +p.qty > 0);
+  if (!name || !parts.length) { alert('Name the recipe and add what goes in it.'); return; }
+  S.recipes.push({ name, parts: clone(parts) }); $('rcName').value = ''; rcDraft = [{ food: KIBBLE, qty: 30 }]; save();
+};
+const partsText = parts => parts.map(p => p.food === KIBBLE ? `${p.qty} g kibble` : `${+(+p.qty).toFixed(2)} ${UNIT[unitOf(p.food)]} ${p.food}`).join(', ');
+const partsKcal = parts => parts.reduce((a, p) => a + (p.food === KIBBLE ? 0 : +p.qty * kcalU(p.food)), 0);
+document.addEventListener('click', e => {
+  const r = e.target.dataset.treat; if (r === undefined) return;
+  const t = when('treat'); if (t === null) return;
+  const [kind, i] = r.split('|'), src = kind === 'r' ? S.recipes[+i] : null, item = kind === 'i' ? treatItems()[+i] : null;
+  const parts = src ? clone(src.parts) : [{ food: item.name, qty: 1 }];
+  addTimed(S.treats, { t, name: src ? src.name : item.name, parts }); save();
+});
+document.addEventListener('click', e => { if (e.target.id === 'trRefill') { fillMeals(localDay(Date.now())); save(); } });
+function renderTreats() {
+  const d = localDay(Date.now()), tr = treatsOn(d), x = dietFor(d), need = needKcal(noon(d));
+  $('trQuick').innerHTML = S.recipes.map((r, i) => `<button class="small" data-treat="r|${i}">+ ${esc(r.name)}</button>`).join('')
+    + treatItems().map((f, i) => `<button class="small" data-treat="i|${i}">+ 1 ${UNIT[f.unit || 'piece']} ${esc(f.name)}</button>`).join('')
+    || '<span class="muted">Set up treats and recipes below, then log them here with one tap.</span>';
+  const pb = x && !x.g ? bowlGuide(x, noon(d)) : null, allowance = x ? (x.g || (pb ? pb.kib : 0)) : 0;
+  const out = [];
+  if (!tr.logs.length) out.push('<span class="muted">No treats logged today. Log them as you give them, or in the morning if you know what\'s planned.</span>');
+  else {
+    out.push(`<strong>Today:</strong> ${tr.logs.map(l => esc(l.name)).join(', ')}.`);
+    if (tr.kcal) out.push(`Extras add about <strong>${Math.round(tr.kcal)} kcal</strong>${need ? `, ${Math.round(100 * tr.kcal / need)}% of his day` : ''}.`);
+    const take = Math.round(tr.kibble + tr.cover);
+    if (take && allowance) out.push(`Take about <strong>${take} g</strong> out of his meals${tr.kibble ? `: ${Math.round(tr.kibble)} g of kibble went in the treats` : ''}${tr.cover >= 1 ? `${tr.kibble ? ' and' : ':'} about ${Math.round(tr.cover)} g more covers the extras` : ''}. That leaves about ${Math.round(Math.max(0, allowance - take))} g of his ${allowance} g${S.meals.filter(m => m.what !== 'wet').length ? `, about ${Math.round(Math.max(0, allowance - take) / S.meals.filter(m => m.what !== 'wet').length)} g per kibble meal` : ''}.`);
+    else if (take) out.push(`Take about ${take} g of kibble out of his meals. Set his kibble a day in Day by day to see what's left.`);
+    if (need && tr.kcal > need * 0.1) out.push(`<span style="color:var(--warn)">That's over the usual 10% for extras (about ${Math.round(need * 0.1)} kcal). Cut back, or use more of his kibble in the Kong instead.</span>`);
+    const auto = S.feeds.filter(f => f.auto && localDay(f.t) === d);
+    if (auto.length && Math.abs(auto.reduce((a, f) => a + f.items.filter(it => x && x.main.some(m => m.food === it.food)).reduce((b, it) => b + it.g, 0), 0) - mealKibble(d)) > 2)
+      out.push('<button class="small" id="trRefill">Update today\'s meals to take treats out</button>');
+  }
+  $('trToday').innerHTML = out.map(o => `<div style="margin-top:4px">${o}</div>`).join('');
+  $('trList').innerHTML = S.treats.map((l, i) => ({ ...l, i })).filter(l => localDay(l.t) === d).map(l => `<li style="flex-wrap:nowrap"><span style="flex:1">${time(l.t)} ${esc(l.name)} <span class="muted">${esc(partsText(l.parts))}</span></span>${delBtn('treats', l.i)}</li>`).join('');
+  $('trItems').innerHTML = treatItems().map(f => `<li style="flex-wrap:nowrap"><span style="flex:1">${esc(f.name)} <span class="muted">${f.kcalU || '?'} kcal per ${UNIT[f.unit || 'piece']}</span></span>${delBtn('foodList', S.foodList.indexOf(f))}</li>`).join('') || '<li class="muted">None yet</li>';
+  $('trRecipes').innerHTML = S.recipes.map((r, i) => `<li style="flex-wrap:nowrap"><span style="flex:1">${esc(r.name)} <span class="muted">${esc(partsText(r.parts))}, ${Math.round(partsKcal(r.parts))} kcal extra</span></span>${delBtn('recipes', i)}</li>`).join('') || '<li class="muted">None yet</li>';
+  renderRecipeDraft();
+}
+
+// ---------- Sections ----------
+// Which Food tab cards show is a per phone choice. Switching shows itself while a switch is under way.
+const SECS = { day:'Day by day', treats:'Treats and extras', foodpoo:'Food and poos', meals:'His usual meals', switch:'Switching food gradually', backfill:'Fill in past days', vet:'Summary for the vet', feed:'Log a single feed', guide:'Calorie guide', foods:'His foods', compare:'Comparing foods' };
+const SEC_ON = { day:1, treats:1, foodpoo:1, meals:1, foods:1 };
+function switching() {
+  const d = localDay(Date.now()), x = dietFor(d);
+  return !!(x && (x.main.length > 1 || x.wet.length > 1)) || Object.keys(S.diet).some(k => k > d);
+}
+function secOn(k) {
+  const pref = (meta().secs || {})[k];
+  if (k === 'switch') return pref === true || (pref !== false && switching());
+  return pref === undefined ? !!SEC_ON[k] : pref;
+}
+function setSec(k, on) { const secs = { ...(meta().secs || {}) }; secs[k] = on; setMeta({ secs }); renderSections(); }
+document.querySelectorAll('[data-sec]').forEach(c => {
+  const h = c.querySelector('h2'); h.style.display = 'flex'; h.style.justifyContent = 'space-between'; h.style.alignItems = 'center';
+  h.insertAdjacentHTML('beforeend', `<button class="small" data-hide="${c.dataset.sec}" style="font-weight:400">Hide</button>`);
+});
+document.addEventListener('click', e => {
+  const h = e.target.dataset.hide, a = e.target.dataset.show;
+  if (h) setSec(h, false);
+  if (a) { setSec(a, true); const c = document.querySelector(`[data-sec="${a}"]`); if (c) c.scrollIntoView({ behavior: 'smooth' }); }
+});
+function renderSections() {
+  // A hidden switch card goes back to automatic once the switch is over
+  if ((meta().secs || {}).switch === false && !switching()) { const secs = { ...meta().secs }; delete secs.switch; setMeta({ secs }); }
+  document.querySelectorAll('[data-sec]').forEach(c => c.classList.toggle('hidden', !secOn(c.dataset.sec)));
+  const off = Object.keys(SECS).filter(k => !secOn(k));
+  $('secChips').innerHTML = off.map(k => `<button class="small" data-show="${k}">+ ${SECS[k]}</button>`).join('') || '<span class="muted">Everything is showing.</span>';
+}
+
 // ---------- Meals ----------
 const MEAL = { kibble:'Kibble', wet:'Wet', both:'Kibble and wet' };
 const DEFAULT_MEALS = [{ time:'07:00', what:'kibble' }, { time:'11:00', what:'kibble' }, { time:'15:00', what:'kibble' }, { time:'18:30', what:'wet' }];
@@ -1046,10 +1194,10 @@ $('mealAdd').onclick = () => { S.meals.push({ time:'12:00', what:'kibble' }); S.
 // His usual meals for a day, from that day's bowl
 function mealsFor(d) {
   const x = dietFor(d); if (!x || !S.meals.length) return [];
-  const kib = S.meals.filter(m => m.what !== 'wet').length, wetM = S.meals.filter(m => m.what !== 'kibble').length;
+  const kib = S.meals.filter(m => m.what !== 'wet').length, wetM = S.meals.filter(m => m.what !== 'kibble').length, mealG = mealKibble(d);
   return S.meals.map(m => {
     const items = [];
-    if (m.what !== 'wet' && x.g && kib) x.main.forEach(f => items.push({ food: f.food, g: Math.round(x.g * f.pct / kib) / 100 }));
+    if (m.what !== 'wet' && mealG && kib) x.main.forEach(f => items.push({ food: f.food, g: Math.round(mealG * f.pct / kib) / 100 }));
     if (m.what !== 'kibble' && wetM) x.wet.forEach(w => items.push({ food: w.food, g: Math.round(100 * w.n * pouchG(w.food) / wetM) / 100, n: w.n / wetM }));
     if (!items.length) return null;
     const [h, mi] = m.time.split(':').map(Number);
@@ -1101,13 +1249,20 @@ $('bfGo').onclick = () => {
 function eatenOn(d) {
   const fs = S.feeds.filter(f => localDay(f.t) === d), out = {};
   const add = (food, g, n) => { out[food] = out[food] || { g: 0, n: 0 }; out[food].g += g; out[food].n += n || 0; };
-  if (fs.length) { fs.forEach(f => (f.items || [{ food: f.food, g: f.g }]).forEach(it => add(it.food, it.g * +f.ate, (it.n || 0) * +f.ate))); return { foods: out, planned: false }; }
-  const x = dietFor(d); if (!x) return null;
-  x.main.forEach(m => x.g && add(m.food, x.g * m.pct / 100));
+  const x = dietFor(d), tr = treatsOn(d);
+  if (fs.length) {
+    fs.forEach(f => (f.items || [{ food: f.food, g: f.g }]).forEach(it => add(it.food, it.g * +f.ate, (it.n || 0) * +f.ate)));
+    if (x && tr.kibble) x.main.forEach(m => add(m.food, tr.kibble * m.pct / 100));
+    return { foods: out, planned: false, extras: tr.extras };
+  }
+  if (!x) return tr.extras.length ? { foods: out, planned: true, extras: tr.extras } : null;
+  const kibble = x.g ? Math.max(0, x.g - tr.cover) : 0;
+  x.main.forEach(m => kibble && add(m.food, kibble * m.pct / 100));
   x.wet.forEach(w => add(w.food, w.n * pouchG(w.food), w.n));
-  return { foods: out, planned: true };
+  return { foods: out, planned: true, extras: tr.extras };
 }
-const foodsText = e => Object.entries(e.foods).filter(([, v]) => v.g > 0).map(([f, v]) => `${short(f)} ${Math.round(v.g)} g${v.n ? ` (${+v.n.toFixed(1)} pouch${v.n === 1 ? '' : 'es'})` : ''}`).join(', ');
+const foodsText = e => Object.entries(e.foods).filter(([, v]) => v.g > 0).map(([f, v]) => `${short(f)} ${Math.round(v.g)} g${v.n ? ` (${+v.n.toFixed(1)} pouch${v.n === 1 ? '' : 'es'})` : ''}`)
+  .concat((e.extras || []).map(x => `${x.name} ${+x.qty.toFixed(2)} ${UNIT[x.unit]}`)).join(', ');
 function vetSummary() {
   const from = $('vsFrom').value, to = $('vsTo').value; if (!from || !to || from > to) return { html: '', text: '' };
   const rows = daysBetween(from, to).map(d => ({ d, e: eatenOn(d), t: toiletIn(dayStart(d), dayStart(nextDay(d))) }));
@@ -1167,10 +1322,11 @@ function renderFood() {
   if (!$('swStart').value) $('swStart').value = localDay(Date.now());
   $('foodHistory').innerHTML = names.map(n => `<option value="${esc(n)}">`).join('');
   $('foodList').innerHTML = S.foodList.map((f, i) => {
+    if (f.type === 'Treats') return '';
     const days = Object.keys(S.diet).filter(d => [...S.diet[d].main, ...S.diet[d].wet].some(x => x.food === f.name)).sort();
-    return `<li style="display:block"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span style="flex:1">${esc(f.name)} <span class="tag">${f.type}</span>${f.short ? ` <span class="muted">(${esc(f.short)})</span>` : ''}</span>${delBtn('foodList', i)}</div>${days.length ? `<div class="muted">In his bowl from ${fmt(days[0])}</div>` : ''}${f.type !== 'Treats' ? guidePanel(f, i) : ''}</li>`;
+    return `<li style="display:block"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span style="flex:1">${esc(f.name)} <span class="tag">${f.type}</span>${f.short ? ` <span class="muted">(${esc(f.short)})</span>` : ''}</span>${delBtn('foodList', i)}</div>${days.length ? `<div class="muted">In his bowl from ${fmt(days[0])}</div>` : ''}${guidePanel(f, i)}</li>`;
   }).join('') || '<li class="muted">No foods yet</li>';
-  renderGuide(); renderFeeds();
+  renderGuide(); renderFeeds(); renderTreats(); renderSections();
 }
 // ---------- Feeding guide ----------
 const KCAL = { dry:380, wet:95, raw:150 };
@@ -1249,9 +1405,10 @@ $('feedFood').oninput = () => { $('feedFood').dataset.typed = 1; };
 $('feedFood').onchange = () => { if (!$('feedG').dataset.typed) $('feedG').value = portion($('feedFood').value); };
 const ATE = { 1:'ate it all', 0.75:'ate most', 0.5:'ate about half', 0.25:'ate a little', 0:'ate none' };
 let day = localDay(Date.now());
-$('dayPick').onchange = () => { day = $('dayPick').value || localDay(Date.now()); renderFood(); };
-$('dayPrev').onclick = () => { day = localDay(new Date(day + 'T12:00').getTime() - DAY); renderFood(); };
-$('dayNext').onclick = () => { day = localDay(new Date(day + 'T12:00').getTime() + DAY); renderFood(); };
+const changeDay = d => { day = d; dietOpen = false; renderFood(); };
+$('dayPick').onchange = () => changeDay($('dayPick').value || localDay(Date.now()));
+$('dayPrev').onclick = () => changeDay(localDay(new Date(day + 'T12:00').getTime() - DAY));
+$('dayNext').onclick = () => changeDay(localDay(new Date(day + 'T12:00').getTime() + DAY));
 function feedStats(from, to) {
   const xs = S.feeds.filter(x => x.t >= from && x.t < to), tl = toiletIn(from, to);
   const days = new Set(xs.map(x => localDay(x.t))).size;
@@ -1558,7 +1715,7 @@ function download(name, text, type) {
 }
 // ---------- Sync between phones ----------
 // Every entry carries an id and when it last changed, and deletions are remembered, so two phones' copies merge cleanly
-const LISTS = ['toilet', 'sessions', 'custom', 'vax', 'treatments', 'weights', 'foodList', 'stools', 'feeds', 'nights', 'behaviours', 'sleep', 'social'];
+const LISTS = ['toilet', 'sessions', 'custom', 'vax', 'treatments', 'weights', 'foodList', 'stools', 'feeds', 'treats', 'recipes', 'nights', 'behaviours', 'sleep', 'social'];
 const SETTINGS = ['name', 'dob', 'breed', 'kind', 'breed2', 'commands', 'vaxDue', 'adultKg', 'meals', 'socialOwn', 'feedPlan'];
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const hashOf = x => { const { u, ...r } = x; return JSON.stringify(r); };
