@@ -523,14 +523,26 @@
     <div class="row">
       <button id="exportBtn" class="primary" style="flex:1">Send an update</button>
       <button id="importBtn" style="flex:1">Open an update</button>
-      <input id="importFile" type="file" accept=".json,application/json,text/plain" class="hidden">
+      <input id="importFile" type="file" accept=".txt,.json,text/plain,application/json" class="hidden">
     </div>
+    <div class="next hidden" id="sendFallback">
+      <strong>Your phone didn't open the share sheet.</strong> Use one of these instead:
+      <div class="row" style="margin-top:8px">
+        <button class="small" id="sendCopy">Copy the update</button>
+        <button class="small" id="sendSave">Save it as a file</button>
+      </div>
+      <p class="muted" id="sendSize"></p>
+    </div>
+    <details style="margin-top:8px" id="pasteBox"><summary class="muted">Got the update as a message? Paste it here</summary>
+      <textarea id="pasteText" rows="4" placeholder="Paste the whole message here" style="margin-top:8px"></textarea>
+      <button class="small" id="pasteGo" style="margin-top:6px">Open this update</button>
+    </details>
     <p class="muted" id="syncNote"></p>
     <details style="margin-top:8px"><summary class="muted">Other options</summary>
       <div class="row" style="margin-top:8px">
         <button id="backupBtn" class="small">Save a backup file</button>
         <button id="replaceBtn" class="small">Replace this phone with a file</button>
-        <input id="replaceFile" type="file" accept=".json,application/json,text/plain" class="hidden">
+        <input id="replaceFile" type="file" accept=".txt,.json,text/plain,application/json" class="hidden">
       </div>
     </details>
   </div>
@@ -1757,23 +1769,39 @@ function renderSync() {
   const m = meta();
   $('syncNote').textContent = [m.sent ? `Last sent ${fmt(m.sent)} ${time(m.sent)}` : '', m.got ? `last opened ${fmt(m.got)} ${time(m.got)}` : ''].filter(Boolean).join(', ') || 'Not shared yet.';
 }
-$('exportBtn').onclick = () => {
-  const name = `puppy-update-${localDay(Date.now())}.json`, text = JSON.stringify(S);
-  // text/plain shares more reliably than JSON on Android
-  const file = typeof File === 'function' ? new File([text], name, { type: 'text/plain' }) : null;
-  setMeta({ sent: Date.now() }); renderSync();
-  if (file && navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: 'Puppy tracker update' }).catch(() => {});
-  else download(name, text, 'application/json');
+// Sent as a .txt file: Android won't share .json files and iPhones open .txt from Files fine
+const updateName = () => `puppy-update-${localDay(Date.now())}.txt`;
+$('exportBtn').onclick = async () => {
+  const text = JSON.stringify(S);
+  $('sendFallback').classList.add('hidden');
+  let file = null; try { file = new File([text], updateName(), { type: 'text/plain' }); } catch (e) {}
+  if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'Puppy tracker update' }); setMeta({ sent: Date.now() }); renderSync(); return; }
+    catch (e) { if (e.name === 'AbortError') return; } // AbortError means they closed the share sheet
+  }
+  $('sendSize').textContent = text.length > 60000 ? 'This update is long, so the file is safer than pasting it into a message.' : 'Copy works best: paste it into a WhatsApp or text message to the other phone.';
+  $('sendFallback').classList.remove('hidden');
 };
-const readFile = (input, fn) => { const f = input.files[0]; if (!f) return; f.text().then(t => { input.value = ''; let d; try { d = JSON.parse(t); } catch (err) { alert('That file could not be read.'); return; } fn(d); }); };
-$('importBtn').onclick = () => $('importFile').click();
-$('importFile').onchange = () => readFile($('importFile'), d => {
+$('sendCopy').onclick = () => {
+  const text = JSON.stringify(S);
+  (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => { setMeta({ sent: Date.now() }); renderSync(); alert('Copied. Paste it into a message to the other phone. On that phone, copy the message and paste it under "Got the update as a message?"'); })
+    .catch(() => alert("This phone wouldn't copy it. Use Save it as a file instead."));
+};
+$('sendSave').onclick = () => { download(updateName(), JSON.stringify(S), 'text/plain'); setMeta({ sent: Date.now() }); renderSync(); };
+// Merge an update from text (a file or a pasted message)
+function openUpdate(t) {
+  let d; try { d = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch (err) { alert("That isn't a whole update. Check nothing was cut off."); return; }
   const n = mergeIn(d); track(false); store(); setMeta({ got: Date.now() }); render();
   alert(n.added || n.changed ? `Done. ${n.added} new, ${n.changed} updated.` : 'Already up to date.');
-});
+}
+$('pasteGo').onclick = () => { const t = $('pasteText').value.trim(); if (!t) return; openUpdate(t); $('pasteText').value = ''; $('pasteBox').open = false; };
+const readFile = (input, fn) => { const f = input.files[0]; if (!f) return; f.text().then(t => { input.value = ''; fn(t); }); };
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = () => readFile($('importFile'), openUpdate);
 $('backupBtn').onclick = () => download(`puppy-backup-${localDay(Date.now())}.json`, JSON.stringify(S), 'application/json');
 $('replaceBtn').onclick = () => $('replaceFile').click();
-$('replaceFile').onchange = () => readFile($('replaceFile'), d => {
+$('replaceFile').onchange = () => readFile($('replaceFile'), t => {
+  let d; try { d = JSON.parse(t); } catch (err) { alert('That file could not be read.'); return; }
   if (!confirm('Replace everything on this phone with that file? Anything logged here and not in the file will be lost.')) return;
   localStorage.setItem(KEY, JSON.stringify(d)); S = load(); seen = {}; track(false); store(); render();
 });

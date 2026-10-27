@@ -53,7 +53,7 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 
 - Every entry in the lists (toilet, sessions, custom, vax, treatments, weights, foodList, stools, feeds, nights, behaviours, sleep, social) gets an id and u (last changed). Diet days use the id diet:YYYY-MM-DD. save() compares each entry with its last saved version to stamp u, and records deleted ids in S.gone.
 - Opening an update merges: union by id, newer u wins, anything in either phone's S.gone is dropped. Settings (name, dob, breed, kind, breed2, commands, vaxDue, adultKg, meals, socialOwn, feedPlan) go as one block, newest wins. A phone with no puppy details never wins.
-- Send an update uses the share sheet with a text/plain .json file, falling back to a download. "Replace this phone with a file" and "Save a backup file" sit under Other options.
+- Send an update shares a .txt file (Android refuses .json). If the share sheet fails or is missing, it shows Copy the update (paste into a message, then "Got the update as a message?" on the other phone) and Save it as a file. Pasted text can have chat text around it. "Replace this phone with a file" and "Save a backup file" sit under Other options.
 
 ## Simpler Food tab and treats (27 October 2026)
 
