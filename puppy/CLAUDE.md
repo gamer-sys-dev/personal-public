@@ -43,11 +43,12 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 ## Packet guides (26 October 2026)
 
 - Each food can hold its packet feeding table as rows: age band (months), expected adult weight (a band or a single size) and grams a day, plus optional kcal per 100g and pouch weight for wet.
-- Reading a row: find rows for his age (nearest if none), then interpolate grams by expected adult weight. A band row reads its low grams at the small end and high grams at the big end. It ignores age within a band.
+- Reading a row: find rows for his age (nearest if none). A row spanning both ages and adult sizes moves with both: position = average of how far through the ages and how far up the sizes he is, from low grams to high. Single size rows (a grid) are interpolated by expected adult weight.
 - Expected adult weight is set on the Health tab. Blank uses the middle of the breed range.
 - A food without a packet guide falls back to calories: 70 x kg^0.75 times 3 under 16 weeks, 2 while growing, 1.7 as an adult, using the weight nearest that day, divided by its kcal.
 - A bowl: each wet pouch covers (pouch grams / that wet food's grams for a whole day) of the day. Kibble fills the rest, split by the mix using each food's own guide (harmonic, so energy adds up).
 - "Use packet guide" on a day, the switch helper and fill in past days can all set kibble grams from this. The switch helper does kibble to kibble, wet to wet or wet to none, in quarter pouches.
+- "How much to feed" (shown by default) gives one answer: grams per kibble meal for today, from the bowl's packet guide minus wet share, treat kibble and treat extras, over his kibble meals. It compares with the grams set for today and shows its working (age, expected adult, the packet row and where he sits in it, weight gain, body score). The calorie formula is a cross-check underneath.
 
 ## Sync between phones (26 October 2026)
 

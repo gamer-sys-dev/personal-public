@@ -401,7 +401,9 @@
     <button class="primary wide" id="logFeed">Log feed</button>
   </div>
   <div class="card" data-sec="guide">
-    <h2>Calorie guide</h2>
+    <h2>How much to feed</h2>
+    <div id="gAnswer"></div>
+    <details id="gMore" style="margin-top:10px"><summary class="muted">Calorie cross-check and settings</summary>
     <div class="row">
       <div style="flex:1"><label for="gType">Food type</label>
         <select id="gType"><option value="dry">Dry</option><option value="wet">Wet</option><option value="raw">Raw</option><option value="mixed">Mixed dry and wet</option></select></div>
@@ -417,7 +419,9 @@
     <div id="gWetWrap"><label for="gWetG">Size of one wet pouch or portion (g)</label>
       <input id="gWetG" type="number" inputmode="numeric" placeholder="85"></div>
     <div class="next" id="gOut"></div>
-    <p class="muted">A rough guide only, worked out from his latest weight and age with a standard calorie formula. Foods differ a lot, so follow the manufacturer's feeding guide on the packet first and your vet's advice over both. Adjust by body score rather than sticking to a number, and count treats as part of the day (about 10% at most).</p>
+    <p class="muted">The calorie figure is a standard formula from his current weight and age. It's a cross-check, not the answer.</p>
+    </details>
+    <p class="muted">A rough guide from the packets you've entered. Your vet's advice wins, and his growth and body score are the real test of whether he's getting the right amount.</p>
   </div>
   <div class="card" data-sec="foods">
     <h2>His foods</h2>
@@ -1018,7 +1022,13 @@ function packetG(name, t) {
   if (!rows.length || m === null || !a) return null;
   const dist = r => m < +r.ageA ? +r.ageA - m : m > +r.ageB ? m - +r.ageB : 0;
   const best = Math.min(...rows.map(dist)), at = rows.filter(r => dist(r) === best);
-  // A band row reads low grams for the small end of its adult weights and high grams for the big end
+  // A row that spans both ages and adult sizes moves with both: low grams for the youngest, smallest end, high for the oldest, biggest
+  const clamp = v => Math.max(0, Math.min(1, v)), band = at.find(r => +r.adA !== +r.adB && +r.ageA !== +r.ageB);
+  if (band) {
+    const pa = clamp((a - band.adA) / (band.adB - band.adA)), pg = clamp((m - band.ageA) / (band.ageB - band.ageA));
+    return { g: +band.gA + (band.gB - band.gA) * (pa + pg) / 2, src: 'packet', lo: Math.min(+band.gA, +band.gB), hi: Math.max(+band.gA, +band.gB),
+      outside: a < +band.adA || a > +band.adB, offAge: best > 0, band, pa, pg };
+  }
   const pts = at.flatMap(r => +r.adA === +r.adB ? [[+r.adA, (+r.gA + +r.gB) / 2]] : [[+r.adA, +r.gA], [+r.adB, +r.gB]]).sort((x, y) => x[0] - y[0]);
   let g;
   if (a <= pts[0][0]) g = pts[0][1];
@@ -1160,8 +1170,8 @@ function renderTreats() {
 
 // ---------- Sections ----------
 // Which Food tab cards show is a per phone choice. Switching shows itself while a switch is under way.
-const SECS = { day:'Day by day', treats:'Treats and extras', foodpoo:'Food and poos', meals:'His usual meals', switch:'Switching food gradually', backfill:'Fill in past days', vet:'Summary for the vet', feed:'Log a single feed', guide:'Calorie guide', foods:'His foods', compare:'Comparing foods' };
-const SEC_ON = { day:1, treats:1, foodpoo:1, meals:1, foods:1 };
+const SECS = { day:'Day by day', treats:'Treats and extras', foodpoo:'Food and poos', meals:'His usual meals', switch:'Switching food gradually', backfill:'Fill in past days', vet:'Summary for the vet', feed:'Log a single feed', guide:'How much to feed', foods:'His foods', compare:'Comparing foods' };
+const SEC_ON = { day:1, guide:1, treats:1, foodpoo:1, meals:1, foods:1 };
 function switching() {
   const d = localDay(Date.now()), x = dietFor(d);
   return !!(x && (x.main.length > 1 || x.wet.length > 1)) || Object.keys(S.diet).some(k => k > d);
@@ -1370,7 +1380,52 @@ function feedGuide() {
   p.kdry = $('gKdry').value; p.kwet = $('gKwet').value; p.kraw = $('gKraw').value; p.wetG = $('gWetG').value; save();
 });
 const NAMES = { dry:'Dry', wet:'Wet', raw:'Raw' };
+// One plain answer for today: grams per kibble meal, with the working shown
+function renderAnswer() {
+  const now = Date.now(), d = localDay(now), x = dietFor(d), last = [...S.weights].sort(byDate)[0];
+  const missing = [!S.dob && 'his date of birth (More)', !last && 'a weight (Health)', !x && "what's in his bowl today (Day by day)"].filter(Boolean);
+  if (missing.length) { $('gAnswer').innerHTML = `<p class="muted">To work this out it needs ${missing.join(', ')}.</p>`; return; }
+  const b = bowlGuide(x, now);
+  if (!b || !b.foods.length) { $('gAnswer').innerHTML = '<p class="muted">Add kibble to today\'s bowl in Day by day to see how much to feed.</p>'; return; }
+  const tr = treatsOn(d), wetMeal = x.wet.length > 0;
+  const meals = S.meals.filter(m => m.what !== 'wet').length || Math.max(1, (+S.feedPlan.meals || suggestedMeals(ageWeeks(now))) - (wetMeal ? 1 : 0));
+  const left = Math.max(0, b.kib - tr.kibble - tr.cover), per = Math.round(left / meals);
+  const wk = ageWeeks(now), months = monthsAt(now), adult = expectedAdult(), rows = [];
+  const row = (a, b2) => rows.push(`<tr><td>${a}</td><td style="text-align:right;white-space:nowrap">${b2}</td></tr>`);
+  row('Kibble a day for today\'s bowl (packet guide)', `${b.kib} g`);
+  if (wetMeal) row(`${x.wet.map(w => `${w.n} ${esc(short(w.food))}`).join(', ')} covers about ${Math.round(100 * Math.min(1, b.wetShare))}% of his day`, 'already taken off');
+  if (tr.kibble) row(`Kibble used in treats today (${tr.logs.map(l => esc(l.name)).join(', ')})`, `minus ${Math.round(tr.kibble)} g`);
+  if (tr.cover >= 1) row(`Extras in treats, ${Math.round(tr.kcal)} kcal, as kibble`, `minus ${Math.round(tr.cover)} g`);
+  row(`<strong>Left for ${meals} kibble meal${meals === 1 ? '' : 's'}</strong>`, `<strong>${Math.round(left)} g</strong>`);
+  let html = `<div class="next"><div style="font-size:1.15rem"><strong>About ${per} g of kibble per meal</strong></div><div class="muted">over ${meals} kibble meal${meals === 1 ? '' : 's'}${wetMeal ? `, plus ${x.wet.map(w => `${w.n} ${esc(short(w.food))}`).join(' and ')} at the wet meal` : ''}, with today's treats taken out.</div></div>`
+    + `<table style="margin-top:8px">${rows.join('')}</table>`;
+  // How this compares with what's set for today
+  if (x.g) {
+    const pct = Math.round(100 * x.g / b.kib), yours = Math.round(mealKibble(d) / meals);
+    html += `<p><strong>You've set ${x.g} g a day</strong>, about ${yours} g per meal after treats. That's ${pct}% of the packet guide.</p>`;
+    if (Math.abs(pct - 100) > 20) html += `<p class="muted">That's a big gap, so check the working below. If he's gaining steadily and his body score is 4 to 5 of 9, what you're doing is working, so keep going and ask the vet at his next weigh in rather than changing on the app's say so.</p>`;
+  }
+  // The working: which packet rows and where he sits in them
+  const why = [`He's ${Math.round(wk * 10) / 10} weeks (${months.toFixed(1)} months).`,
+    `Expected adult weight: <strong>${+adult.toFixed(1)} kg</strong>${S.adultKg ? '' : ' (the middle of the breed range, as none is set)'}. Change it on the Health tab.`];
+  b.foods.forEach(f => {
+    const pk = f.pk;
+    if (pk.src === 'packet') {
+      const r = pk.band;
+      why.push(`${esc(short(f.food))} packet row: ${r.ageA} to ${r.ageB} months, ${r.adA} to ${r.adB} kg adult, ${r.gA} to ${r.gB} g a day.`
+        + (pk.pa !== undefined ? ` The low end (${r.gA} g) is for the youngest, smallest puppies in that row and the high end (${r.gB} g) for the oldest, biggest. He's ${Math.round(pk.pg * 100)}% of the way through the ages and ${Math.round(pk.pa * 100)}% of the way up the sizes, so it reads about <strong>${Math.round(pk.g)} g</strong> if it were all he ate. A packet with a fuller table (rows by month, columns by size) gives a sharper answer.`
+          : ` At ${+adult.toFixed(1)} kg adult that reads about <strong>${Math.round(pk.g)} g</strong> if it were all he ate.`)
+        + `${pk.offAge ? ' His age is outside the rows you entered, so it used the nearest one.' : ''}${pk.outside ? " His expected adult weight is outside this packet's sizes." : ''}`);
+    } else why.push(`${esc(short(f.food))} has no packet guide, so it's worked out from calories. Add the packet table under His foods for a better figure.`);
+  });
+  const ws = [...S.weights].sort(byDate);
+  if (ws.length >= 2) { const wks = (ts(ws[0].date) - ts(ws[1].date)) / WEEK; if (wks > 0) why.push(`He's gaining about ${((ws[0].kg - ws[1].kg) / wks).toFixed(2)} kg a week.`); }
+  const bcs = ws.find(w => w.bcs); if (bcs) why.push(`Last body score ${bcs.bcs} of 9.`);
+  html += `<details style="margin-top:6px"><summary class="muted">How it worked this out</summary>${why.map(w => `<p class="muted" style="margin:6px 0">${w}</p>`).join('')}</details>`;
+  $('gAnswer').innerHTML = html;
+}
 function renderGuide() {
+  renderAnswer();
   const p = S.feedPlan, type = planType(), g = feedGuide();
   $('gType').value = type; $('gKdry').value = p.kdry; $('gKwet').value = p.kwet; $('gKraw').value = p.kraw; $('gWetG').value = p.wetG;
   $('gMeals').value = g ? g.meals : (p.meals || 3);
