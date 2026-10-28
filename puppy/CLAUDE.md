@@ -2,10 +2,10 @@
 
 Logs toilet trips, training sessions and care reminders for a puppy. Version one, single device.
 
-- Everything the user enters is saved in localStorage on the phone. Nothing is sent anywhere.
+- Everything the user enters is saved in localStorage on the phone. The only thing that ever leaves the phone is live sync, if the user turns it on, and that goes to their own Firebase project. The repo never holds config, keys or data.
 - Schedules are typical UK timings and are labelled as such. The vet's plan always wins and the user can edit or add items.
 - Reminders go out as .ics calendar files so they land in Google Calendar or Apple Calendar.
-- Two phones share by sending an update file and opening it on the other phone, which merges rather than replaces (see sync below). Live sync would need a shared backend.
+- Two phones share by sending an update file and opening it on the other phone, which merges rather than replaces (see sync below). Live sync (below) keeps them up to date by themselves.
 - Advice links: UK sources first (PDSA, RSPCA, Dogs Trust, Kennel Club, BVA). US sources only for training method, never for legal or health rules.
 
 ## Version two (25 October 2026)
@@ -55,6 +55,14 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Every entry in the lists (toilet, sessions, custom, vax, treatments, weights, foodList, stools, feeds, nights, behaviours, sleep, social) gets an id and u (last changed). Diet days use the id diet:YYYY-MM-DD. save() compares each entry with its last saved version to stamp u, and records deleted ids in S.gone.
 - Opening an update merges: union by id, newer u wins, anything in either phone's S.gone is dropped. Settings (name, dob, breed, kind, breed2, commands, vaxDue, adultKg, meals, socialOwn, feedPlan) go as one block, newest wins. A phone with no puppy details never wins.
 - Send an update shares a .txt file (Android refuses .json). If the share sheet fails or is missing, it shows Copy the update (paste into a message, then "Got the update as a message?" on the other phone) and Save it as a file. Pasted text can have chat text around it. "Replace this phone with a file" and "Save a backup file" sit under Other options.
+
+## Live sync (28 October 2026)
+
+- Optional, in More. Uses the user's own free Firebase project (Firestore). The first phone pastes the firebaseConfig block, which is parsed and stored on the phone with a new random 24 character household id. "Send the household code" shares PUPPY1.<base64 of config and household id> for the other phone to paste and join. Nothing about the project is in the repo.
+- Data lives at households/{household}/items/{list~id}, one document per entry with k (list), v (entry JSON), u (last changed) and at (server time). Diet days are diet~date, settings are settings~s, and deletions are gone~id documents. puppy/firestore.rules is what goes in the Firebase console: read and write only under a household id of 24 or more characters.
+- save() pushes anything whose u differs from what was last synced (debounced 0.8 s). Each phone listens for documents with at >= the last one it saw and applies them with the same rules as update files. Offline changes go when it reconnects.
+- Firebase SDK 10.12.2 is loaded from gstatic only when sync is on. The service worker now only handles GET requests for the app's own files and gstatic, so sync traffic is never cached.
+- Tested against the Firestore emulator with two browsers: join, add, delete, settings, a bowl, reload and an offline edit all cross in about a second.
 
 ## Simpler Food tab and treats (27 October 2026)
 

@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only someone who knows the long household code can read or write its entries.
+    match /households/{household}/items/{item} {
+      allow read, write: if household.size() >= 24;
+    }
+  }
+}

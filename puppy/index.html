@@ -488,7 +488,7 @@
 <section id="tab-more" class="hidden">
   <div class="card">
     <h2>Your puppy</h2>
-    <label for="pupName">Name (stays on this phone)</label>
+    <label for="pupName">Name (stays on your phones)</label>
     <input id="pupName">
     <label for="pupDob">Date of birth</label>
     <input id="pupDob" type="date">
@@ -520,6 +520,27 @@
       <li><a href="https://www.akc.org/expert-advice/training/" target="_blank" rel="noopener">AKC: training articles (US, method only)</a></li>
     </ul>
     <p class="muted">This app isn't veterinary advice. If something's worrying you, ring your vet.</p>
+  </div>
+  <div class="card">
+    <h2>Live sync</h2>
+    <div class="next" id="liveStatus"></div>
+    <div id="liveSetup">
+      <p class="muted">Keeps two phones up to date by themselves through your own free Firebase database. Set it up once on the first phone, then send the household code to the other phone.</p>
+      <h3>Join with a household code</h3>
+      <textarea id="liveCode" rows="3" placeholder="Paste the household code from the other phone"></textarea>
+      <button class="primary wide" id="liveJoin">Join and sync</button>
+      <details style="margin-top:10px"><summary class="muted">First phone: start syncing</summary>
+        <p class="muted">In the Firebase console, open Project settings, scroll to Your apps and copy the firebaseConfig block. Paste it here.</p>
+        <textarea id="liveConfig" rows="6" placeholder="const firebaseConfig = { apiKey: ..., projectId: ..., appId: ... };"></textarea>
+        <button class="wide" id="liveStart">Start syncing</button>
+      </details>
+    </div>
+    <div id="liveOn" class="hidden">
+      <button class="primary wide" id="liveShare">Send the household code to the other phone</button>
+      <textarea id="liveCodeOut" class="hidden" rows="3" readonly style="margin-top:8px"></textarea>
+      <button class="small" id="liveStop" style="margin-top:10px">Stop syncing on this phone</button>
+      <p class="muted">Anyone with the household code can see and change his log, so only send it to people you trust.</p>
+    </div>
   </div>
   <div class="card">
     <h2>Share with another phone</h2>
@@ -604,7 +625,7 @@ function load() {
 }
 let S = load();
 function store() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { alert('Could not save on this phone.'); } }
-function save() { track(true); store(); render(); }
+function save() { track(true); store(); render(); if (typeof livePushSoon === 'function') livePushSoon(); }
 
 const $ = id => document.getElementById(id);
 const DAY = 86400000, WEEK = 7 * DAY;
@@ -1894,6 +1915,125 @@ $('replaceFile').onchange = () => readFile($('replaceFile'), t => {
   localStorage.setItem(KEY, JSON.stringify(d)); S = load(); seen = {}; track(false); store(); render();
 });
 track(false); store();
+
+// ---------- Live sync ----------
+// Each entry is one document in the household's own Firebase database, keyed by list and id.
+// The same rules as update files apply: newer u wins, and deletions travel as "gone" documents.
+const LIVE = 'puppy-tracker-live', SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+const readJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
+const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let live = null, liveSt = readJSON(LIVE + '-state', { synced: {}, pulled: 0 }), liveMsg = { state: 'off' }, pushTimer = null;
+const liveCfg = () => readJSON(LIVE, null);
+function setLive(state, text) { liveMsg = { state, text, t: Date.now() }; renderLive(); }
+function parseConfig(text) {
+  const c = {}; let m; const re = /(\w+)\s*:\s*["']([^"']+)["']/g;
+  while ((m = re.exec(text))) c[m[1]] = m[2];
+  return c.apiKey && c.projectId ? c : null;
+}
+const toCode = c => 'PUPPY1.' + btoa(unescape(encodeURIComponent(JSON.stringify({ c: c.config, h: c.h }))));
+function fromCode(text) {
+  const m = /PUPPY1\.([A-Za-z0-9+/=]+)/.exec(text || ''); if (!m) return null;
+  try { const o = JSON.parse(decodeURIComponent(escape(atob(m[1])))); return o.c && o.h ? { config: o.c, h: o.h } : null; } catch (e) { return null; }
+}
+const newHousehold = () => { const a = new Uint8Array(24); crypto.getRandomValues(a); return [...a].map(b => (b % 36).toString(36)).join(''); };
+// Everything this phone has that the database hasn't seen yet
+function outgoing() {
+  const out = [], add = (key, k, v, u) => { if (u && liveSt.synced[key] !== u) out.push({ key, k, v, u }); };
+  LISTS.forEach(k => S[k].forEach(x => add(k + '~' + x.id, k, JSON.stringify(x), x.u)));
+  Object.entries(S.diet).forEach(([d, x]) => add('diet~' + d, 'diet', JSON.stringify(x), x.u));
+  add('settings~s', 'settings', JSON.stringify(Object.fromEntries(SETTINGS.map(k => [k, S[k]]))), S.su);
+  Object.entries(S.gone || {}).forEach(([id, u]) => add('gone~' + id, 'gone', '', u));
+  return out;
+}
+function applyRemote(docs) {
+  let changed = false;
+  docs.forEach(dc => {
+    const { k, v, u } = dc; liveSt.synced[dc.key] = u;
+    if (k === 'gone') { const id = dc.key.slice(5); if (!(S.gone[id] >= u)) { S.gone[id] = u; changed = true; } return; }
+    let x; try { x = JSON.parse(v); } catch (e) { return; }
+    if (k === 'settings') { if (u > (S.su || 0)) { SETTINGS.forEach(f => { if (f in x) S[f] = x[f]; }); S.su = u; changed = true; } return; }
+    if (k === 'diet') { const d = dc.key.slice(5), m = S.diet[d]; if (!m || u > (m.u || 0)) { S.diet[d] = x; changed = true; } return; }
+    if (!LISTS.includes(k)) return;
+    const i = S[k].findIndex(y => y.id === x.id);
+    if (i < 0) { S[k].push(x); changed = true; } else if (u > (S[k][i].u || 0)) { S[k][i] = x; changed = true; }
+  });
+  LISTS.forEach(k => { const n = S[k].length; S[k] = S[k].filter(x => !(S.gone[x.id] >= (x.u || 0))); if (S[k].length !== n) changed = true; if (S[k].some(x => 't' in x)) S[k].sort((a, b) => b.t - a.t); });
+  Object.keys(S.diet).forEach(d => { if (S.gone['diet:' + d] >= (S.diet[d].u || 0)) { delete S.diet[d]; changed = true; } });
+  writeJSON(LIVE + '-state', liveSt);
+  if (changed) { track(false); store(); render(); }
+}
+function livePushSoon() { if (!live) return; clearTimeout(pushTimer); pushTimer = setTimeout(livePush, 800); }
+async function livePush() {
+  if (!live) return;
+  const { fs, col, db } = live, out = outgoing();
+  for (let i = 0; i < out.length; i += 400) {
+    const chunk = out.slice(i, i + 400), b = fs.writeBatch(db);
+    chunk.forEach(o => b.set(fs.doc(col, o.key), { k: o.k, v: o.v, u: o.u, at: fs.serverTimestamp() }));
+    try { await b.commit(); chunk.forEach(o => { liveSt.synced[o.key] = o.u; }); writeJSON(LIVE + '-state', liveSt); }
+    catch (e) { setLive('error', e.message); return; }
+  }
+  if (liveMsg.state !== 'error') setLive('on');
+}
+async function liveConnect() {
+  const c = liveCfg(); if (!c) { setLive('off'); return; }
+  setLive('connecting');
+  try {
+    const [appMod, fs] = await Promise.all([import(SDK + 'firebase-app.js'), import(SDK + 'firebase-firestore.js')]);
+    const app = appMod.getApps().find(a => a.name === 'puppy') || appMod.initializeApp(c.config, 'puppy');
+    const db = fs.getFirestore(app);
+    if (c.config.emulator) { const [h, port] = c.config.emulator.split(':'); try { fs.connectFirestoreEmulator(db, h, +port); } catch (e) {} }
+    const col = fs.collection(db, 'households', c.h, 'items');
+    live = { fs, db, col };
+    const q = fs.query(col, fs.where('at', '>=', fs.Timestamp.fromMillis(liveSt.pulled || 0)));
+    live.unsub = fs.onSnapshot(q, snap => {
+      const docs = [];
+      snap.docChanges().forEach(ch => {
+        if (ch.type === 'removed' || ch.doc.metadata.hasPendingWrites) return;
+        const d = ch.doc.data(); if (!d.at) return;
+        liveSt.pulled = Math.max(liveSt.pulled || 0, d.at.toMillis());
+        docs.push({ key: ch.doc.id, k: d.k, v: d.v, u: d.u });
+      });
+      if (docs.length) applyRemote(docs);
+      if (liveMsg.state !== 'on') setLive('on');
+    }, e => setLive('error', e.message));
+    livePush();
+  } catch (e) { live = null; setLive('error', e.message); }
+}
+function liveDisconnect() { if (live && live.unsub) live.unsub(); live = null; }
+$('liveStart').onclick = () => {
+  const config = parseConfig($('liveConfig').value);
+  if (!config) { alert("That doesn't look like the firebaseConfig block. It needs at least apiKey and projectId."); return; }
+  writeJSON(LIVE, { config, h: newHousehold() }); liveSt = { synced: {}, pulled: 0 }; writeJSON(LIVE + '-state', liveSt);
+  $('liveConfig').value = ''; liveDisconnect(); liveConnect();
+};
+$('liveJoin').onclick = () => {
+  const c = fromCode($('liveCode').value);
+  if (!c) { alert("That isn't a whole household code. It starts PUPPY1. and is one long line."); return; }
+  writeJSON(LIVE, c); liveSt = { synced: {}, pulled: 0 }; writeJSON(LIVE + '-state', liveSt);
+  $('liveCode').value = ''; liveDisconnect(); liveConnect();
+};
+$('liveShare').onclick = async () => {
+  const code = toCode(liveCfg()), text = 'Puppy tracker household code. Open the app, go to More, Live sync, and paste this under "Join with a household code":\n\n' + code;
+  if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  $('liveCodeOut').value = code; $('liveCodeOut').classList.remove('hidden'); $('liveCodeOut').select();
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => alert('Copied. Paste it into a message to the other phone.')).catch(() => {});
+};
+$('liveStop').onclick = () => {
+  if (!confirm("Stop syncing on this phone? Everything stays on this phone, it just won't update with the other one.")) return;
+  liveDisconnect(); localStorage.removeItem(LIVE); localStorage.removeItem(LIVE + '-state'); setLive('off');
+};
+function renderLive() {
+  const on = !!liveCfg();
+  $('liveSetup').classList.toggle('hidden', on); $('liveOn').classList.toggle('hidden', !on);
+  const m = liveMsg;
+  $('liveStatus').innerHTML = !on ? '<span class="muted">Not set up on this phone.</span>'
+    : m.state === 'error' ? `<strong style="color:var(--bad)">Sync problem.</strong> <span class="muted">${esc(m.text || '')}. It keeps trying. Check the internet connection and the Firebase setup.</span>`
+    : m.state === 'connecting' ? 'Connecting...'
+    : `<strong>Live sync is on.</strong> <span class="muted">${navigator.onLine === false ? "Offline: changes will send when you're back online." : 'Changes on either phone show up here in a few seconds.'}</span>`;
+}
+window.addEventListener('online', () => { renderLive(); livePushSoon(); });
+window.addEventListener('offline', renderLive);
+renderLive(); liveConnect();
 
 // ---------- Calendar export ----------
 $('icsAll').onclick = () => {
