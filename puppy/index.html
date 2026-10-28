@@ -1393,53 +1393,68 @@ function feedGuide() {
   p.kdry = $('gKdry').value; p.kwet = $('gKwet').value; p.kraw = $('gKraw').value; p.wetG = $('gWetG').value; save();
 });
 const NAMES = { dry:'Dry', wet:'Wet', raw:'Raw' };
-// One plain answer for today: grams per kibble meal, with the working shown
+// How much to feed, laid out like working it by hand: what it's going on, no wet, adding wet, treats, what's happening, what to do
 function renderAnswer() {
-  const now = Date.now(), d = localDay(now), x = dietFor(d), last = [...S.weights].sort(byDate)[0];
-  const missing = [!S.dob && 'his date of birth (More)', !last && 'a weight (Health)', !x && "what's in his bowl today (Day by day)"].filter(Boolean);
+  const now = Date.now(), d = localDay(now), x = dietFor(d), ws = [...S.weights].sort(byDate), last = ws[0];
+  const missing = [!S.dob && 'his date of birth (More)', !last && 'a weight (Health)', !(x && x.main.length) && 'his kibble in today\'s bowl (Day by day)'].filter(Boolean);
   if (missing.length) { $('gAnswer').innerHTML = `<p class="muted">To work this out it needs ${missing.join(', ')}.</p>`; return; }
-  const b = bowlGuide(x, now);
-  if (!b || !b.foods.length) { $('gAnswer').innerHTML = '<p class="muted">Add kibble to today\'s bowl in Day by day to see how much to feed.</p>'; return; }
-  const tr = treatsOn(d), wetMeal = x.wet.length > 0;
-  const meals = S.meals.filter(m => m.what !== 'wet').length || Math.max(1, (+S.feedPlan.meals || suggestedMeals(ageWeeks(now))) - (wetMeal ? 1 : 0));
-  const left = Math.max(0, b.kib - tr.kibble - tr.cover), per = Math.round(left / meals);
-  const wk = ageWeeks(now), months = monthsAt(now), adult = expectedAdult(), rows = [];
-  const row = (a, b2) => rows.push(`<tr><td>${a}</td><td style="text-align:right;white-space:nowrap">${b2}</td></tr>`);
-  row('Kibble a day for today\'s bowl (packet guide)', `${b.kib} g`);
-  if (wetMeal) row(`${b.wet.map(w => `${+w.g.toFixed(0)} g ${esc(short(w.food))}, about ${Math.round(w.kcal)} kcal`).join(', ')}, covers about ${Math.round(100 * Math.min(1, b.wetShare))}% of his day`, 'already taken off');
-  if (tr.kibble) row(`Kibble used in treats today (${tr.logs.map(l => esc(l.name)).join(', ')})`, `minus ${Math.round(tr.kibble)} g`);
-  if (tr.cover >= 1) row(`Extras in treats, ${Math.round(tr.kcal)} kcal, as kibble`, `minus ${Math.round(tr.cover)} g`);
-  row(`<strong>Left for ${meals} kibble meal${meals === 1 ? '' : 's'}</strong>`, `<strong>${Math.round(left)} g</strong>`);
-  let html = `<div class="next"><div style="font-size:1.15rem"><strong>About ${per} g of kibble per meal</strong></div><div class="muted">over ${meals} kibble meal${meals === 1 ? '' : 's'}${wetMeal ? `, plus ${x.wet.map(w => `${w.n} ${esc(short(w.food))}`).join(' and ')} at the wet meal` : ''}, with today's treats taken out.</div></div>`
-    + `<table style="margin-top:8px">${rows.join('')}</table>`;
-  // How this compares with what's set for today
-  if (x.g) {
-    const pct = Math.round(100 * x.g / b.kib), yours = Math.round(mealKibble(d) / meals);
-    html += `<p><strong>You've set ${x.g} g a day</strong>, about ${yours} g per meal after treats. That's ${pct}% of the packet guide.</p>`;
-    if (Math.abs(pct - 100) > 20) html += `<p class="muted">That's a big gap, so check the working below. If he's gaining steadily and his body score is 4 to 5 of 9, what you're doing is working, so keep going and ask the vet at his next weigh in rather than changing on the app's say so.</p>`;
-  }
-  // The working: which packet rows and where he sits in them
-  const why = [`He's ${Math.round(wk * 10) / 10} weeks (${months.toFixed(1)} months).`,
-    `Expected adult weight: <strong>${+adult.toFixed(1)} kg</strong>${S.adultKg ? '' : ' (the middle of the breed range, as none is set)'}. Change it on the Health tab.`];
-  b.foods.forEach(f => {
+  const wk = ageWeeks(now), months = monthsAt(now), adult = expectedAdult(), kg = +last.kg, kcalG = kibbleKcalG(d);
+  const H = t => `<h3>${t}</h3>`, P = t => `<p style="margin:4px 0">${t}</p>`, M = t => `<p class="muted" style="margin:4px 0">${t}</p>`;
+  const r5 = v => Math.round(v / 5) * 5, rng = (a, b) => a === b ? `${a}` : `${a} to ${b}`;
+  // 1. What it's going on
+  const dry = bowlGuide({ main: x.main, wet: [] }, now), need = needKcal(now), formulaG = need ? need / kcalG : null;
+  let html = H("What it's going on") + P(`He's about ${Math.round(wk)} weeks (${months.toFixed(1)} months) and ${kg} kg. Expected adult weight ${+adult.toFixed(1)} kg${S.adultKg ? '' : ' (the middle of the breed range, as none is set on the Health tab)'}.`);
+  const packetG = dry && !dry.calories ? dry.kib : null;
+  dry && dry.foods.forEach(f => {
     const pk = f.pk;
-    if (pk.src === 'packet') {
-      const r = pk.band;
-      why.push(`${esc(short(f.food))} packet row: ${r.ageA} to ${r.ageB} months, ${r.adA} to ${r.adB} kg adult, ${r.gA} to ${r.gB} g a day.`
-        + (pk.pa !== undefined ? ` The low end (${r.gA} g) is for the youngest, smallest puppies in that row and the high end (${r.gB} g) for the oldest, biggest. He's ${Math.round(pk.pg * 100)}% of the way through the ages and ${Math.round(pk.pa * 100)}% of the way up the sizes, so it reads about <strong>${Math.round(pk.g)} g</strong> if it were all he ate. A packet with a fuller table (rows by month, columns by size) gives a sharper answer.`
-          : ` At ${+adult.toFixed(1)} kg adult that reads about <strong>${Math.round(pk.g)} g</strong> if it were all he ate.`)
-        + `${pk.offAge ? ' His age is outside the rows you entered, so it used the nearest one.' : ''}${pk.outside ? " His expected adult weight is outside this packet's sizes." : ''}`);
-    } else why.push(`${esc(short(f.food))} has no packet guide, so it's worked out from calories. Add the packet table under His foods for a better figure.`);
+    if (pk.src !== 'packet') { html += M(`${esc(short(f.food))} has no packet guide, so only the calorie formula is used for it.`); return; }
+    const r = pk.band;
+    html += P(`${esc(short(f.food))} says ${r.gA} to ${r.gB} g a day for ${r.ageA} to ${r.ageB} months, ${+r.adA === +r.adB ? r.adA : r.adA + ' to ' + r.adB} kg adult.`
+      + (pk.pa !== undefined ? ` ${Math.round(pk.pa * 100) >= 50 ? `A ${+adult.toFixed(0)} kg adult sits ${pk.pa > 0.85 ? 'near the top' : 'above the middle'} of the sizes` : `A ${+adult.toFixed(0)} kg adult sits ${pk.pa < 0.15 ? 'near the bottom' : 'below the middle'} of the sizes`}, and at ${Math.round(wk)} weeks he's ${pk.pg < 0.25 ? 'near the start' : pk.pg > 0.75 ? 'near the end' : 'part way through'} of the ages, so roughly <strong>${r5(pk.g)} g a day</strong>.` : ` That's about <strong>${r5(pk.g)} g a day</strong> for him.`));
   });
-  b.wet.forEach(w => {
-    const f = S.foodList.find(z => z.name === w.food) || {};
-    why.push(`${esc(short(w.food))}: ${+w.g.toFixed(0)} g a day (${pouchG(w.food)} g pouch${f.pouch ? '' : ', the default as none is set'}) at ${kcalOf(w.food)} kcal per 100g${f.kcal ? '' : ' (a typical figure, as none is set)'}. Its share of his day is its calories against the kibble guide's.`
-      + (w.pk ? ` Its own table for feeding with kibble suggests about ${Math.round(w.pk.g)} g of wet a day.` : ''));
-  });
-  const ws = [...S.weights].sort(byDate);
-  if (ws.length >= 2) { const wks = (ts(ws[0].date) - ts(ws[1].date)) / WEEK; if (wks > 0) why.push(`He's gaining about ${((ws[0].kg - ws[1].kg) / wks).toFixed(2)} kg a week.`); }
-  const bcs = ws.find(w => w.bcs); if (bcs) why.push(`Last body score ${bcs.bcs} of 9.`);
-  html += `<details style="margin-top:6px"><summary class="muted">How it worked this out</summary>${why.map(w => `<p class="muted" style="margin:6px 0">${w}</p>`).join('')}</details>`;
+  if (need) html += P(`The standard vet starting formula for his age is ${wk < 16 ? '3' : '2'} × his resting energy: about ${Math.round(need)} kcal a day. His kibble is ${Math.round(kcalG * 100)} kcal per 100 g, so that's about <strong>${r5(formulaG)} g a day</strong>. It runs high for some puppies, so treat it as the top of the range.`);
+  const lo = r5(Math.min(...[packetG, formulaG].filter(Boolean))), hi = r5(Math.max(...[packetG, formulaG].filter(Boolean)));
+  // 2. No wet food
+  const allMeals = S.meals.length || suggestedMeals(wk), kibMeals = S.meals.filter(m => m.what !== 'wet').length || Math.max(1, allMeals - 1);
+  html += H('No wet food') + P(`About <strong>${rng(lo, hi)} g of kibble a day</strong>. Over ${allMeals} meals that's ${rng(Math.round(lo / allMeals), Math.round(hi / allMeals))} g each${kibMeals !== allMeals ? `, or over ${kibMeals}, ${rng(Math.round(lo / kibMeals), Math.round(hi / kibMeals))} g` : ''}.`);
+  // 3. Adding wet: each pouch replaces its own calories in kibble
+  let wlo = lo, whi = hi;
+  if (x.wet.length) {
+    const rows = x.wet.map(w => { const f = S.foodList.find(z => z.name === w.food) || {}, g = w.n * pouchG(w.food), kcal = g * kcalOf(w.food) / 100, rep = kcal / kcalG;
+      return { w, f, g, kcal, rep }; });
+    const repAll = rows.reduce((a, r) => a + r.rep, 0); wlo = r5(lo - repAll); whi = r5(hi - repAll);
+    html += H(`Adding ${x.wet.map(w => `${w.n} ${esc(short(w.food))}`).join(' and ')}`) + P('The wet replaces its own calories in kibble.')
+      + `<table><tr><th>Wet</th><th>Calories</th><th>Replaces</th></tr>${rows.map(r => `<tr><td>${+r.g.toFixed(0)} g ${esc(short(r.w.food))}</td><td>about ${Math.round(r.kcal)} kcal</td><td>about ${Math.round(r.rep)} g kibble</td></tr>`).join('')}</table>`
+      + P(`So <strong>${rng(wlo, whi)} g of kibble a day</strong>, roughly ${rng(Math.round(wlo / kibMeals), Math.round(whi / kibMeals))} g per kibble meal over ${kibMeals}.`)
+      + (rows.some(r => !r.f.kcal || !r.f.pouch) ? M(`Check the pouch label: ${rows.filter(r => !r.f.pouch).length ? 'pouch weight is a default 85 g' : ''}${rows.filter(r => !r.f.pouch).length && rows.filter(r => !r.f.kcal).length ? ' and ' : ''}${rows.filter(r => !r.f.kcal).length ? `calories are a typical ${kcalOf(rows[0].w.food)} kcal per 100 g` : ''}. Put the real figures in under His foods.`) : '');
+  }
+  // 4. Treats
+  const tr = treatsOn(d), off = tr.kibble + tr.cover;
+  if (tr.logs.length) html += H('Treats today') + P(`${tr.logs.map(l => esc(l.name)).join(', ')}: ${tr.kibble ? `${Math.round(tr.kibble)} g of kibble comes out of the day's total` : ''}${tr.kibble && tr.kcal ? ', and ' : ''}${tr.kcal ? `the extras are about ${Math.round(tr.kcal)} kcal, worth another ${Math.round(tr.cover)} g` : ''}. So take about <strong>${Math.round(off)} g</strong> off the day.`);
+  // 5. What's actually happening: his amount and his poos at each amount
+  const recs = foodDays(28).filter(r => r.diet && r.diet.g && r.score), byG = {};
+  recs.forEach(r => { const k = r5(r.diet.g); (byG[k] = byG[k] || []).push(r.score); });
+  const groups = Object.entries(byG).filter(([, v]) => v.length >= 2).sort((a, b) => b[0] - a[0]);
+  const curPoo = x.g && byG[r5(x.g)] ? avg(byG[r5(x.g)]) : null, gain = ws.length >= 2 && (ts(ws[0].date) - ts(ws[1].date)) > 0 ? (ws[0].kg - ws[1].kg) / ((ts(ws[0].date) - ts(ws[1].date)) / WEEK) : null;
+  const bcs = ws.find(w => w.bcs), mid = (wlo + whi) / 2;
+  html += H("What's actually happening");
+  if (x.g) html += P(`You're giving <strong>${x.g} g a day</strong>${kibMeals ? `, about ${Math.round(mealKibble(d) / kibMeals)} g per kibble meal after treats` : ''}. That's about ${Math.round(100 * x.g / mid)}% of the textbook figure.`);
+  else html += M('Set his kibble a day in Day by day to compare.');
+  if (groups.length) html += P('His poos at each amount, last 4 weeks: ' + groups.map(([g, v]) => `${g} g a day averaged <strong>${avg(v).toFixed(1)}</strong> (${v.length} days)`).join('; ') + '. 2 is ideal.');
+  if (gain !== null) html += P(`He's gaining about ${gain.toFixed(2)} kg a week.`);
+  if (bcs) html += P(`Last body score ${bcs.bcs} of 9.`);
+  // 6. What to do
+  const firm = curPoo !== null && curPoo <= 2.5, soft = curPoo !== null && curPoo >= 3.5, thin = bcs && +bcs.bcs <= 3, low = x.g && x.g < wlo * 0.85, high = x.g && x.g > whi * 1.1;
+  const todo = [];
+  if (soft) todo.push(`His poos are soft at ${x.g} g a day. Try about 5 g less per meal, and if you're switching food, slow the switch down.`);
+  else if (firm) todo.push(`Stay on about ${Math.round(mealKibble(d) / kibMeals)} g a meal. His poos are firm on it.`);
+  else if (x.g) todo.push(`Stay on about ${Math.round(mealKibble(d) / kibMeals)} g a meal for now and score his poos so the app can tell how it suits him.`);
+  todo.push('Weigh him weekly. Steady gain and a body score around 4 to 5 of 9 means the amount is right.');
+  if (thin) todo.push('His last body score is on the lean side. Add about 5 g a meal and recheck in a week, unless he\'s a sighthound type and the vet is happy.');
+  else todo.push('If his gain slows, or his ribs and hips are easy to see, add about 5 g a meal and recheck after a week.');
+  if (low || high) todo.push(`Mention the numbers to the vet at his next weigh in. ${low ? "He's on less than the textbook figure" : "He's on more than the textbook figure"}, which is fine if he's growing well, but worth a second opinion.`);
+  html += H('What to do') + todo.map(P).join('');
+  if (x.g && low && !soft) html += `<div class="next" style="margin-top:8px">The textbook says ${rng(wlo, whi)} g a day. He's showing you ${x.g} g${off ? ' plus treats' : ''}${firm ? ' with firm poos' : ''}. Go with him.</div>`;
   $('gAnswer').innerHTML = html;
 }
 function renderGuide() {
