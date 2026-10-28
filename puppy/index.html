@@ -1050,20 +1050,30 @@ function gramsAll(name, t) {
 // What the packets say for a whole bowl: wet pouches cover their share of the day, kibble makes up the rest
 function bowlGuide(x, t) {
   if (!x || (!x.main.length && !x.wet.length)) return null;
-  let wetShare = 0; const wet = [];
-  for (const w of x.wet) { const all = gramsAll(w.food, t); if (!all) return null; const g = w.n * pouchG(w.food); wetShare += g / all.g; wet.push({ food: w.food, g, src: all.src }); }
   const main = x.main.map(m => ({ ...m, all: gramsAll(m.food, t) }));
   if (main.some(m => !m.all)) return null;
-  const left = Math.max(0, 1 - wetShare), inv = main.reduce((a, m) => a + m.pct / 100 / m.all.g, 0), kib = inv ? left / inv : 0;
+  // Kibble a day for the mix with no wet, and its calories
+  const inv = main.reduce((a, m) => a + m.pct / 100 / m.all.g, 0), kib0 = inv ? 1 / inv : 0;
+  const kcal0 = main.reduce((a, m) => a + kib0 * m.pct / 100 * kcalOf(m.food) / 100, 0);
+  let wetShare = 0; const wet = [];
+  for (const w of x.wet) {
+    const g = w.n * pouchG(w.food), kcal = g * kcalOf(w.food) / 100, mixedTable = (S.foodList.find(f => f.name === w.food) || {}).mixed;
+    let share, src;
+    // With kibble in the bowl, a pouch's share is its calories against the kibble guide's. That works whichever wet table was entered.
+    if (kcal0) { share = kcal / kcal0; src = 'calories'; }
+    else { const all = mixedTable ? null : gramsAll(w.food, t); const need = needKcal(t); if (all) { share = g / all.g; src = all.src; } else if (need) { share = kcal / need; src = 'calories'; } else return null; }
+    wetShare += share; wet.push({ food: w.food, g, kcal, share, src, mixedTable, pk: mixedTable ? packetG(w.food, t) : null });
+  }
+  const kib = kib0 * Math.max(0, 1 - wetShare);
   return { kib: Math.round(kib / 5) * 5, wetShare, wet, foods: main.map(m => ({ food: m.food, g: kib * m.pct / 100, src: m.all.src, pk: m.all })),
-    calories: [...main.map(m => m.all), ...wet].some(z => z.src === 'calories') };
+    calories: main.some(m => m.all.src === 'calories') };
 }
 const noon = d => dayStart(d) + DAY / 2;
 function packetText(b) {
   if (!b) return '';
   const parts = [];
   if (b.foods.length) parts.push(`about <strong>${b.kib} g kibble a day</strong>${b.foods.length > 1 ? ` (${b.foods.map(f => `${Math.round(f.g)} g ${esc(short(f.food))}`).join(', ')})` : ''}`);
-  if (b.wet.length) parts.push(`${b.wet.map(w => `${Math.round(w.g)} g ${esc(short(w.food))}`).join(' and ')}, which covers about ${Math.round(100 * Math.min(1, b.wetShare))}% of his day`);
+  if (b.wet.length) parts.push(`${b.wet.map(w => `${Math.round(w.g)} g ${esc(short(w.food))} (about ${Math.round(w.kcal)} kcal)`).join(' and ')}, which covers about ${Math.round(100 * Math.min(1, b.wetShare))}% of his day`);
   return parts.join(', plus ') + '.' + (b.wetShare >= 1 ? ' On its packet guide the wet food covers his whole day by itself.' : '')
     + (b.calories ? ' <span class="muted">Worked out from calories for any food without a packet guide.</span>' : '');
 }
@@ -1088,9 +1098,12 @@ function guidePanel(f, i) {
     <div class="row" style="margin-top:6px">${inp('gA', 'g a day from')}${inp('gB', 'to')}</div>
     <button class="small" data-gadd="${i}" style="margin-top:6px">Add row</button>
     <div class="row" style="margin-top:8px"><label style="margin:0;flex:1">kcal per 100g <input type="number" inputmode="numeric" value="${esc(f.kcal || '')}" data-edit="foodList|${i}|kcal"></label>${wet ? `<label style="margin:0;flex:1">Pouch or tin (g) <input type="number" inputmode="numeric" value="${esc(f.pouch || '')}" data-edit="foodList|${i}|pouch"></label>` : ''}</div>
+    ${wet ? `<label for="mx${i}">This table is for</label><select id="mx${i}" data-edit="foodList|${i}|mixed"><option value=""${f.mixed ? '' : ' selected'}>Feeding wet food only</option><option value="1"${f.mixed ? ' selected' : ''}>Feeding wet with kibble</option></select>
+    <p class="muted">Wet food calories matter here: put in the kcal per 100g from the pouch. With kibble in the bowl, the app uses calories to work out how much of his day the wet covers.</p>` : ''}
     <p class="muted">For a single figure, put the same number in from and to, or leave "to" blank. A packet table with columns for adult sizes works best as one row per cell.${wet ? ' For wet food, use grams a day (pouches times pouch weight).' : ''}</p>
   </details>`
-  + (now ? `<div class="muted">For him now, if it were all he ate: about ${Math.round(now.g / 5) * 5} g a day${now.src === 'packet' ? `, packet range ${now.lo} to ${now.hi} g for his age${now.outside ? '. His expected adult weight is outside this packet\'s sizes, so check the next size up or down.' : ''}${now.offAge ? '. His age is outside the packet rows, so this is from the nearest row.' : ''}` : ' from calories (add the packet guide for a better figure)'}${wet ? ` (${(now.g / pouchG(f.name)).toFixed(1)} pouches)` : ''}.</div>` : '');
+  + (wet && f.mixed ? (() => { const pk = packetG(f.name, Date.now()); return pk ? `<div class="muted">Fed with kibble, this table says about ${Math.round(pk.g / 5) * 5} g of this wet a day for him now (${(pk.g / pouchG(f.name)).toFixed(1)} pouches of ${pouchG(f.name)} g).</div>` : ''; })()
+    : now ? `<div class="muted">For him now, if it were all he ate: about ${Math.round(now.g / 5) * 5} g a day${now.src === 'packet' ? `, packet range ${now.lo} to ${now.hi} g for his age${now.outside ? '. His expected adult weight is outside this packet\'s sizes, so check the next size up or down.' : ''}${now.offAge ? '. His age is outside the packet rows, so this is from the nearest row.' : ''}` : ' from calories (add the packet guide for a better figure)'}${wet ? ` (${(now.g / pouchG(f.name)).toFixed(1)} pouches)` : ''}.</div>` : '');
 }
 
 // ---------- Treats ----------
@@ -1393,7 +1406,7 @@ function renderAnswer() {
   const wk = ageWeeks(now), months = monthsAt(now), adult = expectedAdult(), rows = [];
   const row = (a, b2) => rows.push(`<tr><td>${a}</td><td style="text-align:right;white-space:nowrap">${b2}</td></tr>`);
   row('Kibble a day for today\'s bowl (packet guide)', `${b.kib} g`);
-  if (wetMeal) row(`${x.wet.map(w => `${w.n} ${esc(short(w.food))}`).join(', ')} covers about ${Math.round(100 * Math.min(1, b.wetShare))}% of his day`, 'already taken off');
+  if (wetMeal) row(`${b.wet.map(w => `${+w.g.toFixed(0)} g ${esc(short(w.food))}, about ${Math.round(w.kcal)} kcal`).join(', ')}, covers about ${Math.round(100 * Math.min(1, b.wetShare))}% of his day`, 'already taken off');
   if (tr.kibble) row(`Kibble used in treats today (${tr.logs.map(l => esc(l.name)).join(', ')})`, `minus ${Math.round(tr.kibble)} g`);
   if (tr.cover >= 1) row(`Extras in treats, ${Math.round(tr.kcal)} kcal, as kibble`, `minus ${Math.round(tr.cover)} g`);
   row(`<strong>Left for ${meals} kibble meal${meals === 1 ? '' : 's'}</strong>`, `<strong>${Math.round(left)} g</strong>`);
@@ -1417,6 +1430,11 @@ function renderAnswer() {
           : ` At ${+adult.toFixed(1)} kg adult that reads about <strong>${Math.round(pk.g)} g</strong> if it were all he ate.`)
         + `${pk.offAge ? ' His age is outside the rows you entered, so it used the nearest one.' : ''}${pk.outside ? " His expected adult weight is outside this packet's sizes." : ''}`);
     } else why.push(`${esc(short(f.food))} has no packet guide, so it's worked out from calories. Add the packet table under His foods for a better figure.`);
+  });
+  b.wet.forEach(w => {
+    const f = S.foodList.find(z => z.name === w.food) || {};
+    why.push(`${esc(short(w.food))}: ${+w.g.toFixed(0)} g a day (${pouchG(w.food)} g pouch${f.pouch ? '' : ', the default as none is set'}) at ${kcalOf(w.food)} kcal per 100g${f.kcal ? '' : ' (a typical figure, as none is set)'}. Its share of his day is its calories against the kibble guide's.`
+      + (w.pk ? ` Its own table for feeding with kibble suggests about ${Math.round(w.pk.g)} g of wet a day.` : ''));
   });
   const ws = [...S.weights].sort(byDate);
   if (ws.length >= 2) { const wks = (ts(ws[0].date) - ts(ws[1].date)) / WEEK; if (wks > 0) why.push(`He's gaining about ${((ws[0].kg - ws[1].kg) / wks).toFixed(2)} kg a week.`); }
