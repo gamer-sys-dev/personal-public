@@ -71,6 +71,11 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Treats are foodList entries of type Treats with kcal per unit (teaspoon, gram or piece). Recipes (S.recipes) mix treats with "his kibble" from his allowance, which adds no calories. Treat logs (S.treats) copy the recipe's parts.
 - Treats advice for today: extra kcal and % of his day (warns over 10%), and how much to take out of his meals (kibble used in treats plus the extras' kcal as grams of his kibble mix). Filled meals take treats out automatically. If meals were filled before a treat, a button updates them. The vet summary includes treat kibble and extras.
 
+## Age on every tab (3 November 2026)
+
+- Each tab starts with a card showing his age today from the date of birth (weeks and days under a year, plus calendar months and days; years, months and days after that).
+- Under it, two or three notes for that tab at his age (ageTips): toilet expectations and the months plus one hold guide, sleep needs, the socialisation window and adolescence, teething and fear periods, jabs, microchip, the 6 month check and boosters, meals a day and how long to stay on puppy food (from expected adult weight), and upcoming milestones on More. Countdowns use real dates. Notes are rough, typical guides, worded that way.
+
 ## Ideas for later
 
 - Summary tab that analyses all the data and suggests causes and things to try. Needs an AI step, so data would leave the phone: make it opt in, and never put an API key in this public repo (use the user's own key stored on the device, or a small private backend).

@@ -49,6 +49,9 @@
   .tag { font-size:.75rem; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
   .due { color:var(--bad); border-color:var(--bad); }
   .soon { color:var(--warn); border-color:var(--warn); }
+  .agecard h2 { margin-bottom:4px; }
+  .agecard ul { margin-top:6px; }
+  .agecard li { display:block; padding:5px 0; font-size:.9rem; color:var(--muted); }
   .next { padding:10px; border-radius:10px; background:var(--bg); margin-top:8px; }
   a { color:var(--accent); }
   svg text { fill: var(--muted); font-size: 10px; }
@@ -190,7 +193,6 @@
 
 <!-- HEALTH -->
 <section id="tab-health" class="hidden">
-  <div class="card" id="noDob"><h2>Add his birth date</h2><p class="muted">Go to More and add the date of birth so the app can suggest timings.</p></div>
 
   <div class="card">
     <h2>Vaccinations</h2>
@@ -916,7 +918,6 @@ function upcomingItems() {
 function renderOther() {
   $('customList').innerHTML = S.custom.map((c, i) => `<li><span>${esc(c.name)}</span><span class="row">${dateInput('custom', i, c.date)}${delBtn('custom', i)}</span></li>`).join('') || '<li class="muted">None yet</li>';
   $('upcoming').innerHTML = upcomingItems().filter(x => x.t > Date.now() - 60 * DAY).map(x => `<li><span>${esc(x.name)}</span>${dueTag(x.t)}</li>`).join('') || '<li class="muted">Log jabs and treatments to see what\'s next</li>';
-  $('noDob').classList.toggle('hidden', !!S.dob);
 }
 
 // ---------- Food ----------
@@ -2046,6 +2047,93 @@ $('icsAll').onclick = () => {
   download('puppy-reminders.ics', ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//puppy-tracker//EN', ...ev, 'END:VCALENDAR'].join('\r\n'), 'text/calendar');
 };
 
+// ---------- Age ----------
+// His age on every tab, with a few notes on what's typical at that age for the tab. Rough guides, labelled as such.
+function ageParts(dob, now = new Date()) {
+  const b = new Date(dob + 'T00:00'), t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let y = t.getFullYear() - b.getFullYear(), m = t.getMonth() - b.getMonth(), d = t.getDate() - b.getDate();
+  if (d < 0) { m--; d += new Date(t.getFullYear(), t.getMonth(), 0).getDate(); }
+  if (m < 0) { y--; m += 12; }
+  const days = Math.round((t - b) / DAY);
+  return { y, m, d, days, weeks: Math.floor(days / 7), wd: days % 7 };
+}
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+function ageLine() {
+  if (!S.dob) return null;
+  const a = ageParts(S.dob), who = S.name || 'Your puppy';
+  if (a.days < 0) return `${who} isn't born yet by this date of birth.`;
+  const cal = [a.y && plural(a.y, 'year'), a.m && plural(a.m, 'month'), a.d && plural(a.d, 'day')].filter(Boolean).join(', ') || 'born today';
+  return a.y ? `${who} is ${cal} old today.` : `${who} is ${plural(a.weeks, 'week')}${a.wd ? ' and ' + plural(a.wd, 'day') : ''} old today <span class="muted">(${cal})</span>.`;
+}
+// Days until he reaches an age, by weeks or calendar months
+const untilWeeks = w => Math.ceil((ts(S.dob) - DAY / 2 + w * WEEK - Date.now()) / DAY);
+function untilMonths(n) { const b = new Date(S.dob + 'T00:00'); const d = new Date(b.getFullYear(), b.getMonth() + n, b.getDate()); return Math.ceil((d - Date.now()) / DAY); }
+const inDays = n => n <= 1 ? 'tomorrow' : n < 14 ? `in ${n} days` : `in about ${Math.round(n / 7)} weeks`;
+function ageTips(tab) {
+  const w = ageWeeks(Date.now()), mo = w / 4.35, sight = SIGHT.test(S.breed + ' ' + S.breed2);
+  const grownAt = growth([0, expectedAdult() || 25])[0], out = [];
+  if (tab === 'toilet') {
+    if (w < 12) out.push('At this age most puppies need to go after waking, eating and playing, and roughly every hour or so when awake. Accidents are normal.');
+    else if (w < 16) out.push('Most puppies start holding it a little longer now. Keep going out after sleep, food and play, and praise him outside straight away.');
+    else if (mo < 6) out.push('Many puppies are mostly clean indoors somewhere between 4 and 6 months. Slips with excitement or somewhere new are still normal.');
+    else out.push('If he still has regular accidents indoors past 6 months, mention it to the vet to rule out a water infection.');
+    if (mo < 6) out.push(`A rough guide is he can hold it for his age in months plus one, in hours: about ${Math.round(Math.min(8, mo + 1))} hours now.`);
+  }
+  if (tab === 'sleep') {
+    if (mo < 4) out.push('Puppies this age need around 18 to 20 hours of sleep a day. Overtiredness shows up as biting and zoomies, so plan naps after an hour or two awake.');
+    else if (mo < 12) out.push('He still needs a lot of sleep, far more than an adult dog. Keep regular naps in his day.');
+    else out.push('Adult dogs typically sleep around 12 to 14 hours a day.');
+    if (w >= 10 && w < 26) out.push('Nights usually get longer bit by bit. Stretch the last trip out slowly rather than all at once.');
+  }
+  if (tab === 'training') {
+    if (w < 16) { const n = untilWeeks(16); out.push(`The main socialisation window closes at around 12 to 16 weeks. He reaches 16 weeks ${inDays(n)}, so calm, positive meetings with new people, sounds and places matter most now.`); }
+    else out.push('New experiences still matter, just more slowly. Keep meetings calm and at his pace.');
+    if (mo < 4) out.push('Keep sessions to a few minutes, a few times a day. Puppy classes usually start once your vet says his jabs have taken effect.');
+    else if (mo < 6) out.push('He can manage slightly longer sessions now. Start adding distance and distraction to things he already knows.');
+    else if (mo < 18) out.push('Between about 6 and 18 months many dogs go through adolescence. Recall and focus can wobble. It passes, so keep rewarding the basics.');
+  }
+  if (tab === 'behaviour') {
+    if (mo < 4) out.push('Mouthing and nipping are normal at this age and often worse when he\'s tired. Swap hands for a toy and build in naps.');
+    if (mo >= 3 && mo < 7) out.push('Teething: adult teeth usually come through between about 4 and 6 months, so chewing peaks. Keep safe chews to hand.');
+    else if (mo < 3) { const n = untilMonths(3); out.push(`Teething usually starts from around 3 to 4 months. He's 3 months ${inDays(n)}, so expect more chewing from then.`); }
+    if (mo >= 6 && mo < 18) out.push('Some dogs go through a second fearful spell during adolescence. If he suddenly worries about things he was fine with, go back to easy distances and reward calm.');
+  }
+  if (tab === 'health') {
+    if (w < 16) out.push('Puppy jabs are usually two doses a few weeks apart. Ask your vet when he can safely go out on the ground and meet unknown dogs.');
+    out.push('Microchipping is a legal requirement in England. Check the chip is registered to you with your current address.');
+    if (mo < 6) { const n = untilMonths(6); out.push(`A check at about 6 months is a good time to talk about neutering. He's 6 months ${inDays(n)}. For bigger dogs vets often suggest waiting, so ask what's best for him.`); }
+    else if (mo < 15) out.push('First boosters are usually due about 12 months after the puppy course. The Health tab tracks the dates.');
+    if (mo >= 3 && mo < 7) out.push('Losing baby teeth is normal from about 4 months. Mention any baby tooth still in place next to an adult one to the vet.');
+    if (sight) out.push('Sighthounds can react differently to some anaesthetics, so remind the vet before any procedure.');
+  }
+  if (tab === 'food') {
+    const meals = S.meals.length;
+    if (w < 11) out.push('Most puppies have 4 meals a day at this age.');
+    else if (w < 13) out.push(`Around now most puppies move from 4 meals a day to 3.${meals ? ` He's on ${meals} a day.` : ''}`);
+    else if (mo < 6) { const n = untilMonths(6); out.push(`Most puppies are on 3 meals a day from around 12 weeks, moving to 2 at about 6 months, ${inDays(n)}.${meals && meals !== 3 ? ` He's on ${meals} a day now.` : ''}`); }
+    else out.push(`From about 6 months most dogs do well on 2 meals a day${sight ? ', and deep chested dogs like sighthounds are best kept on 2 or more for life' : ''}.`);
+    if (mo < 6) out.push('Daily amounts usually rise as he grows, until around 5 to 6 months, then level off as growth slows. Go by his weight and body score, not the age alone.');
+    else if (mo < grownAt) out.push('Growth is slowing, so his daily amount may stay level or even drop. Watch his body score.');
+    const n = untilMonths(grownAt);
+    out.push(n > 0 ? `Dogs his expected size usually stay on puppy food until about ${grownAt} months, ${inDays(n)}.` : `He's around the age to move to adult food. Change over gradually, across 7 to 10 days.`);
+  }
+  if (tab === 'more') {
+    const marks = [[16, 'weeks', 'the end of the main socialisation window'], [6, 'months', '6 months'], [12, 'months', 'his first birthday']]
+      .map(([v, u, l]) => [u === 'weeks' ? untilWeeks(v) : untilMonths(v), l]).filter(([n]) => n > 0);
+    if (marks.length) out.push(`Coming up: ${marks.map(([n, l]) => `${l} ${inDays(n)}`).join(', ')}.`);
+  }
+  return out;
+}
+function renderAge() {
+  document.querySelectorAll('main > section').forEach(sec => {
+    const tab = sec.id.slice(4);
+    let card = sec.querySelector(':scope > .agecard');
+    if (!card) { card = document.createElement('div'); card.className = 'card agecard'; sec.prepend(card); }
+    const line = ageLine();
+    card.innerHTML = line ? `<h2 style="font-weight:600">${line}</h2>` + (() => { const t = ageTips(tab); return t.length ? `<ul>${t.map(x => `<li>${x}</li>`).join('')}</ul>` : ''; })()
+      : '<span class="muted">Add his date of birth in More to see his age and what to expect at each stage.</span>';
+  });
+}
 function render() {
   $('title').textContent = S.name ? S.name + "'s tracker" : 'Puppy tracker';
   document.title = $('title').textContent;
@@ -2053,7 +2141,7 @@ function render() {
   $('pupBreed').value = BREEDS.includes(S.breed) || TYPES.includes(S.breed) ? '' : S.breed;
   $('pupBreedSel').value = ''; $('pupKind').value = S.kind; $('pupBreed2').value = S.breed2; kindUI();
   renderToilet(); renderTraining(); renderSocial(); renderSleep(); renderNight(); renderBeh(); renderVax(); renderTreatments();
-  renderWeight(); renderOther(); renderFood(); renderSync();
+  renderWeight(); renderOther(); renderFood(); renderSync(); renderAge();
 }
 render();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
