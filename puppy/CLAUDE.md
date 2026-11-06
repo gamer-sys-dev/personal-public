@@ -76,6 +76,11 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Each tab starts with a card showing his age today from the date of birth (weeks and days under a year, plus calendar months and days; years, months and days after that).
 - Under it, two or three notes for that tab at his age (ageTips): toilet expectations and the months plus one hold guide, sleep needs, the socialisation window and adolescence, teething and fear periods, jabs, microchip, the 6 month check and boosters, meals a day and how long to stay on puppy food (from expected adult weight), and upcoming milestones on More. Countdowns use real dates. Notes are rough, typical guides, worded that way.
 
+## Filling in missed toilet days (6 November 2026)
+
+- A folded "Fill in missed days" card on the Toilet tab. Pick a day (defaults to yesterday, arrows to step back). "With times": add wees and poos one tap each (each new row an hour after the last), edit times and poo scores. "Just how many": counts of wees and poos in the garden and inside, a usual poo score, and his waking hours. Those are spread evenly with poos placed among the wees and flagged approx (shown as "time approx").
+- Entries go into S.toilet like any other, so they count in the last 24 hours, the 7 day %, Day by day and the food and poos table, and they sync.
+
 ## Ideas for later
 
 - Summary tab that analyses all the data and suggests causes and things to try. Needs an AI step, so data would leave the phone: make it opt in, and never put an API key in this public repo (use the user's own key stored on the device, or a small private backend).

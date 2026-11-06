@@ -30,7 +30,7 @@
   button.small { padding:6px 10px; font-size:.85rem; }
   button.wide { width:100%; margin-top:12px; }
   input, select, textarea { font: inherit; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); width:100%; }
-  input[type=checkbox] { width:auto; }
+  input[type=checkbox], input[type=radio] { width:auto; }
   input.date { width:auto; padding:6px 8px; font-size:.88rem; }
   label { display:block; margin:8px 0 4px; font-size:.9rem; }
   ul { list-style:none; padding:0; margin:0; }
@@ -94,6 +94,41 @@
   <div class="card">
     <h2>Recent</h2>
     <ul id="toiletList"></ul>
+  </div>
+  <div class="card">
+    <details id="bkBox"><summary><strong>Fill in missed days</strong></summary>
+      <div class="row" style="margin-top:10px"><button id="bkPrev" aria-label="Previous day">&lsaquo;</button><input type="date" id="bkDay" style="flex:1"><button id="bkNext" aria-label="Next day">&rsaquo;</button></div>
+      <p class="muted" id="bkHas"></p>
+      <div class="row">
+        <label class="row" style="margin:0"><input type="radio" name="bkMode" value="times" checked> With times</label>
+        <label class="row" style="margin:0"><input type="radio" name="bkMode" value="counts"> Just how many</label>
+      </div>
+      <div id="bkTimes">
+        <div id="bkRows"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="small" data-bkadd="wee|garden">+ Wee in garden</button><button class="small" data-bkadd="wee|inside">+ Wee inside</button>
+          <button class="small" data-bkadd="poo|garden">+ Poo in garden</button><button class="small" data-bkadd="poo|inside">+ Poo inside</button>
+        </div>
+      </div>
+      <div id="bkCounts" class="hidden">
+        <div class="row">
+          <div style="flex:1"><label for="bkWg">Wees in garden</label><input id="bkWg" type="number" inputmode="numeric" min="0"></div>
+          <div style="flex:1"><label for="bkWi">Wees inside</label><input id="bkWi" type="number" inputmode="numeric" min="0"></div>
+        </div>
+        <div class="row">
+          <div style="flex:1"><label for="bkPg">Poos in garden</label><input id="bkPg" type="number" inputmode="numeric" min="0"></div>
+          <div style="flex:1"><label for="bkPi">Poos inside</label><input id="bkPi" type="number" inputmode="numeric" min="0"></div>
+        </div>
+        <label for="bkScore">Usual poo score that day</label>
+        <select id="bkScore"><option value="">Not sure</option><option value="1">1 hard</option><option value="2">2 firm</option><option value="3">3 soft but formed</option><option value="4">4 very soft</option><option value="5">5 runny</option></select>
+        <div class="row">
+          <div style="flex:1"><label for="bkFrom">Up from</label><input id="bkFrom" type="time" value="06:00"></div>
+          <div style="flex:1"><label for="bkTo">Bed at</label><input id="bkTo" type="time" value="21:30"></div>
+        </div>
+        <p class="muted">They're spread evenly across his waking hours and marked as approximate times. Counts and scores still go into his daily totals and the food and poos table.</p>
+      </div>
+      <button class="primary wide" id="bkSave">Save this day</button>
+    </details>
   </div>
 </section>
 
@@ -712,7 +747,52 @@ function rate(from, to) {
   const xs = S.toilet.filter(x => x.t >= from && x.t < to);
   return xs.length ? { pct: Math.round(100 * xs.filter(x => x.where === 'garden').length / xs.length), n: xs.length } : null;
 }
+// ---------- Filling in missed days ----------
+let bkRows = [], bkDay = localDay(Date.now() - DAY);
+const bkMode = () => document.querySelector('input[name=bkMode]:checked').value;
+const mins = hm => { const [h, m] = (hm || '0:0').split(':').map(Number); return h * 60 + m; };
+const hhmm = m => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(Math.round(m % 60)).padStart(2, '0');
+function renderBulk() {
+  $('bkDay').value = bkDay;
+  const from = dayStart(bkDay), tl = toiletIn(from, dayStart(nextDay(bkDay)));
+  $('bkHas').textContent = tl.wees.length + tl.poos.length ? `Already logged that day: ${plural(tl.wees.length, 'wee')}, ${plural(tl.poos.length, 'poo')}. Anything you add here goes on top.` : 'Nothing logged for that day yet.';
+  $('bkTimes').classList.toggle('hidden', bkMode() !== 'times'); $('bkCounts').classList.toggle('hidden', bkMode() !== 'counts');
+  $('bkRows').innerHTML = bkRows.map((r, i) => `<div class="row" style="margin-top:6px;flex-wrap:nowrap"><input type="time" value="${r.time}" data-bk="${i}|time" style="width:auto"><span style="flex:1">${r.kind === 'poo' ? 'Poo' : 'Wee'} ${r.where === 'garden' ? 'in garden' : 'inside'}</span>${r.kind === 'poo' ? `<select data-bk="${i}|score" style="width:auto"><option value="">Score</option>${[1, 2, 3, 4, 5].map(n => `<option${+r.score === n ? ' selected' : ''}>${n}</option>`).join('')}</select>` : ''}<button class="small" data-bkx="${i}">x</button></div>`).join('')
+    || '<p class="muted">Tap the buttons below for each wee and poo, then set the times.</p>';
+}
+document.querySelectorAll('input[name=bkMode]').forEach(r => r.onchange = renderBulk);
+$('bkDay').onchange = () => { bkDay = $('bkDay').value || bkDay; renderBulk(); };
+$('bkPrev').onclick = () => { bkDay = prevDay(bkDay); renderBulk(); };
+$('bkNext').onclick = () => { if (bkDay < localDay(Date.now())) { bkDay = nextDay(bkDay); renderBulk(); } };
+document.addEventListener('click', e => {
+  const a = e.target.dataset.bkadd, x = e.target.dataset.bkx;
+  if (a) { const [kind, where] = a.split('|'), last = bkRows.length ? mins(bkRows[bkRows.length - 1].time) + 60 : 7 * 60; bkRows.push({ kind, where, time: hhmm(Math.min(last, 23 * 60 + 30)), score: '' }); renderBulk(); }
+  if (x !== undefined) { bkRows.splice(+x, 1); renderBulk(); }
+});
+$('bkRows').addEventListener('change', e => { const k = e.target.dataset.bk; if (!k) return; const [i, f] = k.split('|'); bkRows[+i][f] = e.target.value; });
+$('bkSave').onclick = () => {
+  const day = bkDay, at = hm => dayStart(day) + mins(hm) * 60000, out = [];
+  if (day > localDay(Date.now())) { alert("That day hasn't happened yet."); return; }
+  if (bkMode() === 'times') {
+    if (!bkRows.length) { alert('Add the wees and poos first.'); return; }
+    bkRows.forEach(r => out.push({ t: at(r.time), where: r.where, kind: r.kind, ...(r.kind === 'poo' && +r.score ? { score: +r.score } : {}) }));
+  } else {
+    const n = k => Math.max(0, +$(k).value || 0), score = +$('bkScore').value;
+    const items = [...Array(n('bkWg'))].map(() => ['wee', 'garden']).concat([...Array(n('bkWi'))].map(() => ['wee', 'inside']));
+    const poos = [...Array(n('bkPg'))].map(() => ['poo', 'garden']).concat([...Array(n('bkPi'))].map(() => ['poo', 'inside']));
+    // Spread poos evenly through the wees so the day reads naturally
+    poos.forEach((p, i) => items.splice(Math.round((i + 1) * items.length / (poos.length + 1)) + i, 0, p));
+    if (!items.length) { alert('Put in how many wees and poos.'); return; }
+    const a = mins($('bkFrom').value), b = Math.max(a + 60, mins($('bkTo').value)), step = items.length > 1 ? (b - a) / (items.length - 1) : 0;
+    items.forEach(([kind, where], i) => out.push({ t: at(hhmm(a + i * step)), where, kind, approx: true, ...(kind === 'poo' && score ? { score } : {}) }));
+  }
+  if (out.some(o => o.t > Date.now())) { alert('Some of those times are later than now.'); return; }
+  out.forEach(o => addTimed(S.toilet, o));
+  bkRows = []; ['bkWg', 'bkWi', 'bkPg', 'bkPi'].forEach(k => { $(k).value = ''; }); $('bkScore').value = '';
+  save(); alert(`Saved ${plural(out.length, 'entry').replace('entrys', 'entries')} for ${fmt(day)}.`);
+};
 function renderToilet() {
+  renderBulk();
   const now = Date.now(), wk = rate(now - WEEK, now + 1), prev = rate(now - 2 * WEEK, now - WEEK);
   $('toiletRate').textContent = wk ? wk.pct + '% in the garden (' + wk.n + ' trips)' : 'No logs yet';
   $('toiletBar').style.width = (wk ? wk.pct : 0) + '%';
@@ -730,7 +810,7 @@ function renderToilet() {
     + flags.map(f => `<div class="muted" style="margin-top:6px;color:var(--warn)">${f}</div>`).join('')
     : '<span class="muted">Nothing logged in the last 24 hours.</span>';
   $('toiletList').innerHTML = S.toilet.slice(0, 15).map((x, i) =>
-    `<li><span>${x.kind === 'poo' ? 'Poo' : 'Wee'} ${x.where === 'garden' ? 'in garden' : 'inside'}${x.score ? ` <span class="tag">score ${x.score}</span>` : ''}${x.night ? ' <span class="tag">night</span>' : ''}</span><span class="row"><span class="muted">${fmt(x.t)} ${time(x.t)}</span>${delBtn('toilet', i)}</span></li>`).join('') || '<li class="muted">Nothing logged yet</li>';
+    `<li><span>${x.kind === 'poo' ? 'Poo' : 'Wee'} ${x.where === 'garden' ? 'in garden' : 'inside'}${x.score ? ` <span class="tag">score ${x.score}</span>` : ''}${x.night ? ' <span class="tag">night</span>' : ''}${x.approx ? ' <span class="tag">time approx</span>' : ''}</span><span class="row"><span class="muted">${fmt(x.t)} ${time(x.t)}</span>${delBtn('toilet', i)}</span></li>`).join('') || '<li class="muted">Nothing logged yet</li>';
 }
 
 // ---------- Training ----------
@@ -1548,7 +1628,7 @@ function renderFeeds() {
       ? `${time(x.t)} ${esc(x.food)}<span class="row" style="margin-top:4px"><input type="number" inputmode="numeric" class="date" style="width:70px" value="${x.g || ''}" data-feedg="${x.i}"> g <select class="date" style="width:auto;padding:6px 8px;font-size:.88rem" data-edit="feeds|${x.i}|ate">${Object.entries(ATE).sort((a, b) => b[0] - a[0]).map(([k, v]) => `<option value="${k}"${+k === +x.ate ? ' selected' : ''}>${v}</option>`).join('')}</select></span>`
       : `${x.kind === 'poo' ? 'Poo' : 'Wee'} ${x.where === 'garden' ? '' : 'inside'}${x.score ? ` <span class="tag">score ${x.score}</span>` : ''}`}</span><span class="row">${x.src === 'feeds' ? '' : `<span class="muted">${time(x.t)}</span>`}${delBtn(x.src, x.i)}</span></li>`).join('') || '<li class="muted">Nothing logged this day</li>';
   const fs = items.filter(x => x.src === 'feeds'), eaten = Math.round(fs.reduce((a, x) => a + x.g * +x.ate, 0)), g = feedGuide();
-  $('daySum').innerHTML = `<strong>${tl.wees.length} wees, ${tl.poos.length} poos</strong>${tl.inside ? ` (${tl.inside} inside)` : ''}${tl.scores.length ? `. Poo scores ${tl.scores.join(', ')}` : ''}.`
+  $('daySum').innerHTML = `<strong>${plural(tl.wees.length, 'wee')}, ${plural(tl.poos.length, 'poo')}</strong>${tl.inside ? ` (${tl.inside} inside)` : ''}${tl.scores.length ? `. Poo scores ${tl.scores.join(', ')}` : ''}.`
     + (fs.length ? ` ${fs.length} feed${fs.length === 1 ? '' : 's'} logged${eaten ? `, about ${eaten} g eaten` : ''}.` : '');
   const now = Date.now(), a = feedStats(now - WEEK, now + 1), b = feedStats(now - 2 * WEEK, now - WEEK);
   const line = st => `${st.days ? (st.n / st.days).toFixed(1) : 0} feeds a day, ${st.n ? Math.round(100 * st.left / st.n) : 0}% not finished${st.poo ? `, average poo ${st.poo.toFixed(1)}` : ''}`;
