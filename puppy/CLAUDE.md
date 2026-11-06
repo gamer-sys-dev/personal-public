@@ -81,6 +81,12 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - A folded "Fill in missed days" card on the Toilet tab. Pick a day (defaults to yesterday, arrows to step back). "With times": add wees and poos one tap each (each new row an hour after the last), edit times and poo scores. "Just how many": counts of wees and poos in the garden and inside, a usual poo score, and his waking hours. Those are spread evenly with poos placed among the wees and flagged approx (shown as "time approx").
 - Entries go into S.toilet like any other, so they count in the last 24 hours, the 7 day %, Day by day and the food and poos table, and they sync.
 
+## Usual day and usual night (6 November 2026)
+
+- Fill in missed days has a "His usual day" mode (the default): S.usualDay holds daytime wee and poo times and a usual poo score. It loads into the rows to tweak before saving. "Suggest from his logs" picks representative times from the last 14 days (average count per day of each kind, spread across his usual times, night and approximate entries left out). "Save these as his usual day" stores them.
+- Sleep tab "His usual night": S.usualNight holds bed, up and trips (time, wee, poo, we wake him or he cries). "Usual night" or "Slept through" logs a chosen night (defaults to last night) in one tap, writing the night log, sleep entries and night toilet trips together. Times before 2pm count as the morning after. If the night already has entries it offers to replace them (night log plus night flagged sleep and toilet entries from 2pm to 2pm). "Suggest from his last nights" uses medians of the last 7 full nights and keeps trips seen on at least half of them.
+- Both templates sync with the other settings.
+
 ## Ideas for later
 
 - Summary tab that analyses all the data and suggests causes and things to try. Needs an AI step, so data would leave the phone: make it opt in, and never put an API key in this public repo (use the user's own key stored on the device, or a small private backend).

@@ -100,14 +100,20 @@
       <div class="row" style="margin-top:10px"><button id="bkPrev" aria-label="Previous day">&lsaquo;</button><input type="date" id="bkDay" style="flex:1"><button id="bkNext" aria-label="Next day">&rsaquo;</button></div>
       <p class="muted" id="bkHas"></p>
       <div class="row">
-        <label class="row" style="margin:0"><input type="radio" name="bkMode" value="times" checked> With times</label>
+        <label class="row" style="margin:0"><input type="radio" name="bkMode" value="usual" checked> His usual day</label>
+        <label class="row" style="margin:0"><input type="radio" name="bkMode" value="times"> With times</label>
         <label class="row" style="margin:0"><input type="radio" name="bkMode" value="counts"> Just how many</label>
       </div>
       <div id="bkTimes">
+        <div id="bkUsualNote" class="muted"></div>
         <div id="bkRows"></div>
         <div class="row" style="margin-top:8px">
           <button class="small" data-bkadd="wee|garden">+ Wee in garden</button><button class="small" data-bkadd="wee|inside">+ Wee inside</button>
           <button class="small" data-bkadd="poo|garden">+ Poo in garden</button><button class="small" data-bkadd="poo|inside">+ Poo inside</button>
+        </div>
+        <div class="row" id="bkUsualTools" style="margin-top:8px">
+          <button class="small" id="bkSuggest">Suggest from his logs</button>
+          <button class="small" id="bkKeep">Save these as his usual day</button>
         </div>
       </div>
       <div id="bkCounts" class="hidden">
@@ -157,6 +163,29 @@
       <div class="row" style="margin-top:8px"><button class="primary" id="outSave" style="flex:1">Save trip</button><button id="outCancel">Cancel</button></div>
     </div>
     <ul id="nightList" style="margin-top:8px"></ul>
+  </div>
+  <div class="card">
+    <h2>His usual night</h2>
+    <div class="row"><button id="unPrev" aria-label="Previous night">&lsaquo;</button><input type="date" id="unDay" style="flex:1"><button id="unNext" aria-label="Next night">&rsaquo;</button></div>
+    <p class="muted" id="unHas"></p>
+    <div class="row">
+      <button class="big" id="unUsual">Usual night</button>
+      <button class="big" id="unThrough">Slept through</button>
+    </div>
+    <p class="muted" id="unSummary"></p>
+    <details id="unEdit" style="margin-top:6px"><summary class="muted">Set his usual night</summary>
+      <div class="row">
+        <div style="flex:1"><label for="unBed">Bedtime</label><input id="unBed" type="time"></div>
+        <div style="flex:1"><label for="unUp">Up for the day</label><input id="unUp" type="time"></div>
+      </div>
+      <h3>Trips out in the night</h3>
+      <div id="unTrips"></div>
+      <div class="row" style="margin-top:6px">
+        <button class="small" id="unAddTrip">+ Add a trip</button>
+        <button class="small" id="unSuggest">Suggest from his last nights</button>
+      </div>
+      <button class="primary wide" id="unSave">Save his usual night</button>
+    </details>
   </div>
   <div class="card">
     <h2>Night plan</h2>
@@ -629,7 +658,7 @@ const blank = {
   toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], custom:[],
   vax:[], vaxDue:'',
   treatments:[],
-  weights:[], adultKg:'', foodList:[], diet:{}, meals:[], stools:[], feeds:[], treats:[], recipes:[], nights:[], behaviours:[], sleep:[], social:[], socialOwn:[],
+  weights:[], adultKg:'', foodList:[], diet:{}, meals:[], usualDay:null, usualNight:null, stools:[], feeds:[], treats:[], recipes:[], nights:[], behaviours:[], sleep:[], social:[], socialOwn:[],
   feedPlan:{ type:'', meals:0, kdry:'', kwet:'', kraw:'', wetG:'' }
 };
 function load() {
@@ -752,11 +781,42 @@ let bkRows = [], bkDay = localDay(Date.now() - DAY);
 const bkMode = () => document.querySelector('input[name=bkMode]:checked').value;
 const mins = hm => { const [h, m] = (hm || '0:0').split(':').map(Number); return h * 60 + m; };
 const hhmm = m => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(Math.round(m % 60)).padStart(2, '0');
+// His usual day: daytime wees and poos with times, set by hand or suggested from the last 2 weeks
+function suggestDay() {
+  const from = Date.now() - 14 * DAY, xs = S.toilet.filter(x => x.t >= from && !x.night && !x.approx);
+  const days = new Set(xs.map(x => localDay(x.t))).size; if (days < 2) return null;
+  const rows = [];
+  ['wee', 'poo'].forEach(kind => {
+    const ms = xs.filter(x => x.kind === kind).map(x => { const d = new Date(x.t); return d.getHours() * 60 + d.getMinutes(); }).sort((a, b) => a - b);
+    const n = Math.round(ms.length / days);
+    // Pick n representative times spread through the times he usually goes
+    for (let k = 0; k < n; k++) rows.push({ kind, where: 'garden', time: hhmm(ms[Math.min(ms.length - 1, Math.floor((k + 0.5) * ms.length / n))]), score: '' });
+  });
+  const sc = xs.filter(x => x.score).map(x => x.score);
+  return { rows: rows.sort((a, b) => (a.time > b.time ? 1 : -1)), score: sc.length ? String(Math.round(avg(sc))) : '', days };
+}
+function loadUsualDay() { const u = S.usualDay; bkRows = u && u.rows ? u.rows.map(r => ({ ...r, where: 'garden', score: r.kind === 'poo' ? u.score || '' : '' })) : []; }
+$('bkSuggest').onclick = () => {
+  const g = suggestDay(); if (!g) { alert('It needs at least 2 days of logged wees and poos to suggest a pattern.'); return; }
+  bkRows = g.rows.map(r => ({ ...r, score: r.kind === 'poo' ? g.score : '' })); renderBulk();
+  alert(`Suggested from ${g.days} days of logs. Change anything that's not right, then save these as his usual day.`);
+};
+$('bkKeep').onclick = () => {
+  if (!bkRows.length) { alert('Add his usual wees and poos first.'); return; }
+  const sc = bkRows.find(r => r.kind === 'poo' && r.score);
+  S.usualDay = { rows: bkRows.map(r => ({ kind: r.kind, time: r.time })).sort((a, b) => (a.time > b.time ? 1 : -1)), score: sc ? sc.score : '' }; save(); alert('Saved as his usual day.');
+};
+let bkLastMode = null;
 function renderBulk() {
   $('bkDay').value = bkDay;
+  const mode = bkMode();
+  if (mode === 'usual' && bkLastMode !== 'usual') loadUsualDay();
+  bkLastMode = mode;
+  $('bkUsualTools').classList.toggle('hidden', mode !== 'usual');
+  $('bkUsualNote').textContent = mode !== 'usual' ? '' : S.usualDay ? "His usual day is filled in below. Change anything that was different, then save." : 'No usual day set yet. Tap Suggest from his logs, or add his usual wees and poos and save them as his usual day.';
   const from = dayStart(bkDay), tl = toiletIn(from, dayStart(nextDay(bkDay)));
   $('bkHas').textContent = tl.wees.length + tl.poos.length ? `Already logged that day: ${plural(tl.wees.length, 'wee')}, ${plural(tl.poos.length, 'poo')}. Anything you add here goes on top.` : 'Nothing logged for that day yet.';
-  $('bkTimes').classList.toggle('hidden', bkMode() !== 'times'); $('bkCounts').classList.toggle('hidden', bkMode() !== 'counts');
+  $('bkTimes').classList.toggle('hidden', mode === 'counts'); $('bkCounts').classList.toggle('hidden', mode !== 'counts');
   $('bkRows').innerHTML = bkRows.map((r, i) => `<div class="row" style="margin-top:6px;flex-wrap:nowrap"><input type="time" value="${r.time}" data-bk="${i}|time" style="width:auto"><span style="flex:1">${r.kind === 'poo' ? 'Poo' : 'Wee'} ${r.where === 'garden' ? 'in garden' : 'inside'}</span>${r.kind === 'poo' ? `<select data-bk="${i}|score" style="width:auto"><option value="">Score</option>${[1, 2, 3, 4, 5].map(n => `<option${+r.score === n ? ' selected' : ''}>${n}</option>`).join('')}</select>` : ''}<button class="small" data-bkx="${i}">x</button></div>`).join('')
     || '<p class="muted">Tap the buttons below for each wee and poo, then set the times.</p>';
 }
@@ -773,7 +833,7 @@ $('bkRows').addEventListener('change', e => { const k = e.target.dataset.bk; if 
 $('bkSave').onclick = () => {
   const day = bkDay, at = hm => dayStart(day) + mins(hm) * 60000, out = [];
   if (day > localDay(Date.now())) { alert("That day hasn't happened yet."); return; }
-  if (bkMode() === 'times') {
+  if (bkMode() !== 'counts') {
     if (!bkRows.length) { alert('Add the wees and poos first.'); return; }
     bkRows.forEach(r => out.push({ t: at(r.time), where: r.where, kind: r.kind, ...(r.kind === 'poo' && +r.score ? { score: +r.score } : {}) }));
   } else {
@@ -788,7 +848,7 @@ $('bkSave').onclick = () => {
   }
   if (out.some(o => o.t > Date.now())) { alert('Some of those times are later than now.'); return; }
   out.forEach(o => addTimed(S.toilet, o));
-  bkRows = []; ['bkWg', 'bkWi', 'bkPg', 'bkPi'].forEach(k => { $(k).value = ''; }); $('bkScore').value = '';
+  bkRows = []; if (bkMode() === 'usual') loadUsualDay(); ['bkWg', 'bkWi', 'bkPg', 'bkPi'].forEach(k => { $(k).value = ''; }); $('bkScore').value = '';
   save(); alert(`Saved ${plural(out.length, 'entry').replace('entrys', 'entries')} for ${fmt(day)}.`);
 };
 function renderToilet() {
@@ -1757,6 +1817,77 @@ $('outSave').onclick = () => {
 const eve = t => { const d = new Date(t); return (d.getHours() * 60 + d.getMinutes() - 18 * 60 + 1440) % 1440; };
 const clock = m => { const x = (m + 18 * 60) % 1440; return String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(Math.round(x % 60)).padStart(2, '0'); };
 const nightOf = t => localDay(t - 14 * 3600000); // anything before 2pm belongs to the night before
+// ---------- Usual night ----------
+// A template night (bed, trips out, up) that logs in one tap, writing the night, sleep and toilet logs together
+let unDay = localDay(Date.now() - DAY), unDraft = null;
+const unBlank = () => ({ bed: '21:00', up: '06:00', trips: [] });
+// Times before 2pm belong to the morning after the evening the night started
+const nightAt = (d, hm) => dayStart(mins(hm) < 14 * 60 ? nextDay(d) : d) + mins(hm) * 60000;
+function logNight(d, n, through) {
+  const bed = nightAt(d, n.bed), up = nightAt(d, n.up), trips = through ? [] : n.trips.map(tr => ({ ...tr, t: nightAt(d, tr.time) })).filter(tr => tr.t > bed && tr.t < up).sort((a, b) => a.t - b.t);
+  if (up <= bed) { alert('Up time needs to be after bedtime.'); return false; }
+  if (up > Date.now()) { alert("That night hasn't finished yet."); return false; }
+  addTimed(S.nights, { t: bed, ev: 'bed' });
+  let from = bed;
+  trips.forEach(tr => {
+    addTimed(S.sleep, { t: from, end: tr.t, night: true });
+    addTimed(S.nights, { t: tr.t, ev: 'out', by: tr.by || 'us', wee: !!tr.wee, poo: !!tr.poo, acc: false });
+    if (tr.wee) addTimed(S.toilet, { t: tr.t, where: 'garden', kind: 'wee', night: true });
+    if (tr.poo) addTimed(S.toilet, { t: tr.t + 1000, where: 'garden', kind: 'poo', night: true });
+    from = tr.t + 5 * 60000;
+    addTimed(S.nights, { t: from, ev: 'back' });
+  });
+  addTimed(S.sleep, { t: from, end: up, night: true });
+  addTimed(S.nights, { t: up, ev: 'up' });
+  return true;
+}
+function quickNight(through) {
+  if (!S.usualNight && !through) { $('unEdit').open = true; alert('Set his usual night first, below.'); return; }
+  const n = S.usualNight || unBlank(), has = nightsLog().find(x => x.d === unDay);
+  if (has) {
+    if (!confirm(`The night of ${fmt(unDay)} already has ${plural(has.xs.length, 'entry').replace('entrys', 'entries')}. Replace them with this?`)) return;
+    // Clear that night's log and the night time sleep and toilet entries it made, from 2pm to 2pm
+    const a = dayStart(unDay) + 14 * 3600000, b2 = a + DAY, inNight = x => x.night && x.t >= a && x.t < b2;
+    S.nights = S.nights.filter(x => nightOf(x.t) !== unDay); S.sleep = S.sleep.filter(x => !inNight(x)); S.toilet = S.toilet.filter(x => !inNight(x));
+  }
+  if (logNight(unDay, n, through)) { save(); alert(`Logged the night of ${fmt(unDay)} as ${through ? 'slept through' : 'a usual night'}.`); }
+}
+$('unUsual').onclick = () => quickNight(false);
+$('unThrough').onclick = () => quickNight(true);
+$('unDay').onchange = () => { unDay = $('unDay').value || unDay; renderUsualNight(); };
+$('unPrev').onclick = () => { unDay = prevDay(unDay); renderUsualNight(); };
+$('unNext').onclick = () => { if (unDay < localDay(Date.now() - DAY)) { unDay = nextDay(unDay); renderUsualNight(); } };
+$('unAddTrip').onclick = () => { unDraft.trips.push({ time: '23:00', wee: true, poo: false, by: 'us' }); renderUnTrips(); };
+$('unTrips').addEventListener('change', e => { const k = e.target.dataset.un; if (!k) return; const [i, f] = k.split('|'); unDraft.trips[+i][f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; });
+$('unTrips').addEventListener('click', e => { const i = e.target.dataset.unx; if (i !== undefined) { unDraft.trips.splice(+i, 1); renderUnTrips(); } });
+$('unSuggest').onclick = () => {
+  const ns = nightsLog().slice(0, 7).filter(n => n.bed && n.up);
+  if (ns.length < 2) { alert('It needs at least 2 full nights logged (bedtime and up) to suggest his usual night.'); return; }
+  const med = xs => { const s2 = xs.slice().sort((a, b) => a - b); return s2[Math.floor(s2.length / 2)]; };
+  unDraft.bed = clock(med(ns.map(n => eve(n.bed.t)))); unDraft.up = clock(med(ns.map(n => eve(n.up.t))));
+  const trips = ns.flatMap(n => n.outs).map(x => ({ ...x, m: eve(x.t) })).sort((a, b) => a.m - b.m), groups = [];
+  trips.forEach(x => { const g = groups[groups.length - 1]; if (g && x.m - g[g.length - 1].m <= 90) g.push(x); else groups.push([x]); });
+  // Keep trips that happen on at least half the nights
+  unDraft.trips = groups.filter(g => g.length >= ns.length / 2).map(g => ({ time: clock(med(g.map(x => x.m))), wee: g.filter(x => x.wee).length >= g.length / 2, poo: g.filter(x => x.poo).length > g.length / 2, by: g.filter(x => x.by === 'us').length >= g.length / 2 ? 'us' : 'him' }));
+  $('unBed').value = unDraft.bed; $('unUp').value = unDraft.up; renderUnTrips();
+  alert(`Suggested from his last ${ns.length} nights. Check it, then save.`);
+};
+$('unSave').onclick = () => {
+  unDraft.bed = $('unBed').value || unDraft.bed; unDraft.up = $('unUp').value || unDraft.up;
+  S.usualNight = clone({ ...unDraft, trips: unDraft.trips.slice().sort((a, b) => nightAt('2000-01-01', a.time) - nightAt('2000-01-01', b.time)) });
+  $('unEdit').open = false; save();
+};
+function renderUnTrips() {
+  $('unTrips').innerHTML = unDraft.trips.map((tr, i) => `<div class="row" style="margin-top:6px"><input type="time" value="${tr.time}" data-un="${i}|time" style="width:auto"><label class="row" style="margin:0"><input type="checkbox" data-un="${i}|wee"${tr.wee ? ' checked' : ''}> Wee</label><label class="row" style="margin:0"><input type="checkbox" data-un="${i}|poo"${tr.poo ? ' checked' : ''}> Poo</label><select data-un="${i}|by" style="width:auto"><option value="us"${tr.by !== 'him' ? ' selected' : ''}>We wake him</option><option value="him"${tr.by === 'him' ? ' selected' : ''}>He cries</option></select><button class="small" data-unx="${i}">x</button></div>`).join('')
+    || '<p class="muted">No trips out. Add any he usually has.</p>';
+}
+function renderUsualNight() {
+  $('unDay').value = unDay;
+  const has = nightsLog().find(x => x.d === unDay), n = S.usualNight;
+  $('unHas').textContent = `Night of ${new Date(dayStart(unDay)).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}.` + (has ? ` Already has ${plural(has.xs.length, 'entry').replace('entrys', 'entries')} logged.` : ' Nothing logged yet.');
+  $('unSummary').textContent = n ? `Usual night: bed ${n.bed}${n.trips.length ? ', ' + n.trips.map(tr => `out at ${tr.time}${tr.wee || tr.poo ? ` (${[tr.wee && 'wee', tr.poo && 'poo'].filter(Boolean).join(' and ')})` : ''}`).join(', ') : ', no trips out'}, up ${n.up}.` : 'Set his usual night below to log a whole night in one tap.';
+  if (!$('unEdit').open || !unDraft) { unDraft = clone(n || unBlank()); $('unBed').value = unDraft.bed; $('unUp').value = unDraft.up; renderUnTrips(); }
+}
 function nightsLog() {
   const by = {};
   S.nights.forEach((x, i) => (by[nightOf(x.t)] = by[nightOf(x.t)] || []).push({ ...x, i }));
@@ -1918,7 +2049,7 @@ function download(name, text, type) {
 // ---------- Sync between phones ----------
 // Every entry carries an id and when it last changed, and deletions are remembered, so two phones' copies merge cleanly
 const LISTS = ['toilet', 'sessions', 'custom', 'vax', 'treatments', 'weights', 'foodList', 'stools', 'feeds', 'treats', 'recipes', 'nights', 'behaviours', 'sleep', 'social'];
-const SETTINGS = ['name', 'dob', 'breed', 'kind', 'breed2', 'commands', 'vaxDue', 'adultKg', 'meals', 'socialOwn', 'feedPlan'];
+const SETTINGS = ['name', 'dob', 'breed', 'kind', 'breed2', 'commands', 'vaxDue', 'adultKg', 'meals', 'socialOwn', 'feedPlan', 'usualDay', 'usualNight'];
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const hashOf = x => { const { u, ...r } = x; return JSON.stringify(r); };
 let seen = {};
@@ -2220,7 +2351,7 @@ function render() {
   $('pupName').value = S.name; $('pupDob').value = S.dob;
   $('pupBreed').value = BREEDS.includes(S.breed) || TYPES.includes(S.breed) ? '' : S.breed;
   $('pupBreedSel').value = ''; $('pupKind').value = S.kind; $('pupBreed2').value = S.breed2; kindUI();
-  renderToilet(); renderTraining(); renderSocial(); renderSleep(); renderNight(); renderBeh(); renderVax(); renderTreatments();
+  renderToilet(); renderTraining(); renderSocial(); renderSleep(); renderNight(); renderUsualNight(); renderBeh(); renderVax(); renderTreatments();
   renderWeight(); renderOther(); renderFood(); renderSync(); renderAge();
 }
 render();
