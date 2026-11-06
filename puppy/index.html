@@ -1402,7 +1402,7 @@ function feedGuide() {
   const adultAt = growth(adultRange())[0] * 4.35, rer = 70 * Math.pow(kg, 0.75);
   // Standard energy multipliers: 3x resting under 4 months, 2x while growing, 1.6 to 1.8x as an adult
   const [lo, hi] = wk < 16 ? [2.7, 3.3] : wk < adultAt ? [1.8, 2.2] : [1.6, 1.8];
-  const p = S.feedPlan, type = planType(), meals = +p.meals || S.meals.length || suggestedMeals(wk);
+  const p = S.feedPlan, type = planType(), meals = S.meals.length || +p.meals || suggestedMeals(wk); // his usual meals win over the old setting
   const k = t => +p['k' + t] || KCAL[t], r5 = x => Math.round(x / 5) * 5, kcal = [rer * lo, rer * hi];
   if (type !== 'mixed') return { kg, wk, meals, type, kcal: kcal.map(Math.round), foods: [{ t: type, typical: !+p['k' + type], day: kcal.map(c => r5(c / k(type) * 100)) }] };
   // Mixed: a set amount of wet a day, with dry making up the rest
@@ -1483,7 +1483,7 @@ function renderGuide() {
   renderAnswer();
   const p = S.feedPlan, type = planType(), g = feedGuide();
   $('gType').value = type; $('gKdry').value = p.kdry; $('gKwet').value = p.kwet; $('gKraw').value = p.kraw; $('gWetG').value = p.wetG;
-  $('gMeals').value = g ? g.meals : (p.meals || 3);
+  $('gMeals').value = g ? g.meals : (S.meals.length || p.meals || 3); $('gMeals').disabled = !!S.meals.length;
   $('gKdryWrap').classList.toggle('hidden', type !== 'dry' && type !== 'mixed');
   $('gKwetWrap').classList.toggle('hidden', type !== 'wet' && type !== 'mixed');
   $('gKrawWrap').classList.toggle('hidden', type !== 'raw');
@@ -2109,7 +2109,7 @@ function ageTips(tab) {
   if (tab === 'food') {
     const meals = S.meals.length;
     if (w < 11) out.push('Most puppies have 4 meals a day at this age.');
-    else if (w < 13) out.push(`Around now most puppies move from 4 meals a day to 3.${meals ? ` He's on ${meals} a day.` : ''}`);
+    else if (w < 13) out.push(meals && meals <= 3 ? `He's on ${meals} meals a day, which is usual from around 12 weeks.` : `Around now most puppies move from 4 meals a day to 3.${meals ? ` He's on ${meals} a day.` : ''}`);
     else if (mo < 6) { const n = untilMonths(6); out.push(`Most puppies are on 3 meals a day from around 12 weeks, moving to 2 at about 6 months, ${inDays(n)}.${meals && meals !== 3 ? ` He's on ${meals} a day now.` : ''}`); }
     else out.push(`From about 6 months most dogs do well on 2 meals a day${sight ? ', and deep chested dogs like sighthounds are best kept on 2 or more for life' : ''}.`);
     if (mo < 6) out.push('Daily amounts usually rise as he grows, until around 5 to 6 months, then level off as growth slows. Go by his weight and body score, not the age alone.');
