@@ -1,6 +1,6 @@
 # Puppy tracker
 
-Logs toilet trips, training sessions and care reminders for a puppy. Version one, single device.
+Helps with whatever you're working on with your puppy. It opens on Today, built around one to three goals, and keeps the detailed logs one tap away.
 
 - Everything the user enters is saved in localStorage on the phone. The only thing that ever leaves the phone is live sync, if the user turns it on, and that goes to their own Firebase project. The repo never holds config, keys or data.
 - Schedules are typical UK timings and are labelled as such. The vet's plan always wins and the user can edit or add items.
@@ -86,6 +86,14 @@ Logs toilet trips, training sessions and care reminders for a puppy. Version one
 - Fill in missed days has a "His usual day" mode (the default): S.usualDay holds daytime wee and poo times and a usual poo score. It loads into the rows to tweak before saving. "Suggest from his logs" picks representative times from the last 14 days (average count per day of each kind, spread across his usual times, night and approximate entries left out). "Save these as his usual day" stores them.
 - Sleep tab "His usual night": S.usualNight holds bed, up and trips (time, wee, poo, we wake him or he cries). "Usual night" or "Slept through" logs a chosen night (defaults to last night) in one tap, writing the night log, sleep entries and night toilet trips together. Times before 2pm count as the morning after. If the night already has entries it offers to replace them (night log plus night flagged sleep and toilet entries from 2pm to 2pm). "Suggest from his last nights" uses medians of the last 7 full nights and keeps trips seen on at least half of them.
 - Both templates sync with the other settings.
+
+## Today and goals (9 November 2026)
+
+- Bottom tabs are Today, Log anything, Health, More. Log anything shows a row of buttons for Toilet, Sleep, Food, Training and Behaviour (the old tabs, unchanged) and remembers the last one. go(tab) handles both.
+- Today: greeting with his name and age, a due card for any health job due within 3 days or overdue, then a card per active goal. With no goals it opens the goal picker (tiles). One to three goals at a time, by design.
+- Goals (S.goals, synced): sleep, biting, toilet, tummy, recall, alone, lead, social, jumping, other (named by the user). Each card has a question, two or three big buttons, a progress pill and a tip for today. Buttons write to the normal logs: sleep uses the usual night (logNight), slept through or an accident on last night; biting adds a behaviour log; toilet adds toilet entries (poo asks for a score); tummy logs a scored poo; social goes to the socialisation checklist. Recall, alone, lead, jumping and other log good, ok or bad to S.goalLogs.
+- Progress counts only what was logged, so gaps never count against him. When the logs say a goal is done (for example 5 nights with no trips and no accidents, a week with no biting logged, firm poos for 7 days, a week outside with no indoor accidents, the last five good) the card offers to stop tracking. Keep going hides that for a week. Stopping a goal keeps all its logs.
+- Suggestions for his age (socialising, recall, biting, toilet) appear while there's room for another goal.
 
 ## Ideas for later
 

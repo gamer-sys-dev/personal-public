@@ -52,6 +52,27 @@
   .agecard h2 { margin-bottom:4px; }
   .agecard ul { margin-top:6px; }
   .agecard li { display:block; padding:5px 0; font-size:.9rem; color:var(--muted); }
+  .subnav { display:flex; gap:6px; overflow-x:auto; padding:0 16px 10px; }
+  .subnav button { flex:0 0 auto; padding:8px 14px; border-radius:20px; font-size:.88rem; }
+  .subnav button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .hello { font-size:1.2rem; font-weight:700; margin:0; }
+  .goal-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .pill { font-size:.75rem; border-radius:20px; padding:3px 9px; background:var(--bg); color:var(--accent); font-weight:600; white-space:nowrap; border:1px solid var(--line); }
+  .dots { display:flex; gap:5px; margin-top:10px; }
+  .dot { width:24px; height:24px; border-radius:50%; background:var(--line); font-size:.65rem; display:grid; place-items:center; color:var(--muted); }
+  .dot.y { background:var(--good); color:#fff; } .dot.n { background:var(--bad); color:#fff; }
+  .tip { background:var(--bg); border-radius:10px; padding:9px 10px; font-size:.88rem; margin-top:10px; }
+  .gbtns { display:flex; gap:8px; margin-top:10px; }
+  .gbtns button { flex:1; padding:13px 4px; font-weight:600; font-size:.9rem; }
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+  .tile { text-align:left; border:1.5px solid var(--line); border-radius:14px; padding:12px; min-height:92px; position:relative; }
+  .tile.sel { border-color:var(--accent); }
+  .tile.sel::after { content:"\2713"; position:absolute; top:8px; right:10px; color:var(--accent); font-weight:800; }
+  .tile b { display:block; font-size:.92rem; margin-top:4px; }
+  .tile small { color:var(--muted); font-size:.76rem; }
+  .gdone { border-color:var(--good); }
+  .linkbtn { border:none; background:none; color:var(--accent); padding:6px 0; font-weight:600; }
+  .toast { position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:20px; font-size:.9rem; z-index:9; }
   .next { padding:10px; border-radius:10px; background:var(--bg); margin-top:8px; }
   a { color:var(--accent); }
   svg text { fill: var(--muted); font-size: 10px; }
@@ -59,10 +80,31 @@
 </head>
 <body>
 <header id="title">Puppy tracker</header>
+<div class="subnav hidden" id="subnav">
+  <button data-sub="toilet">Toilet</button><button data-sub="sleep">Sleep</button><button data-sub="food">Food</button><button data-sub="training">Training</button><button data-sub="behaviour">Behaviour</button>
+</div>
 <main>
 
+<!-- TODAY -->
+<section id="tab-today">
+  <div class="card">
+    <p class="hello" id="tdHello"></p>
+    <div class="muted" id="tdAge"></div>
+  </div>
+  <div id="tdDue"></div>
+  <div id="tdGoals"></div>
+  <div class="card hidden" id="tdPicker">
+    <h2 id="tdPickQ"></h2>
+    <p class="muted">Pick one to three. You can change these any time, and Today only asks about these.</p>
+    <div class="tiles" id="tdTiles"></div>
+    <input id="tdOther" class="hidden" placeholder="What are you working on? e.g. calm in the car" style="margin-top:10px">
+    <div class="row" style="margin-top:12px"><button class="primary" id="tdStart" style="flex:1">Start</button><button id="tdCancel">Cancel</button></div>
+  </div>
+  <div id="tdFoot"></div>
+</section>
+
 <!-- TOILET -->
-<section id="tab-toilet">
+<section id="tab-toilet" class="hidden">
   <div class="card">
     <h2>Log a toilet trip</h2>
     <div class="row">
@@ -642,12 +684,9 @@
 </main>
 
 <nav>
-  <button data-tab="toilet" class="on">Toilet</button>
-  <button data-tab="sleep">Sleep</button>
-  <button data-tab="training">Training</button>
-  <button data-tab="behaviour">Behaviour</button>
+  <button data-tab="today" class="on">Today</button>
+  <button data-tab="log">Log anything</button>
   <button data-tab="health">Health</button>
-  <button data-tab="food">Food</button>
   <button data-tab="more">More</button>
 </nav>
 
@@ -658,7 +697,7 @@ const blank = {
   toilet:[], commands:['Sit','Recall','Settle','Leave it','Drop'], sessions:[], custom:[],
   vax:[], vaxDue:'',
   treatments:[],
-  weights:[], adultKg:'', foodList:[], diet:{}, meals:[], usualDay:null, usualNight:null, stools:[], feeds:[], treats:[], recipes:[], nights:[], behaviours:[], sleep:[], social:[], socialOwn:[],
+  weights:[], adultKg:'', foodList:[], diet:{}, meals:[], usualDay:null, usualNight:null, stools:[], feeds:[], treats:[], recipes:[], nights:[], behaviours:[], sleep:[], social:[], socialOwn:[], goals:[], goalLogs:[],
   feedPlan:{ type:'', meals:0, kdry:'', kwet:'', kraw:'', wetG:'' }
 };
 function load() {
@@ -708,12 +747,22 @@ function dueTag(t) {
   return `<span class="tag ${cls}">${t < n ? 'Overdue ' : 'Due '}${fmt(t)}</span>`;
 }
 
-// Tabs
-document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
-  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
-  document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + b.dataset.tab));
+// Tabs: Today, Log anything (toilet, sleep, food, training, behaviour), Health, More
+const SUBS = ['toilet', 'sleep', 'food', 'training', 'behaviour'];
+let lastSub = 'toilet';
+function go(tab) {
+  const sub = SUBS.includes(tab) ? tab : null, top = sub ? 'log' : tab === 'log' ? 'log' : tab;
+  const show = top === 'log' ? (sub || lastSub) : top;
+  if (top === 'log') lastSub = show;
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.tab === top));
+  document.querySelectorAll('#subnav button').forEach(x => x.classList.toggle('on', x.dataset.sub === show));
+  $('subnav').classList.toggle('hidden', top !== 'log');
+  document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + show));
   window.scrollTo(0, 0);
-});
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.tab));
+document.querySelectorAll('#subnav button').forEach(b => b.onclick = () => go(b.dataset.sub));
+function toast(text) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = text; document.body.appendChild(t); setTimeout(() => t.remove(), 1800); }
 
 // Generic date editor: any input with data-edit="list|index|field" updates that entry
 document.addEventListener('change', e => {
@@ -2048,7 +2097,7 @@ function download(name, text, type) {
 }
 // ---------- Sync between phones ----------
 // Every entry carries an id and when it last changed, and deletions are remembered, so two phones' copies merge cleanly
-const LISTS = ['toilet', 'sessions', 'custom', 'vax', 'treatments', 'weights', 'foodList', 'stools', 'feeds', 'treats', 'recipes', 'nights', 'behaviours', 'sleep', 'social'];
+const LISTS = ['toilet', 'sessions', 'custom', 'vax', 'treatments', 'weights', 'foodList', 'stools', 'feeds', 'treats', 'recipes', 'nights', 'behaviours', 'sleep', 'social', 'goals', 'goalLogs'];
 const SETTINGS = ['name', 'dob', 'breed', 'kind', 'breed2', 'commands', 'vaxDue', 'adultKg', 'meals', 'socialOwn', 'feedPlan', 'usualDay', 'usualNight'];
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const hashOf = x => { const { u, ...r } = x; return JSON.stringify(r); };
@@ -2337,7 +2386,7 @@ function ageTips(tab) {
 }
 function renderAge() {
   document.querySelectorAll('main > section').forEach(sec => {
-    const tab = sec.id.slice(4);
+    const tab = sec.id.slice(4); if (tab === 'today') return;
     let card = sec.querySelector(':scope > .agecard');
     if (!card) { card = document.createElement('div'); card.className = 'card agecard'; sec.prepend(card); }
     const line = ageLine();
@@ -2345,6 +2394,171 @@ function renderAge() {
       : '<span class="muted">Add his date of birth in More to see his age and what to expect at each stage.</span>';
   });
 }
+// ---------- Today: goals ----------
+// Each goal has one question, two or three big buttons that write to the normal logs, a progress line and a tip.
+// Gaps never count against him: progress uses the days that were logged.
+const GOALS = {
+  sleep:   { icon:'🌙', name:'Sleep through the night', hint:'Bed, trips out, dry or not' },
+  biting:  { icon:'🦷', name:'Stop biting or mouthing', hint:'Hands, feet or clothes' },
+  toilet:  { icon:'🚽', name:'Toilet training', hint:'Outside or accident, one tap' },
+  tummy:   { icon:'💩', name:'Settle his tummy', hint:'Poo scores against his food' },
+  recall:  { icon:'📣', name:'Come when called', hint:'Recall practice and wins' },
+  alone:   { icon:'🏠', name:'Settle when left alone', hint:'Calm, some crying or upset' },
+  lead:    { icon:'🦮', name:'Walk nicely on the lead', hint:'Short walks, pulling or not' },
+  social:  { icon:'👋', name:'Socialising', hint:'New people, sounds, places' },
+  jumping: { icon:'🦘', name:'Stop jumping up', hint:'Visitors and greetings' },
+  other:   { icon:'✏️', name:'Something else', hint:'Name it yourself' }
+};
+// Three answer buttons for the simpler goals, logged to S.goalLogs as good, ok or bad
+const ANSWERS = {
+  recall:  ['Practised recall today. How did he do?', 'Came first time', 'Came eventually', "Didn't come"],
+  alone:   ['Left him on his own. How was he?', 'Settled', 'Some crying', 'Upset'],
+  lead:    ['How was the walk?', 'Walked nicely', 'Some pulling', 'Pulled a lot'],
+  jumping: ['Someone came in. What happened?', 'Four paws down', 'Jumped, then settled', 'Kept jumping'],
+  other:   ['How did it go today?', 'Good', 'Getting there', 'Not today']
+};
+const activeGoals = () => S.goals.filter(g => !g.ended);
+const goalName = g => g.type === 'other' && g.label ? g.label : GOALS[g.type].name;
+let picking = false, pickSel = [];
+// The night that ended most recently: before 2pm that's the night that started yesterday evening
+const recentNight = () => localDay(Date.now() - DAY);
+function todayNight(through) {
+  const d = recentNight();
+  if (!S.usualNight && !through) { go('sleep'); $('unEdit').open = true; toast('Set his usual night first'); return; }
+  const has = nightsLog().find(x => x.d === d);
+  if (has && !confirm(`Last night already has ${plural(has.xs.length, 'entry').replace('entrys', 'entries')}. Replace them?`)) return;
+  if (has) { const a = dayStart(d) + 14 * 3600000, b2 = a + DAY, inN = x => x.night && x.t >= a && x.t < b2; S.nights = S.nights.filter(x => nightOf(x.t) !== d); S.sleep = S.sleep.filter(x => !inN(x)); S.toilet = S.toilet.filter(x => !inN(x)); }
+  if (logNight(d, S.usualNight || { bed: '21:00', up: '06:00', trips: [] }, through)) { save(); toast(through ? 'Logged: slept through' : 'Logged: usual night'); }
+}
+function todayAccident() {
+  const d = recentNight(), n = nightsLog().find(x => x.d === d);
+  if (!n) { if (S.usualNight) { if (!logNight(d, S.usualNight, false)) return; } else { go('sleep'); toast('Log last night on the Sleep tab'); return; } }
+  const night = nightsLog().find(x => x.d === d), firstOut = night && night.outs[0];
+  if (firstOut) S.nights[firstOut.i].acc = true; else addTimed(S.nights, { t: (night ? night.up.t : Date.now()) - 60000, ev: 'out', by: 'him', wee: false, poo: false, acc: true });
+  addTimed(S.toilet, { t: (firstOut ? firstOut.t : Date.now()) - 60000, where: 'inside', kind: 'wee', night: true });
+  save(); toast('Logged: accident last night');
+}
+function logBite(did, result) { addTimed(S.behaviours, { t: Date.now(), what: 'Biting or mouthing', level: 1, why: 'Not sure', did, result, note: '' }); save(); toast('Logged'); }
+function sleepCard(g) {
+  const days = [...Array(7)].map((_, k) => localDay(Date.now() - (7 - k) * DAY)), ns = nightsLog();
+  const st = days.map(d => { const n = ns.find(x => x.d === d); return n ? (n.acc ? 'n' : 'y') : ''; });
+  const logged = st.filter(Boolean), dry = logged.filter(x => x === 'y').length;
+  let run = 0; for (let k = st.length - 1; k >= 0 && st[k] === 'y'; k--) run++;
+  const recent = ns.filter(n => n.bed || n.outs.length).slice(0, 5), last = S.usualNight && S.usualNight.trips.length ? S.usualNight.trips[S.usualNight.trips.length - 1] : null;
+  const tip = st.slice(-3).includes('n') ? 'There was an accident in the last few nights, so bring his last trip forward by about 30 minutes until he has a week of dry nights.'
+    : run >= 3 && last ? `${run} dry nights in a row, so try the ${last.time} trip 15 minutes later tonight. Then update his usual night on the Sleep tab.`
+    : run >= 3 ? `${run} dry nights in a row. If he's still having trips out, try the last one 15 minutes later.`
+    : 'Keep night trips dull: lead on, garden, quiet praise, straight back to bed.';
+  const done = recent.length >= 5 && recent.slice(0, 5).every(n => !n.acc && !n.outs.length);
+  return { pill: logged.length ? `${dry} of last ${logged.length} logged dry` : 'No nights logged yet', done: done && 'Five nights in a row with no trips out and no accidents.',
+    body: `<div class="dots">${days.map((d, k) => `<span class="dot ${st[k]}" title="${fmt(d)}">${new Date(dayStart(nextDay(d))).toLocaleDateString('en-GB', { weekday: 'narrow' })}</span>`).join('')}</div>
+      <div class="muted" style="margin-top:8px">How was last night?</div>
+      <div class="gbtns"><button class="good" data-gact="night">Usual night</button><button data-gact="through">Slept through</button><button class="bad" data-gact="acc">Accident</button></div>
+      <button class="linkbtn" data-go="sleep">Something different? Log it on the Sleep tab</button>`, tip };
+}
+function bitingCard(g) {
+  const now = Date.now(), b = S.behaviours.filter(x => x.what === 'Biting or mouthing'), wk = b.filter(x => x.t >= now - WEEK), pw = b.filter(x => x.t >= now - 2 * WEEK && x.t < now - WEEK);
+  const pill = !wk.length && !pw.length ? 'Nothing logged yet' : pw.length ? (wk.length < pw.length ? `Down ${Math.round(100 * (pw.length - wk.length) / pw.length)}% this week` : wk.length > pw.length ? `${wk.length} this week, up from ${pw.length}` : `${wk.length} this week, same as last`) : `${wk.length} this week`;
+  const aw = wk.map(x => awakeAt(x.t)).filter(x => x !== null), toyOk = wk.filter(x => x.did.startsWith('Redirected')), leaveOk = wk.filter(x => x.did.startsWith('Stopped play'));
+  const rate = xs => xs.length ? Math.round(100 * xs.filter(x => x.result === 'stopped' || x.result === 'calmed').length / xs.length) : null;
+  let tip = 'Freeze, swap for a tug toy, and leave the room for 30 seconds if he keeps going.';
+  if (aw.length >= 3 && avg(aw) > 60 * 60000) tip += ` Most bites this week came after about ${dur(avg(aw))} awake, so watch for nap time.`;
+  if (toyOk.length >= 3) tip += ` The toy has worked ${rate(toyOk)}% of the time this week.`;
+  const done = (now - g.started > WEEK) && !wk.length && pw.length <= 2 && b.length > 0;
+  return { pill, done: done && 'No biting logged in the last week.', tip,
+    body: `<div class="muted" style="margin-top:6px">He went for us just now. What happened?</div>
+      <div class="gbtns"><button class="good" data-gact="bite-toy">Toy worked</button><button data-gact="bite-leave">Had to leave</button><button class="bad" data-gact="bite-no">Didn't stop</button></div>` };
+}
+function toiletCard(g) {
+  const now = Date.now(), wk = rate(now - WEEK, now + 1), inside = S.toilet.filter(x => x.t >= now - WEEK && x.where === 'inside' && !x.night).length, n = S.toilet.filter(x => x.t >= now - WEEK).length;
+  const tips = ageTips('toilet');
+  return { pill: wk ? `${wk.pct}% outside this week` : 'Nothing logged yet', done: n >= 10 && wk && wk.pct === 100 && 'No accidents indoors in the last week.', tip: tips[0] || 'Go out after sleep, food and play, and praise him straight away.',
+    body: `<div class="gbtns"><button class="good" data-gact="t-wee">Wee outside</button><button class="good" data-gact="t-poo">Poo outside</button><button class="bad" data-gact="t-acc">Accident</button></div>
+      <div class="next hidden" id="tdScore"><strong>How was it?</strong> <span class="muted">1 hard, 2 firm, 3 soft, 4 very soft, 5 runny</span><div class="row" style="margin-top:6px">${[1, 2, 3, 4, 5].map(k => `<button data-tdscore="${k}">${k}</button>`).join('')}<button data-tdscore="0">Skip</button></div></div>` };
+}
+function tummyCard(g) {
+  const ds = foodDays(10).filter(r => r.score), last5 = ds.slice(0, 5), a = avg(last5.map(r => r.score));
+  const firm7 = ds.length >= 7 && ds.slice(0, 7).every(r => r.score <= 2.5);
+  const tip = a === null ? 'Score each poo. 2 is ideal.' : a >= 3.5 ? 'Poos are on the soft side. If you are switching food, slow it down, or try about 5 g less per kibble meal. Ring the vet if it lasts more than a day or two, or with sickness or tiredness.' : a <= 2.5 ? 'Poos are firm. Keep his food as it is.' : 'Getting there. Avoid changing anything else for now.';
+  return { pill: a === null ? 'No poos scored yet' : `Average ${a.toFixed(1)} over ${plural(last5.length, 'day')}`, done: firm7 && 'Firm poos (2) for 7 days.', tip,
+    body: `<div class="muted" style="margin-top:6px">Just did a poo outside. How was it?</div><div class="gbtns">${[1, 2, 3, 4, 5].map(k => `<button class="${k <= 2 ? 'good' : k >= 4 ? 'bad' : ''}" data-gact="poo-${k}">${k}</button>`).join('')}</div>` };
+}
+function socialCard(g) {
+  const all = Object.keys(SOCIAL).flatMap(k => SOCIAL[k]).concat(S.socialOwn), done = all.filter(i => S.social.some(x => x.item === i && x.react !== 'scared')).length;
+  const tips = ageTips('training');
+  return { pill: `${done} of ${all.length} covered`, done: done >= all.length * 0.8 && 'Most of the checklist covered.', tip: tips[0] || 'Short, calm meetings beat long ones.',
+    body: `<div class="bar"><div style="width:${100 * done / all.length}%"></div></div><div class="gbtns"><button class="primary" data-go="training">Log what he met</button></div>` };
+}
+function answerCard(g) {
+  const q = ANSWERS[g.type], xs = S.goalLogs.filter(x => x.goal === g.id), wk = xs.filter(x => x.t >= Date.now() - WEEK), good = wk.filter(x => x.r === 'good').length;
+  const last5 = xs.slice(0, 5);
+  return { pill: wk.length ? `${good} of ${wk.length} good this week` : 'Nothing logged yet', done: last5.length === 5 && last5.every(x => x.r === 'good') && 'The last five were all good.',
+    tip: { recall: 'Call once, happily, and make coming back the best thing ever. Never call him for something he won\'t like.', alone: 'Build up slowly from a few seconds, and leave something to chew. Come back before he gets upset.', lead: 'Stop when the lead goes tight and move on when it\'s slack. Keep walks short at his age.', jumping: 'Turn away when he jumps and give attention once all four paws are down. Ask visitors to do the same.', other: 'Small steps, and reward what you want to see more of.' }[g.type],
+    body: `<div class="muted" style="margin-top:6px">${q[0]}</div><div class="gbtns"><button class="good" data-glog="${g.id}|good">${q[1]}</button><button data-glog="${g.id}|ok">${q[2]}</button><button class="bad" data-glog="${g.id}|bad">${q[3]}</button></div>` };
+}
+const CARD = { sleep: sleepCard, biting: bitingCard, toilet: toiletCard, tummy: tummyCard, social: socialCard };
+function renderToday() {
+  const h = new Date().getHours(), name = S.name || 'your puppy';
+  $('tdHello').textContent = `${h < 12 ? 'Morning' : h < 18 ? 'Afternoon' : 'Evening'}. What are we working on with ${name}?`;
+  $('tdAge').innerHTML = S.dob ? (ageLine() || '').replace(/^.*? is /, 'He is ') : '<button class="linkbtn" data-go="more">Add his date of birth</button>';
+  // Health jobs due in the next 3 days or overdue, whatever the goals
+  const due = upcomingItems().filter(x => x.t < Date.now() + 3 * DAY && x.t > Date.now() - 14 * DAY);
+  $('tdDue').innerHTML = due.length ? `<div class="card" style="border-color:var(--warn)"><strong style="color:var(--warn)">${due.some(x => x.t < Date.now()) ? 'Due now' : 'Due soon'}</strong>${due.map(x => `<div class="muted">${esc(x.name)}: ${fmt(x.t)}</div>`).join('')}<div class="gbtns"><button data-go="health">Open Health</button></div></div>` : '';
+  const gs = activeGoals();
+  if (!gs.length && !picking) { picking = true; pickSel = []; }
+  $('tdPicker').classList.toggle('hidden', !picking);
+  $('tdPickQ').textContent = `What are you working on with ${S.name || 'him'}?`;
+  if (picking) {
+    const have = gs.map(g => g.type);
+    $('tdTiles').innerHTML = Object.entries(GOALS).filter(([k]) => k === 'other' || !have.includes(k)).map(([k, v]) => `<button class="tile${pickSel.includes(k) ? ' sel' : ''}" data-pick="${k}"><span style="font-size:1.3rem">${v.icon}</span><b>${v.name}</b><small>${v.hint}</small></button>`).join('');
+    $('tdOther').classList.toggle('hidden', !pickSel.includes('other'));
+    $('tdStart').textContent = pickSel.length ? `Start with ${pickSel.length === 1 ? 'this one' : 'these ' + pickSel.length}` : 'Pick at least one';
+    $('tdCancel').classList.toggle('hidden', !gs.length);
+  }
+  $('tdGoals').innerHTML = gs.map(g => {
+    const c = (CARD[g.type] || answerCard)(g), showDone = c.done && !(g.snooze && Date.now() - g.snooze < WEEK);
+    return `<div class="card${showDone ? ' gdone' : ''}"><div class="goal-head"><h2 style="margin:0">${GOALS[g.type].icon} ${esc(goalName(g))}</h2><span class="pill">${esc(c.pill)}</span></div>`
+      + (showDone ? `<div class="tip" style="margin-top:10px"><strong>Looks done.</strong> ${c.done} Stop tracking this?<div class="gbtns"><button class="primary" data-gend="${g.id}">Stop tracking</button><button data-gsnooze="${g.id}">Keep going</button></div></div>` : '')
+      + c.body + `<div class="tip"><b>Today:</b> ${c.tip}</div>`
+      + `<button class="linkbtn muted" data-gend="${g.id}" style="font-weight:400;font-size:.82rem">Stop this goal</button></div>`;
+  }).join('');
+  // Suggestions for his age, only while there's room for another goal
+  const sug = []; const w = S.dob ? ageWeeks(Date.now()) : null, have = gs.map(g => g.type);
+  if (w !== null) { if (w < 16) sug.push('social'); if (w < 26) sug.push('recall'); if (w < 20) sug.push('biting'); if (w < 30) sug.push('toilet'); }
+  const sugg = sug.filter(k => !have.includes(k)).slice(0, 2);
+  $('tdFoot').innerHTML = (gs.length ? '<p class="muted" style="text-align:center">Missed a few days? That\'s fine. Just pick up from today.</p>' : '')
+    + (gs.length && gs.length < 3 && !picking ? `<div class="card"><strong>Add a goal</strong>${sugg.length ? `<div class="muted">Suggested for his age: ${sugg.map(k => GOALS[k].name.toLowerCase()).join(', ')}.</div>` : ''}<div class="gbtns">${sugg.map(k => `<button data-addgoal="${k}">+ ${GOALS[k].name}</button>`).join('')}<button data-gpick="1">Choose…</button></div></div>` : '')
+    + (gs.length >= 3 && !picking ? '<p class="muted" style="text-align:center">Three goals at a time keeps it manageable. Finish or stop one to add another.</p>' : '');
+}
+function addGoal(type, label) { if (activeGoals().length >= 3) { toast('Three goals at most'); return; } S.goals.push({ type, label: label || '', started: Date.now() }); }
+document.addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  const d = t.dataset;
+  if (d.go) go(d.go);
+  if (d.pick) { const k = d.pick, i = pickSel.indexOf(k); if (i >= 0) pickSel.splice(i, 1); else if (pickSel.length + activeGoals().length < 3) pickSel.push(k); else toast('Three goals at most'); renderToday(); }
+  if (d.gpick) { picking = true; pickSel = []; renderToday(); $('tdPicker').scrollIntoView({ behavior: 'smooth' }); }
+  if (d.addgoal) { addGoal(d.addgoal); save(); }
+  if (d.gend) { const g = S.goals.find(x => x.id === d.gend); if (g && confirm(`Stop tracking "${goalName(g)}"? Everything logged stays.`)) { g.ended = Date.now(); save(); } }
+  if (d.gsnooze) { const g = S.goals.find(x => x.id === d.gsnooze); if (g) { g.snooze = Date.now(); save(); } }
+  if (d.glog) { const [id, r] = d.glog.split('|'); addTimed(S.goalLogs, { t: Date.now(), goal: id, r }); save(); toast('Logged'); }
+  if (d.tdscore !== undefined) { const x = S.toilet.find(y => y.t === pendingPoo && y.kind === 'poo'); if (x && +d.tdscore) x.score = +d.tdscore; pendingPoo = null; save(); }
+  const a = d.gact; if (!a) return;
+  if (a === 'night') todayNight(false); else if (a === 'through') todayNight(true); else if (a === 'acc') { if (confirm('Log an accident last night?')) todayAccident(); }
+  else if (a === 'bite-toy') logBite('Redirected to a toy or chew', 'stopped'); else if (a === 'bite-leave') logBite('Stopped play and stepped away', 'calmed'); else if (a === 'bite-no') logBite('Nothing', 'same');
+  else if (a === 't-wee' || a === 't-poo' || a === 't-acc') {
+    const tt = Date.now(), kind = a === 't-poo' ? 'poo' : 'wee'; addTimed(S.toilet, { t: tt, where: a === 't-acc' ? 'inside' : 'garden', kind });
+    pendingPoo = a === 't-poo' ? tt : null; save(); toast('Logged'); if (a === 't-poo') $('tdScore').classList.remove('hidden');
+  }
+  else if (a.startsWith('poo-')) { addTimed(S.toilet, { t: Date.now(), where: 'garden', kind: 'poo', score: +a.slice(4) }); save(); toast('Logged poo ' + a.slice(4)); }
+});
+$('tdStart').onclick = () => {
+  if (!pickSel.length) return;
+  if (pickSel.includes('other') && !$('tdOther').value.trim()) { alert('Say what you\'re working on.'); return; }
+  pickSel.forEach(k => addGoal(k, k === 'other' ? $('tdOther').value.trim() : ''));
+  picking = false; pickSel = []; $('tdOther').value = ''; save();
+};
+$('tdCancel').onclick = () => { picking = false; pickSel = []; renderToday(); };
+
 function render() {
   $('title').textContent = S.name ? S.name + "'s tracker" : 'Puppy tracker';
   document.title = $('title').textContent;
@@ -2352,7 +2566,7 @@ function render() {
   $('pupBreed').value = BREEDS.includes(S.breed) || TYPES.includes(S.breed) ? '' : S.breed;
   $('pupBreedSel').value = ''; $('pupKind').value = S.kind; $('pupBreed2').value = S.breed2; kindUI();
   renderToilet(); renderTraining(); renderSocial(); renderSleep(); renderNight(); renderUsualNight(); renderBeh(); renderVax(); renderTreatments();
-  renderWeight(); renderOther(); renderFood(); renderSync(); renderAge();
+  renderWeight(); renderOther(); renderFood(); renderSync(); renderAge(); renderToday();
 }
 render();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
