@@ -286,6 +286,8 @@ const SPRITES = {
   aldric:   { shape: 'knight', pal: { k: '#0a1420', H: '#9aa8c0', S: '#c8d4e4', E: '#a0f0ff', A: '#8a9ab8', a: '#c8d8f0', B: '#4a5068', L: '#6a7490', F: '#3a4058', W: '#e8f4ff', g: '#d4a630', D: '#3a4a7a', d: '#ffe27a' } },
   morwen:   { shape: 'mage', pal: { k: K, P: '#2a4a3a', R: '#7ad0a0', O: '#7affb0', o: '#e0fff0', s: '#4a3a2a', H: '#1a2a20', S: '#c8d0b0', E: '#2a1a10' } },
   h_catapult: { shape: 'ballista', flip: true, scale: 1.5, pal: { k: '#05030a', W: '#3a2a3a', S: '#8a84a8', I: '#2a2438', B: '#1a1424' } },
+  hwren:    { shape: 'ranger', flip: true, pal: { k: '#05030a', G: '#2a2438', H: '#b5652a', S: '#8a8098', E: '#ff3a3a', T: '#3a3450', t: '#4a4060', B: '#140e1c', L: '#1a1424', F: '#0a0610', b: '#5a5478' } },
+  hand:     { shape: 'knight', flip: true, scale: 1.4, pal: { k: '#05030a', H: '#140e1c', S: '#2a2438', E: '#ff2a2a', A: '#1a1424', a: '#3a2a3a', B: '#0a0610', L: '#140e1c', F: '#05030a', W: '#c03030', g: '#c03030', D: '#140e1c', d: '#c03030' } },
   emberfox: { shape: 'wolf', flip: false, pal: { k: K, G: '#e0702a', g: '#fff0d8', E: '#ffe07a' } },
 };
 

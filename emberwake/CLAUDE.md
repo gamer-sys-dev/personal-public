@@ -61,10 +61,26 @@ A fantasy party RPG for one player on a phone. Underdog party, turn based fights
 - Bigger battles: roughly 1.7x the enemies at a bit less health each, army cap 30 (archers count), more levy.
 - Balance (bot): with no castle nights 1 to 5 hold, 8 and up fall. With a good castle all nights to 12 hold. Building matters.
 
+## Layer five: story and sound (22 November 2026)
+
+Player feedback: taming should scale with level (done: +7% per level Hesk is above the beast), siege controls fiddly and the map too small (to fix next), building felt pointless (same fix), story "doesn't feel like it's going anywhere", skills master too fast (evolve after mastery, to do), and overall not yet as exciting as the old games. He chose: surprise him with the plot, FF7 level darkness, real branches.
+
+SPOILERS (he asked to be surprised; don't reveal these to him):
+- story.js holds STORY5 (rewritten scenes, take priority over older keys) and CHOICES (story decisions). Lines can carry a condition ('has:id', '!has:id', 'flag:x'); heroes in S.flags.gone never speak.
+- Wren sold the news of Hale's stone to Rook. Rook reveals it after his fight; Isolde forgives her or banishes her (E.removeHero). Banished Wren returns hollowed on the tower's upper stair (w13): Morwen in the roster saves her (E.rejoinHero), otherwise she dies.
+- Maud, Bram's mother, survived Ashby and arrives with the survivors after Rook. After the Barrow Hills the keep is raided (Morvane's Hand, a story fight from a keep button): Hob dies, Maud is taken, Tilly runs the stall. Maud is the prisoner in the tower cells.
+- Warden Morvane is Magister Hale, Isolde's master. Hints: the figure on the Thornwood ridge, the journal in the barrows, the letter signed H, the Drowned Knight's ring. The Hollow King, Vael, speaks in Isolde's dreams at camps.
+- Hale's journal: page 1 from the barrows boss, page 2 from the smuggler's chest or the mist path in Fenmire, page 3 from the chapel, the false wall or the strongbox in the tower. All three let Isolde reach for the man inside (redemption, Surge III at double power, Vael named); otherwise he dies unredeemed.
+- On the upper stair Aldric (if recruited) offers to hold it alone: he dies and leaves Aldric's Candle (survive one killing blow), or the party stands together in a hard fight.
+- The chapter end is assembled from the choices (chapterEnd in game.js).
+- audio.js: procedural chiptune with tracks for title, keep, wood, dark, battle, boss, siege, arena and sad, plus sound effects. Settings has music and sound switches. Starts on the first tap (browsers require it).
+
 ## Next layers
 
 - War campaigns (agreed as the next big piece): a territory map, Hollow held villages and forts, battles with the soldiers trained for the siege plus heroes, captured ground paying out daily.
-- Chapter two: the Hollow King.
+- Siege rebuild: a larger pannable, zoomable map, separate Command, Recruit and Build modes, drag to select.
+- Skill evolution after mastery, with a choice of two.
+- Chapter two: Vael, the Hollow King.
 - Better art: bigger shaded sprites, idle and attack animations, spell effects.
 - Rebuilding Emberwake (Stronghold style): buildings that unlock shops, training and recruits.
 - War campaigns with archers, swordsmen and cavalry on a grid, taking territory for resources.

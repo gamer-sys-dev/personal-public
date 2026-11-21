@@ -491,8 +491,10 @@ function mountKeep(canvas, S) {
 
 // ---------- the siege screen ----------
 const UNIT_ORDER = ['archer', 'sword', 'spear', 'priest', 'knight', 'ballista'];
+const AUD = () => root.AUDIO || { play() {}, sfx() {} };
 function runSiege(S, n, done) {
   const sg = new SG.Siege(S, n);
+  AUD().play('siege');
   const tutorial = !(S.siege && S.siege.best >= 1) && n === 1;
   const el = document.createElement('div');
   el.id = 'siege';
@@ -685,6 +687,7 @@ function runSiege(S, n, done) {
           if (f.side === 'e') P.burst(f.x, f.y - 2, 5, { col: '#b03aff', speed: 8, life: 0.5, size: 0.5, glow: true });
           break;
         case 'boom':
+          if (!f.small) AUD().sfx('boom');
           P.burst(f.x, f.y, f.small ? 14 : 60, { col: f.fire ? ['#fff0a0', '#ffb84a', '#ff6a2a', '#ff3a1a'] : ['#fff0c0', '#ffb84a', '#8a8a8a'], speed: f.small ? 14 : 30, life: f.small ? 0.4 : 0.9, size: f.small ? 0.8 : 1.6, glow: true });
           if (!f.small) { P.add({ x: f.x, y: f.y, ring: f.r, life: 0.5, col: f.fire ? '#ffb84a' : '#fff0c0', glow: true }); shake = Math.max(shake, 0.4); flash = 0.35; lights.push({ x: f.x, y: f.y, r: f.r * 2.2, ttl: 0.6 }); }
           else lights.push({ x: f.x, y: f.y, r: 6, ttl: 0.25 });
@@ -694,6 +697,7 @@ function runSiege(S, n, done) {
         case 'heal': P.burst(f.x, f.y - 3, 5, { col: f.dark ? '#b03aff' : '#7aff9a', speed: 3, up: 6, life: 0.7, size: 0.6, glow: true }); break;
         case 'ember': P.add({ x: f.x + (Math.random() - 0.5) * 2, y: f.y, vy: -6, life: 0.5, size: 0.6, col: '#ff8a3d', glow: true }); break;
         case 'gatehit':
+          if (f.big) AUD().sfx('gate');
           P.burst(f.x, G.WALL_Y + 1, f.big ? 14 : 4, { col: ['#7a5232', '#a07a50', '#3a2616'], speed: 10, life: 0.5, size: 0.7, grav: 30 });
           shake = Math.max(shake, f.big ? 0.35 : 0.08);
           break;
@@ -703,14 +707,14 @@ function runSiege(S, n, done) {
         case 'ladderdown': P.burst(f.x, G.WALL_Y, 12, { col: ['#8a6a3a', '#6a4a2a'], speed: 10, life: 0.6, size: 0.8, grav: 30 }); break;
         case 'wave': el.querySelector('#sgwave').textContent = `Wave ${f.n} of ${f.of}`; banner(f.n === f.of ? 'Last wave!' : `Wave ${f.n}`, f.n === f.of ? 'bad' : ''); break;
         case 'break': el.querySelector('#sgwave').textContent = 'A moment to breathe'; banner('They fall back. Ready yourselves.'); break;
-        case 'place': P.burst(f.x, f.y, 8, { col: ['#c8b890', '#a89870'], speed: 6, life: 0.4, size: 0.6 }); break;
+        case 'place': AUD().sfx('place'); P.burst(f.x, f.y, 8, { col: ['#c8b890', '#a89870'], speed: 6, life: 0.4, size: 0.6 }); break;
         case 'power': P.add({ x: f.x || 50, y: f.y || 120, ring: f.r || 30, life: 0.5, col: '#ffd76a', glow: true }); break;
         case 'herodown': banner(`${D.HEROES[f.id].name} is down! Back in 20 seconds.`, 'bad'); break;
         case 'heroback': banner(`${D.HEROES[f.id].name} is back on their feet.`); break;
         case 'piecehit': P.burst(f.x, f.y, f.big ? 10 : 4, { col: ['#a8a49c', '#7a766e', '#5a5650'], speed: 9, life: 0.5, size: 0.7, grav: 25 }); if (f.big) shake = Math.max(shake, 0.2); break;
         case 'piecedown': P.burst(f.x, f.y, 30 * f.size, { col: ['#a8a49c', '#7a766e', '#c8c0b0'], speed: 16, up: 6, life: 1, size: 1.2, grav: 25 }); shake = Math.max(shake, 0.4); banner(f.size === 2 ? 'A tower has fallen!' : 'A wall is breached!', 'bad'); break;
         case 'pit': P.burst(f.x, f.y, 18, { col: ['#5a4028', '#3a2818'], speed: 10, up: 8, life: 0.7, size: 1, grav: 30 }); banner('Killing pit!'); break;
-        case 'won': case 'lost': setTimeout(() => finish(f.k), 1400); break;
+        case 'won': case 'lost': AUD().play(null); AUD().sfx(f.k === 'won' ? 'victory' : 'defeat'); setTimeout(() => finish(f.k), 1400); break;
       }
     }
     sg.fx = [];

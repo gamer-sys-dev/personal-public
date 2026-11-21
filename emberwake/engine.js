@@ -377,7 +377,9 @@ E.arrive = function (S, id) {
       if (st.done[n.id]) return { type: 'none' };
       st.done[n.id] = true;
       if (n.flag) S.flags[n.flag] = true;
+      for (const f of (n.flags || [])) S.flags[f] = true;
       const got = E.applyReward(S, n.reward);
+      if (n.note) got.push(n.note);
       return { type: 'treasure', got, gearUid: n.reward && n.reward._uid };
     }
     case 'gather': {
@@ -428,7 +430,33 @@ E.eventChoice = function (S, id, nid, idx) {
   if (o.xp) for (const h of S.party) if (S.heroes[h].hp > 0) E.gainXp(S, h, o.xp);
   return o.text;
 };
-E.TALK_REQ = { camp_hesk: 'hesk', camp_dace: 'dace', camp_aldric: 'aldric', camp_morwen: 'morwen' };
+E.TALK_REQ = { camp_hesk: 'hesk', camp_dace: 'dace', camp_aldric: 'aldric', camp_morwen: 'morwen', camp_wren: 'wren', camp_thorn: 'wren' };
+E.pages = S => (S.flags.seen && S.flags.seen.barrows_out ? 1 : 0) + (S.flags.journal2 ? 1 : 0) + (S.flags.journal3 ? 1 : 0);
+// A hero leaving the party, for now or for good. Their gear goes back to the stores.
+E.removeHero = function (S, id) {
+  if (!S.roster.includes(id)) return;
+  const h = S.heroes[id];
+  h.stash = Object.assign({}, h.equip);
+  h.equip = { weapon: null, armour: null, charm: null };
+  S.roster = S.roster.filter(x => x !== id);
+  S.flags.gone = (S.flags.gone || []).concat([id]);
+  if (S.party.includes(id)) {
+    S.party = S.party.filter(x => x !== id);
+    const spare = S.roster.find(x => !S.party.includes(x));
+    if (spare) S.party.push(spare);
+  }
+};
+E.rejoinHero = function (S, id) {
+  if (S.roster.includes(id)) return;
+  const h = S.heroes[id];
+  const avg = Math.round(S.party.reduce((s, p) => s + S.heroes[p].lvl, 0) / Math.max(1, S.party.length));
+  if (h.lvl < avg - 1) { h.points += 2 * (avg - 1 - h.lvl); h.lvl = avg - 1; h.xp = 0; }
+  for (const slot in (h.stash || {})) if (h.stash[slot] && E.gearOf(S, h.stash[slot]) && !E.equippedBy(S, h.stash[slot])) h.equip[slot] = h.stash[slot];
+  S.roster.push(id);
+  S.flags.gone = (S.flags.gone || []).filter(x => x !== id);
+  if (S.party.length < 3) S.party.push(id);
+  const st = E.heroStats(S, id); h.hp = st.maxHp; h.mp = st.maxMp;
+};
 E.lanterns = S => ['lantern1', 'lantern2', 'lantern3'].filter(f => S.flags[f]).length;
 E.quest = function (S, q) {
   if (q === 'aldric') {
@@ -684,7 +712,7 @@ class Battle {
       const id = D.SURGE[a.id], sk = D.SKILLS[id];
       this.surge = 0; this.surging = true;
       ev.push({ t: 'surge', who: a, text: sk.name });
-      this.perform(a, sk, c.target, this.S.surgeTier >= 2 ? 1.5 : 1, ev);
+      this.perform(a, sk, c.target, this.S.surgeTier >= 3 ? 2 : this.S.surgeTier >= 2 ? 1.5 : 1, ev);
       this.surging = false;
       this.check();
       return ev;
@@ -1007,6 +1035,8 @@ E.clearArea = function (S, areaId) {
     S.shopTier = Math.max(S.shopTier, 2);
     if (S.surgeTier < 2) { S.surgeTier = 2; scenes.push('surge2'); }
     if (!S.flags.raid) { S.flags.raid = true; S.flags.market = true; scenes.push('raid_warn'); }
+    // The story rewrite: Rook's revelation becomes a choice about Wren, then Hob.
+    if (scenes[0] === 'millroad_out' && S.roster.includes('wren') && !S.flags.wren_forgiven && !S.flags.wren_banished) scenes.splice(0, 1, 'wren_choice', 'hob_rescue');
   }
   if (areaId === 'barrows') S.shopTier = Math.max(S.shopTier, 3);
   return scenes;

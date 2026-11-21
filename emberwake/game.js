@@ -3,6 +3,10 @@
 'use strict';
 const D = window.DATA, W = window.WORLD, E = window.ENGINE, SP = window.SPRITES, SG = window.SIEGE, SUI = window.SIEGEUI;
 let stopScene = null;
+const AU = window.AUDIO || { unlock() {}, play() {}, sfx() {}, set() {} };
+const MOOD = { thornwood: 'wood', millroad: 'wood', barrows: 'dark', fenmire: 'dark', tower: 'dark' };
+const SAD = ['raid_after', 'wren_dies', 'aldric_holds', 'hale_redeemed', 'hale_ended', 'warden_end_dark', 'wren_banished'];
+document.addEventListener('pointerdown', () => AU.unlock(), { capture: true });
 const KEY = 'emberwake-save-v1';
 const app = document.getElementById('app');
 let S = null;          // the save
@@ -31,7 +35,11 @@ function toast(msg, ms) {
   document.body.appendChild(t);
   setTimeout(() => t.remove(), ms || 2400);
 }
-function go(name, extra) { view = Object.assign({ name }, extra || {}); render(); window.scrollTo(0, 0); }
+function go(name, extra) {
+  view = Object.assign({ name }, extra || {}); render(); window.scrollTo(0, 0);
+  AU.play(name === 'title' ? 'title' : name === 'area' ? MOOD[view.id] || 'wood' : name === 'market' ? 'arena' : 'keep');
+  if (name === 'keep' && S && S.areas.barrows && S.areas.barrows.cleared && !S.flags.raid_done && !S.flags.seen.the_raid) setTimeout(startRaid, 500);
+}
 function render() {
   if (S) save();
   if (stopScene) { stopScene(); stopScene = null; }
@@ -101,9 +109,23 @@ function objective() {
 function boardReady() { return W.BOARD.some(b => E.boardStatus(S, b) === 'ready'); }
 
 // ---------- Story ----------
+const STX = window.STORYX || { STORY5: {}, CHOICES: {} };
+// Lines can carry a condition, and heroes who have left the party don't speak.
+function lineOk(l) {
+  const c = l[2], gone = S.flags.gone || [];
+  if (l[0] && gone.includes(l[0])) return false;
+  if (!c) return true;
+  const neg = c[0] === '!', [kind, val] = (neg ? c.slice(1) : c).split(':');
+  const v = kind === 'has' ? S.roster.includes(val) : !!S.flags[val];
+  return neg ? !v : v;
+}
+const dynScenes = {};
+function sceneLines(key) { return (dynScenes[key] || STX.STORY5[key] || D.STORY[key] || W.STORY2[key] || W.STORY3[key] || W.STORY4[key] || []).filter(lineOk); }
 function scene(key, then) {
-  const lines = D.STORY[key] || W.STORY2[key] || W.STORY3[key] || W.STORY4[key];
-  if (!lines) { then && then(); return; }
+  if (STX.CHOICES[key]) { choiceScene(key, then); return; }
+  if (SAD.includes(key)) AU.play('sad');
+  const lines = sceneLines(key);
+  if (!lines.length) { then && then(); return; }
   S.flags.seen[key] = true; save();
   let i = 0;
   const o = overlay('', 'scene');
@@ -122,6 +144,73 @@ function scene(key, then) {
     i++; show();
   };
   show();
+}
+// A scene that ends in a decision. Options set flags, may act, then play their own scene.
+function choiceScene(key, then) {
+  const ch = STX.CHOICES[key], lines = ch.lines.filter(lineOk);
+  S.flags.seen[key] = true; save();
+  let i = 0;
+  const o = overlay('', 'scene');
+  const show = () => {
+    if (i < lines.length) {
+      const [who, text] = lines[i], hero = D.HEROES[who];
+      o.innerHTML = `<div class="dialog">${hero ? `<div class="who">${img(hero.sprite, 3)}${hero.name}</div>` : ''}<div class="text ${hero ? '' : 'narr'}">${esc(text)}</div><div class="next">${i + 1}/${lines.length} · tap</div></div>`;
+      o.onclick = () => { i++; show(); };
+      return;
+    }
+    o.onclick = null;
+    o.innerHTML = `<div class="dialog"><div class="text narr" style="margin-bottom:10px">${esc(ch.prompt)}</div>
+      ${ch.choices.map((c, k) => `<button class="big" data-a="storyPick" data-v="${k}">${esc(c.label)}</button>`).join('')}</div>`;
+  };
+  ACT.storyPick = k => {
+    const c = ch.choices[+k];
+    closeOverlay();
+    Object.assign(S.flags, c.flags || {});
+    save();
+    const after = () => { save(); if (c.scene) scene(c.scene, then); else if (then) then(); };
+    if (c.act) STORY_ACTS[c.act](after, then); else after();
+  };
+  show();
+}
+const STORY_ACTS = {
+  banish_wren(next) { E.removeHero(S, 'wren'); next(); },
+  aldric_holds(next) {
+    E.removeHero(S, 'aldric');
+    const g = E.addGear(S, 'aldric_candle'); S.flags.got.aldric_candle = true;
+    next();
+    setTimeout(() => equipPrompt(g), 400);
+  },
+  stand_fight(next, then) {
+    startBattle([{ t: 'soldier', lvl: 12 }, { t: 'soldier', lvl: 12 }, { t: 'soldier', lvl: 11 }, { t: 'hound', lvl: 11 }],
+      { area: 'tower', boss: true, story: true, onWin: () => { S.flags.stair = 'together'; save(); scene('stand_together', () => { go('area', { id: 'tower', msg: 'The stair is clear. The Warden\'s hall is above.' }); }); } });
+  },
+  surge3(next) { S.surgeTier = 3; next(); },
+};
+function startRaid() {
+  if (S.flags.raid_done || document.getElementById('battle') || document.getElementById('ov')) return;
+  if (stopScene) { stopScene(); stopScene = null; }
+  const fight = () => startBattle([{ t: 'hand', lvl: 9 }, { t: 'soldier', lvl: 7 }],
+    { area: 'tower', boss: true, story: true, onWin: () => { S.flags.raid_done = true; save(); scene('raid_after', () => { go('keep'); toast('Morvane has Maud. The road to the tower runs through Fenmire.', 4000); }); } });
+  if (!S.flags.seen.the_raid) scene('the_raid', fight); else fight();
+}
+// After the upper stair: Aldric may choose to hold it.
+function afterStair() {
+  if (S.roster.includes('aldric') && !S.flags.stair) { scene('aldric_stair', () => go('area', { id: 'tower', msg: null })); return true; }
+  return false;
+}
+function chapterEnd() {
+  const f = S.flags, L = [];
+  L.push(['', 'Dawn comes up over the Hollow Tower. Maud walks out of the doors on Bram\'s arm, swearing at every step.']);
+  if (f.wren_fate === 'dead') L.push(['', 'They bury Wren on the hill at Emberwake, facing the woods she knew better than anyone.']);
+  else if (f.wren_fate === 'saved') L.push(['wren', 'I owe you a life, witch.'], ['morwen', 'You owe me three. I\'m counting.']);
+  else if (S.roster.includes('wren')) L.push(['wren', 'So. A frozen king who wants to eat the sun. Fine. I\'ve got a bow.']);
+  if (f.stair === 'aldric') L.push(['', 'Aldric\'s candle hangs over Emberwake\'s gate now. Nobody ever lets it go out.']);
+  else if (f.stair === 'together') L.push(['aldric', 'My king rests. My oath is yours now, for whatever is left of me.']);
+  if (f.ending === 'redeemed') L.push(['isolde', 'Vael. We know his name now. That\'s a start.']);
+  else L.push(['isolde', 'He\'s coming for the ember. Let him come. I\'ll be ready.']);
+  L.push(['bram', 'Then we\'ll need more than walls.'], ['isolde', 'We\'ll need an army.'],
+    ['', 'End of Chapter One. Every choice you made is remembered. Emberwake will need all of them.']);
+  dynScenes.chapter_end = L;
 }
 function scenes(list, then) {
   const next = () => { const k = list.shift(); if (!k) { then && then(); return; } scene(k, next); };
@@ -145,15 +234,17 @@ SCREENS.title = () => {
 };
 
 SCREENS.keep = () => {
-  const shopName = S.shopTier >= 2 ? 'Hob\'s Trading Post' : 'Supplies';
+  const shopName = S.flags.raid_done ? 'Tilly\'s stall' : S.shopTier >= 2 ? 'Hob\'s Trading Post' : 'Supplies';
   const pts = S.roster.some(id => S.heroes[id].points > 0);
   const bench = S.roster.filter(id => !S.party.includes(id));
   const raid = S.flags.raid ? `<div class="card defend ${S.siege.best ? '' : 'alert'}"><div class="spread"><b class="serif" style="font-size:1.1rem">${S.siege.best ? 'Defend Emberwake' : 'The Hollow are coming!'}</b>
       <span class="pill on">${S.siege.best >= SG.MAX_NIGHT ? 'All nights held' : 'Night ' + (S.siege.best + 1)}</span></div>
       <div class="small muted" style="margin-top:4px">${S.siege.best ? `${S.siege.best} night${S.siege.best > 1 ? 's' : ''} held. Each new night pays well the first time.` : 'Rook told them where you are. Man the walls before they arrive.'}</div>
       <button class="big ${S.siege.best ? 'gold' : 'primary'}" data-a="defend">Man the walls</button></div>` : '';
+  const attack = S.areas.barrows && S.areas.barrows.cleared && !S.flags.raid_done ? `<div class="card defend alert"><b class="serif" style="font-size:1.1rem;color:var(--bad)">Emberwake is under attack!</b>
+      <div class="small muted" style="margin-top:4px">Morvane's Hand is in the yard. Rest, gear up, then drive them out.</div><button class="primary big" data-a="raid">Drive them out</button></div>` : '';
   return `<div class="topbar"><h1>Emberwake Keep</h1><span class="goldtxt">${S.gold} g</span></div>
-    <canvas id="keepscene" class="keepscene"></canvas>${raid}
+    <canvas id="keepscene" class="keepscene"></canvas>${attack}${raid}
     <p class="muted">${S.buildings.yard || S.buildings.kennels ? 'The keep is waking up. ' + [S.buildings.yard ? 'A training yard' : '', S.buildings.kennels ? 'kennels' : ''].filter(Boolean).join(' and ') + ' where there was rubble.' : 'A ruined keep on the hill. Half a roof, a cold forge and some bedrolls.'}</p>
     <div class="card"><div class="small muted">Next</div>${objective()}</div>
     <div class="card">${partyMini()}${bench.length ? `<div class="small muted" style="margin-top:6px">On the bench: ${bench.map(heroName).join(', ')}${S.buildings.yard ? ' (training)' : ''}</div>` : ''}</div>
@@ -420,7 +511,7 @@ SCREENS.yard = () => {
 
 SCREENS.shop = () => {
   const tab = view.tab || 'buy';
-  const name = S.shopTier >= 2 ? 'Hob\'s Trading Post' : 'Supplies';
+  const name = S.flags.raid_done ? 'Tilly\'s stall' : S.shopTier >= 2 ? 'Hob\'s Trading Post' : 'Supplies';
   let body = '';
   if (tab === 'buy') {
     const items = Object.keys(D.ITEMS).filter(k => D.ITEMS[k].tier <= S.shopTier);
@@ -487,6 +578,10 @@ SCREENS.settings = () => `<div class="topbar"><h1>Settings</h1><button class="sm
     <button class="${S.opts.speed !== 2 ? 'gold' : ''}" data-a="speed" data-v="1">Normal</button>
     <button class="${S.opts.speed === 2 ? 'gold' : ''}" data-a="speed" data-v="2">Fast</button></div>
     <p class="muted small">Auto battle can be switched on and off during any fight. Handy for training.</p></div>
+  <div class="card"><h2>Sound</h2><div class="row">
+    <button class="${S.opts.music !== false ? 'gold' : ''}" data-a="music">Music ${S.opts.music !== false ? 'on' : 'off'}</button>
+    <button class="${S.opts.sfx !== false ? 'gold' : ''}" data-a="sfx">Sounds ${S.opts.sfx !== false ? 'on' : 'off'}</button></div>
+    <p class="muted small">On iPhone, the ring/silent switch mutes the game.</p></div>
   <div class="card"><h2>Your save</h2><p class="muted small">The game saves itself on this phone after every step. Browsers can clear saved data, so save a backup file now and then. On Android it opens the share sheet: send it to Drive, email or a chat with yourself.</p>
     <button class="primary" data-a="exportSave">Save a backup file</button> <button data-a="importFile">Load a backup file</button>
     <div style="margin-top:10px"><button class="link small" data-a="importOpen">Paste a save code instead</button></div></div>
@@ -557,6 +652,7 @@ ACT.newGame = () => {
 };
 function boot(obj) {
   S = E.migrate(obj);
+  AU.set({ music: S.opts && S.opts.music !== false, sfx: S.opts && S.opts.sfx !== false });
   if (!S.opts) S.opts = { speed: 1 };
   E.clampParty(S); save();
 }
@@ -570,6 +666,7 @@ ACT.continue = () => {
     <button class="primary big" data-a="closeOv">Let's see</button></div>`, 'center');
 };
 ACT.keep = () => go('keep');
+ACT.raid = () => startRaid();
 ACT.defend = () => go('defend');
 ACT.fortify = () => {
   if (stopScene) { stopScene(); stopScene = null; }
@@ -723,6 +820,8 @@ function pickHero(title, cb, dead) {
   }).join('')}<button class="link" data-a="closeOv">Cancel</button></div>`);
   ACT.pickHero = id => { closeOverlay(); cb(id); };
 }
+ACT.music = () => { S.opts.music = S.opts.music === false; AU.set({ music: S.opts.music }); render(); };
+ACT.sfx = () => { S.opts.sfx = S.opts.sfx === false; AU.set({ sfx: S.opts.sfx }); render(); };
 ACT.speed = v => { S.opts.speed = +v; render(); };
 
 // Save files
@@ -795,7 +894,19 @@ ACT.node = nid => {
 function arrive() {
   const id = view.id, a = E.arrive(S, id), st = E.mapState(S, id);
   switch (a.type) {
-    case 'fight': startBattle(a.enemies, { area: id, node: a.node }); return;
+    case 'fight':
+      if (a.node === 'w13' && S.flags.wren_banished && !S.flags.wren_fate) {
+        scene('wren_hollow', () => startBattle([{ t: 'hwren', lvl: 11 }, { t: 'soldier', lvl: 10 }], { area: id, boss: true, story: true, onWin: () => {
+          E.winNode(S, id, 'w13');
+          const saved = S.roster.includes('morwen');
+          S.flags.wren_fate = saved ? 'saved' : 'dead';
+          if (saved) E.rejoinHero(S, 'wren');
+          save();
+          scene(saved ? 'wren_saved' : 'wren_dies', () => { go('area', { id, msg: null }); afterStair(); });
+        } }));
+        return;
+      }
+      startBattle(a.enemies, { area: id, node: a.node }); return;
     case 'treasure':
       areaMsg(`Found <b class="goldtxt">${a.got.join(', ')}</b>.`);
       if (a.gearUid) setTimeout(() => equipPrompt(E.gearOf(S, a.gearUid)), 50);
@@ -903,6 +1014,7 @@ function shakeField() { const f = document.querySelector('#battle .field'); if (
 
 function startBattle(specs, c) {
   ctx = c;
+  AU.play(c.arena ? 'arena' : (c.boss || c.story) ? 'boss' : 'battle');
   B = new E.Battle(S, specs, { boss: !!c.boss, autoItems: false, tameBonus: c.hunt ? 0.15 : 0 });
   const bg = BG[c.area] || BG.thornwood;
   const el = document.createElement('div');
@@ -1001,7 +1113,7 @@ async function play(evs) {
       case 'surge': {
         banner(ev.text, true);
         const f = document.querySelector('.field'); f.classList.add('surgeflash'); setTimeout(() => f.classList.remove('surgeflash'), 700);
-        if (FX) FX.surge(); shakeField();
+        if (FX) FX.surge(); shakeField(); AU.sfx('surge');
         refreshUnits(); await T(700); break;
       }
       case 'dmg':
@@ -1011,16 +1123,17 @@ async function play(evs) {
         if (ev.dot) floatText(ev.who, STATUS[ev.dot], 'label');
         pulse(ev.who, 'hit'); pulse(ev.who, 'flash');
         if (FX) FX.hit(unitEl(ev.who), ev.dot === 'poison' ? 'poison' : ev.dot === 'burn' ? 'fire' : ev.el || 'phys', ev.crit || ev.big);
+        AU.sfx(ev.crit ? 'crit' : ev.el === 'fire' ? 'fire' : ev.el === 'frost' ? 'frost' : ev.el && ev.el !== 'phys' ? 'magic' : 'hit');
         if (ev.crit || ev.big) shakeField();
         refreshUnits(); drawBars(); await T(300); break;
-      case 'heal': floatText(ev.who, '+' + ev.n, 'heal'); if (FX) FX.puff(unitEl(ev.who), 'heal'); refreshUnits(); drawBars(); await T(280); break;
+      case 'heal': AU.sfx('heal'); floatText(ev.who, '+' + ev.n, 'heal'); if (FX) FX.puff(unitEl(ev.who), 'heal'); refreshUnits(); drawBars(); await T(280); break;
       case 'mp': floatText(ev.who, '+' + ev.n + ' MP', 'mp'); drawBars(); await T(280); break;
       case 'revive': floatText(ev.who, 'Back up!', 'heal'); if (FX) FX.puff(unitEl(ev.who), 'light'); refreshUnits(); drawBars(); await T(400); break;
       case 'status': floatText(ev.who, STATUS[ev.s], 'label'); refreshUnits(); drawBars(); await T(230); break;
       case 'immune': floatText(ev.who, 'Immune', 'label'); await T(230); break;
       case 'off': refreshUnits(); drawBars(); break;
-      case 'ko': if (FX && ev.who.side === 'e') FX.puff(unitEl(ev.who), 'death'); refreshUnits(); drawBars(); await T(330); break;
-      case 'tamed': floatText(ev.who, 'Tamed!', 'heal'); banner(ev.who.name + ' is tamed!', true); await T(900); break;
+      case 'ko': AU.sfx('ko'); if (FX && ev.who.side === 'e') FX.puff(unitEl(ev.who), 'death'); refreshUnits(); drawBars(); await T(330); break;
+      case 'tamed': AU.sfx('tame'); floatText(ev.who, 'Tamed!', 'heal'); banner(ev.who.name + ' is tamed!', true); await T(900); break;
       case 'stole': floatText(ev.who, ev.text, 'label'); await T(300); break;
       case 'summon': drawUnits(); pulse(ev.who, 'flash'); banner(ev.who.name + ' joins the fight'); await T(500); break;
       case 'mastery': toast(`${D.SKILLS[ev.skill].name} mastery ${'★'.repeat(ev.lvl)}`); break;
@@ -1155,10 +1268,18 @@ ACT.bAuto = () => {
 
 function endBattle() {
   const res = E.finishBattle(S, B);
+  AU.play(null); AU.sfx(res.won ? 'victory' : res.fled ? 'click' : 'defeat');
+  if (Object.keys(res.levels || {}).length) setTimeout(() => AU.sfx('level'), 700);
   const c = ctx, area = c.area;
   let nodeOut = null, bossScenes = null;
   if (res.won && c.node) nodeOut = E.winNode(S, area, c.node);
-  if (res.won && c.boss && !c.arena) bossScenes = E.clearArea(S, area);
+  if (res.won && c.boss && !c.arena && !c.story) bossScenes = E.clearArea(S, area);
+  if (bossScenes && area === 'tower') {
+    chapterEnd();
+    bossScenes = [E.pages(S) >= 3 ? 'hale_choice' : 'warden_end_dark', 'chapter_end'];
+    dynScenes.chapter_end = null;
+    S.flags.pendingEnd = true;
+  }
   save();
   const close = () => { if (FX) { FX.stop(); FX = null; } const b = document.getElementById('battle'); if (b) b.remove(); document.body.style.overflow = ''; B = null; };
   if (c.arena) {
@@ -1223,6 +1344,12 @@ function endBattle() {
       ACT.closeOv = () => closeOverlay();
       const f = queue.shift();
       if (f) { f(); return; }
+      if (c.onWin) { c.onWin(); return; }
+      if (bossScenes && area === 'tower') {
+        scene(bossScenes[0], () => { chapterEnd(); scene('chapter_end', () => go('keep')); });
+        return;
+      }
+      if (c.node === 'w13' && !nodeOut.scene) { go('area', { id: area, msg: 'The upper stair is clear.' }); afterStair(); return; }
       if (bossScenes) {
         scenes(bossScenes.slice(), () => { go('keep'); if (area !== 'tower') toast('A new area is open on the map. Check the noticeboard too.', 3500); });
         return;

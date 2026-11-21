@@ -312,6 +312,7 @@ const GEAR = {
   prayer_beads:   { name: 'Prayer Beads', slot: 'charm', flags: { boost_light: 0.2, healBoost: 0.2 }, price: 600, tier: 3, desc: 'Light damage and healing +20%' },
   kings_signet:   { name: 'King\'s Signet', slot: 'charm', stats: { mag: 4, res: 4, mp: 15, hp: 20 }, price: 900, unique: true },
   witch_lantern:  { name: 'Witch\'s Lantern', slot: 'charm', flags: { boost_dark: 0.2, boost_light: 0.2 }, stats: { mag: 3 }, price: 900, unique: true, desc: 'Light and dark damage +20%' },
+  aldric_candle:  { name: 'Aldric\'s Candle', slot: 'charm', stats: { hp: 40, def: 4, res: 4 }, flags: { undying: 1 }, price: 0, unique: true, desc: 'Once per battle, the wearer survives a killing blow. It is still warm' },
   wild_crown:     { name: 'Crown of the Wild', slot: 'charm', stats: { hp: 30, str: 3, mag: 3, spd: 3 }, flags: { beastBond: 0.4 }, price: 2000, unique: true, desc: 'Creature damage +40% while the wearer is in the party' },
   hollow_crown:   { name: 'Hollow Crown', slot: 'charm', stats: { hp: 30, str: 5, mag: 5, spd: 3 }, price: 2400, unique: true },
   // Layer three: siege and arena prizes
@@ -413,6 +414,10 @@ const ENEMIES = {
               skills: [{ id: 'slash', w: 3 }, { id: 'shield_bash', w: 2 }, { id: 'brace', w: 1 }], drops: [] },
   beastmaster: { name: 'Beastmaster', sprite: 'beastmaster', m: { hp: 1.1, str: 1.15, mag: .7, def: 1, res: 1, spd: 1.1 }, xp: 1.3, gold: 1.4,
               skills: [{ id: 'arrow', w: 3 }, { id: 'rally_cry', w: 1 }, { id: 'whistle_beasts', w: 0, phase: .6 }], drops: [] },
+  hand:     { name: 'Morvane\'s Hand', sprite: 'hand', boss: true, tags: ['hollow'], m: { hp: 5.5, str: 1.15, mag: 0.95, def: 1.2, res: 1.1, spd: 0.95 }, xp: 7, gold: 10,
+              weak: { light: 1.3 }, skills: [{ id: 'slash', w: 3 }, { id: 'hollow_cleave', w: 2 }, { id: 'shadow_bolt', w: 2 }, { id: 'call_hollow', w: 0, phase: .5 }], drops: [{ mat: 'shard', c: 1, n: 3 }] },
+  hwren:    { name: 'Hollowed Wren', sprite: 'hwren', boss: true, tags: ['hollow'], m: { hp: 7, str: 1.45, mag: .8, def: 1.1, res: 1.1, spd: 1.5 }, xp: 6, gold: 0,
+              skills: [{ id: 'arrow', w: 3 }, { id: 'volley', w: 2 }, { id: 'pounce', w: 1 }], drops: [] },
   warden:   { name: 'Warden Morvane', sprite: 'warden', boss: true, tags: ['hollow'], m: { hp: 18.2, str: 1.46, mag: 1.3, def: 1.3, res: 1.3, spd: 1 }, xp: 12, gold: 25,
               weak: { light: 1.3 },
               skills: [{ id: 'slash', w: 2 }, { id: 'hollow_cleave', w: 2 }, { id: 'shadow_bolt', w: 2 }, { id: 'soul_drain', w: 1 },
