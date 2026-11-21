@@ -1,7 +1,8 @@
 // Emberwake: screens, menus and the battle UI. Rules live in engine.js.
 (function () {
 'use strict';
-const D = window.DATA, W = window.WORLD, E = window.ENGINE, SP = window.SPRITES;
+const D = window.DATA, W = window.WORLD, E = window.ENGINE, SP = window.SPRITES, SG = window.SIEGE, SUI = window.SIEGEUI;
+let stopScene = null;
 const KEY = 'emberwake-save-v1';
 const app = document.getElementById('app');
 let S = null;          // the save
@@ -33,8 +34,11 @@ function toast(msg, ms) {
 function go(name, extra) { view = Object.assign({ name }, extra || {}); render(); window.scrollTo(0, 0); }
 function render() {
   if (S) save();
+  if (stopScene) { stopScene(); stopScene = null; }
   const f = SCREENS[view.name];
   app.innerHTML = f ? f() : '';
+  const kc = document.getElementById('keepscene');
+  if (kc && SUI) { try { stopScene = SUI.mountKeep(kc, S); } catch (e) { kc.remove(); } }
 }
 function overlay(html, cls) {
   closeOverlay();
@@ -93,7 +97,7 @@ function boardReady() { return W.BOARD.some(b => E.boardStatus(S, b) === 'ready'
 
 // ---------- Story ----------
 function scene(key, then) {
-  const lines = D.STORY[key] || W.STORY2[key];
+  const lines = D.STORY[key] || W.STORY2[key] || W.STORY3[key];
   if (!lines) { then && then(); return; }
   S.flags.seen[key] = true; save();
   let i = 0;
@@ -139,7 +143,12 @@ SCREENS.keep = () => {
   const shopName = S.shopTier >= 2 ? 'Hob\'s Trading Post' : 'Supplies';
   const pts = S.roster.some(id => S.heroes[id].points > 0);
   const bench = S.roster.filter(id => !S.party.includes(id));
+  const raid = S.flags.raid ? `<div class="card defend ${S.siege.best ? '' : 'alert'}"><div class="spread"><b class="serif" style="font-size:1.1rem">${S.siege.best ? 'Defend Emberwake' : 'The Hollow are coming!'}</b>
+      <span class="pill on">${S.siege.best >= SG.MAX_NIGHT ? 'All nights held' : 'Night ' + (S.siege.best + 1)}</span></div>
+      <div class="small muted" style="margin-top:4px">${S.siege.best ? `${S.siege.best} night${S.siege.best > 1 ? 's' : ''} held. Each new night pays well the first time.` : 'Rook told them where you are. Man the walls before they arrive.'}</div>
+      <button class="big ${S.siege.best ? 'gold' : 'primary'}" data-a="defend">Man the walls</button></div>` : '';
   return `<div class="topbar"><h1>Emberwake Keep</h1><span class="goldtxt">${S.gold} g</span></div>
+    <canvas id="keepscene" class="keepscene"></canvas>${raid}
     <p class="muted">${S.buildings.yard || S.buildings.kennels ? 'The keep is waking up. ' + [S.buildings.yard ? 'A training yard' : '', S.buildings.kennels ? 'kennels' : ''].filter(Boolean).join(' and ') + ' where there was rubble.' : 'A ruined keep on the hill. Half a roof, a cold forge and some bedrolls.'}</p>
     <div class="card"><div class="small muted">Next</div>${objective()}</div>
     <div class="card">${partyMini()}${bench.length ? `<div class="small muted" style="margin-top:6px">On the bench: ${bench.map(heroName).join(', ')}${S.buildings.yard ? ' (training)' : ''}</div>` : ''}</div>
@@ -190,7 +199,11 @@ SCREENS.map = () => {
       <div class="spread small muted" style="margin-top:4px"><span>${ex}% explored</span><span>${D.MATS[a.mat].name} here</span></div>
       <button class="big ${st.cleared ? '' : 'primary'}" data-a="enter" data-v="${a.id}">${ex > 10 ? 'Go back' : 'Explore'}</button></div>`;
   }).join('');
-  return `<div class="topbar"><h1>Where to?</h1><button class="sm" data-a="keep">Keep</button></div>${rows}`;
+  const market = S.flags.market ? `<div class="card town"><div class="spread"><b class="serif" style="font-size:1.1rem">Brightwater Market</b><span class="pill on">Town</span></div>
+    <p class="muted">A busy market town east along the road, with a fighting pit at its heart.</p>
+    <div class="small muted">Arena: ${['bronze', 'silver', 'gold'].map((r, i) => { const rank = W.ARENA[i]; const won = rank.bouts.filter(b => S.arena.won[b.id]).length; return `${rank.name} ${won}/${rank.bouts.length}`; }).join(' · ')}</div>
+    <button class="big gold" data-a="market">Go to Brightwater</button></div>` : '';
+  return `<div class="topbar"><h1>Where to?</h1><button class="sm" data-a="keep">Keep</button></div>${market}${rows}`;
 };
 
 // Node icons, drawn small in white.
@@ -465,6 +478,58 @@ SCREENS.settings = () => `<div class="topbar"><h1>Settings</h1><button class="sm
   <div class="card"><h2>Record</h2><p class="muted small">${S.stats.wins} fights won of ${S.stats.battles}. ${S.stats.steps} moves on the map.</p></div>
   <div class="card"><h2>Start again</h2><p class="muted small">Wipes this save.</p><button data-a="wipe" style="border-color:var(--bad);color:var(--bad)">New game</button></div>`;
 
+const FOE_SHORT = t => SG.FOES[t].name;
+SCREENS.defend = () => {
+  const best = S.siege.best, next = Math.min(SG.MAX_NIGHT, best + 1);
+  const types = n => [...new Set(SG.night(n).flat().map(e => e.t))];
+  const ms = n => {
+    const m = SG.MILESTONES[n];
+    if (!m) return '';
+    return 'First time: ' + [m.gold ? m.gold + ' gold' : '', m.tome ? 'a Tome of Insight' : '', m.gear ? D.GEAR[m.gear].name : '', m.mats ? Object.keys(m.mats).map(k => m.mats[k] + ' ' + D.MATS[k].name).join(', ') : ''].filter(Boolean).join(', ');
+  };
+  const troops = ['archer', 'sword', 'spear', 'priest', 'knight', 'ballista'].map(k => {
+    const d = SG.UNITS[k], ok = !d.req || (S.buildings[d.req[0]] || 0) >= d.req[1];
+    return `<div class="spread" style="${ok ? '' : 'opacity:.5'}"><div class="row">${img(d.sprite, 2)}<div><b>${d.name}</b> <span class="muted small">${d.cost} levy</span><div class="small muted">${ok ? d.desc : 'Needs ' + (d.req[0] === 'barracks' ? 'barracks level ' + d.req[1] : 'stone walls')}</div></div></div></div>`;
+  }).join('');
+  const powers = S.party.map(id => `<div class="small"><b>${heroName(id)}: ${SG.POWERS[id].name}</b> <span class="muted">${SG.POWERS[id].desc}</span></div>`).join('');
+  const stars = n => '★'.repeat(S.siege.stars[n] || 0) + '☆'.repeat(3 - (S.siege.stars[n] || 0));
+  const past = [];
+  for (let n = best; n >= 1; n--) past.push(`<div class="spread"><span>Night ${n} <span style="color:var(--gold)">${stars(n)}</span></span><button class="sm" data-a="night" data-v="${n}">Replay</button></div>`);
+  return `<div class="topbar"><h1>Defend Emberwake</h1><button class="sm" data-a="keep">Back</button></div>
+    <p class="muted">The Hollow come at night. Spend levy on soldiers, place your heroes and use their powers. Hold until dawn. The keep falls if its hall is broken.</p>
+    ${best < SG.MAX_NIGHT ? `<div class="card defend alert"><div class="spread"><b class="serif" style="font-size:1.15rem">Night ${next}</b><span class="pill bad">${SG.night(next).length} waves</span></div>
+      <div class="small muted" style="margin-top:4px">Expect: ${types(next).map(FOE_SHORT).join(', ')}.</div>
+      <div class="small" style="margin-top:4px;color:var(--gold)">${ms(next) || 'Gold, iron and shadow shards.'}</div>
+      <button class="primary big" data-a="night" data-v="${next}">Man the walls</button></div>` : '<div class="card">Every night held. Emberwake stands. Replay any night for more stars and materials.</div>'}
+    <div class="card"><h2>Your defences</h2>
+      <div class="small">Gate ${Math.round(700 * [1, 1.5, 2.1][S.buildings.walls || 0])} · ${S.buildings.walls ? 'Stone walls' : 'Wooden palisade'}${S.buildings.walls >= 2 ? ' with burning oil' : ''} · Barracks ${S.buildings.barracks ? 'level ' + S.buildings.barracks : 'not built'}</div>
+      <div class="list" style="margin-top:6px">${troops}</div>
+      <h3>Hero powers</h3>${powers}<p class="muted small">Heroes fight at the strength they have in your party, so levels and gear count here too. Change who goes from Party, Line-up.</p>
+      <button class="sm" data-a="board">Build barracks and walls</button></div>
+    ${past.length ? `<div class="card"><h2>Nights held</h2><div class="list">${past.join('')}</div><p class="muted small">Replays pay less gold but still give iron and shards.</p></div>` : ''}`;
+};
+
+SCREENS.market = () => {
+  const ranks = W.ARENA.map((rank, ri) => {
+    const prevFinal = ri > 0 ? W.ARENA[ri - 1].bouts[W.ARENA[ri - 1].bouts.length - 1] : null;
+    const open = !prevFinal || S.arena.won[prevFinal.id];
+    const bouts = rank.bouts.map((b, bi) => {
+      const won = S.arena.won[b.id], can = E.boutOpen(S, ri, bi);
+      const foes = E.boutFoes(b).map(f => `${f.name || D.ENEMIES[f.t].name} Lv ${f.lvl}`).join(', ');
+      const pz = b.prize, prize = [pz.gold ? pz.gold + ' gold' : '', pz.tome ? 'Tome of Insight' : '', pz.gear ? D.GEAR[pz.gear].name : '', pz.creature ? 'a rare creature' : '', pz.items ? Object.keys(pz.items).map(k => pz.items[k] + ' ' + D.ITEMS[k].name).join(', ') : ''].filter(Boolean).join(', ');
+      return `<div class="bout ${won ? 'won' : ''} ${b.final ? 'final' : ''}" style="${can || won ? '' : 'opacity:.5'}"><div class="spread"><b>${b.name}</b>${won ? '<span class="pill good">Won</span>' : b.final ? '<span class="pill bad">Final</span>' : ''}</div>
+        <div class="small muted">${b.desc}</div><div class="small" style="margin-top:4px">${foes}</div>
+        <div class="small" style="color:var(--gold);margin-top:2px">${won ? 'Rematch pays gold' : 'Prize: ' + prize}</div>
+        ${can ? `<button class="sm ${won ? '' : 'gold'}" style="margin-top:6px" data-a="bout" data-v="${b.id}">${won ? 'Rematch' : 'Fight'}</button>` : ''}</div>`;
+    }).join('');
+    return `<div class="card"><div class="spread"><h2 style="margin:0">${rank.name}</h2><span class="muted small">Suggested Lv ${rank.lvl}</span></div>
+      ${open ? '' : `<p class="muted small">Win the ${W.ARENA[ri - 1].name} final to enter.</p>`}${bouts}</div>`;
+  }).join('');
+  return `<div class="topbar"><h1>Brightwater</h1><span class="goldtxt">${S.gold} g</span></div>
+    <p class="muted">The pit master takes your names. Healers patch you up before every bout, and losing costs nothing but pride.</p>
+    ${ranks}<button class="big" data-a="map">Back to the road</button>`;
+};
+
 // ---------- Actions ----------
 const ACT = {};
 ACT.newGame = () => {
@@ -487,6 +552,44 @@ ACT.continue = () => {
     <button class="primary big" data-a="closeOv">Let's see</button></div>`, 'center');
 };
 ACT.keep = () => go('keep');
+ACT.defend = () => go('defend');
+ACT.night = v => {
+  const n = +v;
+  if (stopScene) { stopScene(); stopScene = null; }
+  SUI.runSiege(S, n, r => siegeOver(r));
+};
+function siegeOver(r) {
+  if (r.result === 'retreat') { go('defend'); return; }
+  if (r.result === 'lost') {
+    save(); go('defend');
+    overlay(`<div class="sheet" style="text-align:center"><h2>Emberwake falls</h2><p>The Hollow break into the hall. The survivors drive them out at dawn with pitchforks and fire, but it was close.</p>
+      <p class="muted">Nothing is lost. Level up your heroes, build the barracks and walls, then try Night ${r.n} again.</p>
+      <button class="primary big" data-a="closeOv">Back</button></div>`, 'center');
+    return;
+  }
+  const out = SG.reward(S, r.n, r.stars);
+  save(); go('defend');
+  overlay(`<div class="sheet" style="text-align:center"><h2>Dawn! Night ${r.n} held</h2>
+    <div class="stars">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</div>
+    <p class="muted small">${r.kills} Hollow fell. ${r.lost ? r.lost + ' of your soldiers died.' : 'Not one soldier lost.'} ${r.stars < 3 ? 'Keep the gate intact and the hall unharmed for three stars.' : ''}</p>
+    <p><b class="goldtxt">${out.got.join(', ')}</b></p>${out.text ? `<p>${out.text}</p>` : ''}
+    <button class="primary big" data-a="siegeDone">Continue</button></div>`, 'center');
+  ACT.siegeDone = () => {
+    closeOverlay();
+    const after = () => { if (out.gearUid) equipPrompt(E.gearOf(S, out.gearUid)); };
+    if (r.n === 1 && out.first) scene('siege1_won', () => { go('keep'); after(); });
+    else after();
+  };
+}
+ACT.market = () => {
+  if (!S.flags.seen.arena_intro) scene('arena_intro', () => go('market'));
+  else go('market');
+};
+ACT.bout = id => {
+  const b = E.findBout(id);
+  E.healParty(S);
+  startBattle(E.boutFoes(b), { area: 'arena', boss: true, arena: id });
+};
 ACT.map = () => go('map');
 ACT.board = () => go('board');
 ACT.yard = () => go('yard');
@@ -753,13 +856,16 @@ document.addEventListener('click', e => {
 
 // ---------- Battle UI ----------
 const BG = {
+  arena: ['#3a2a20', '#5a4232', '#d8b878', '#a8844c'],
   thornwood: ['#6fa0c8', '#b8d4e0', '#3a6a32', '#1f3d1c'],
   millroad: ['#e08a5a', '#f0c890', '#7a6a44', '#4a3e28'],
   barrows: ['#4a5468', '#8a94a8', '#55665a', '#2e3a30'],
   fenmire: ['#3a5048', '#6a8478', '#34463a', '#1a261c'],
   tower: ['#2a2040', '#5a4878', '#463e56', '#22202c'],
 };
-let B = null, ctx = null, pending = null;
+let B = null, ctx = null, pending = null, FX = null;
+const unitEl = a => document.getElementById('u-' + a.key);
+function shakeField() { const f = document.querySelector('#battle .field'); if (!f) return; f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); }
 
 function startBattle(specs, c) {
   ctx = c;
@@ -768,11 +874,15 @@ function startBattle(specs, c) {
   const el = document.createElement('div');
   el.id = 'battle';
   el.innerHTML = `<div class="field"><div class="sky" style="background:linear-gradient(180deg,${bg[0]},${bg[1]})"></div>
-    <div class="ground" style="background:linear-gradient(180deg,${bg[2]},${bg[3]})"></div>
+    <div class="ground" style="background:linear-gradient(180deg,${bg[2]},${bg[3]})"></div><canvas class="bgc" id="bgc"></canvas>
     <div class="foes" id="foes"></div><div class="friends" id="friends"></div><div class="banner" id="banner"></div></div>
     <div class="pbars" id="pbars"></div><div class="cmd" id="cmd"></div>`;
   document.body.appendChild(el);
   document.body.style.overflow = 'hidden';
+  if (window.BFX) {
+    try { BFX.paint(el.querySelector('#bgc'), c.area || 'thornwood'); } catch (e) { /* plain gradient stays */ }
+    try { FX = BFX.fx(el.querySelector('.field')); } catch (e) { FX = null; }
+  }
   drawUnits(); drawBars(); drawCmd();
   if (c.ambush) banner('Ambush!');
   runBattle();
@@ -787,7 +897,7 @@ function unitHTML(a) {
   }
   if (a.isCreature) px = Math.round(3 * (SP.variant(a.sprite).scale || 1));
   return `<div class="unit ${a.hp <= 0 ? 'ko' : ''} ${a.isCreature ? 'pet' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
-    <div class="spr">${img(a.sprite, px)}</div>
+    <div class="spr" style="animation-delay:-${(Math.random() * 2).toFixed(2)}s">${img(a.sprite, px)}</div>
     ${a.side === 'e' ? `<div class="uname">${esc(a.name)}</div><div class="hpmini"><i style="width:${pct(a.hp, a.maxHp)}%"></i></div>` : ''}
     <div class="sts"></div></div>`;
 }
@@ -856,6 +966,7 @@ async function play(evs) {
       case 'surge': {
         banner(ev.text, true);
         const f = document.querySelector('.field'); f.classList.add('surgeflash'); setTimeout(() => f.classList.remove('surgeflash'), 700);
+        if (FX) FX.surge(); shakeField();
         refreshUnits(); await T(700); break;
       }
       case 'dmg':
@@ -864,14 +975,16 @@ async function play(evs) {
         if (ev.resist) floatText(ev.who, 'RESIST', 'label');
         if (ev.dot) floatText(ev.who, STATUS[ev.dot], 'label');
         pulse(ev.who, 'hit'); pulse(ev.who, 'flash');
+        if (FX) FX.hit(unitEl(ev.who), ev.dot === 'poison' ? 'poison' : ev.dot === 'burn' ? 'fire' : ev.el || 'phys', ev.crit || ev.big);
+        if (ev.crit || ev.big) shakeField();
         refreshUnits(); drawBars(); await T(300); break;
-      case 'heal': floatText(ev.who, '+' + ev.n, 'heal'); refreshUnits(); drawBars(); await T(280); break;
+      case 'heal': floatText(ev.who, '+' + ev.n, 'heal'); if (FX) FX.puff(unitEl(ev.who), 'heal'); refreshUnits(); drawBars(); await T(280); break;
       case 'mp': floatText(ev.who, '+' + ev.n + ' MP', 'mp'); drawBars(); await T(280); break;
-      case 'revive': floatText(ev.who, 'Back up!', 'heal'); refreshUnits(); drawBars(); await T(400); break;
+      case 'revive': floatText(ev.who, 'Back up!', 'heal'); if (FX) FX.puff(unitEl(ev.who), 'light'); refreshUnits(); drawBars(); await T(400); break;
       case 'status': floatText(ev.who, STATUS[ev.s], 'label'); refreshUnits(); drawBars(); await T(230); break;
       case 'immune': floatText(ev.who, 'Immune', 'label'); await T(230); break;
       case 'off': refreshUnits(); drawBars(); break;
-      case 'ko': refreshUnits(); drawBars(); await T(330); break;
+      case 'ko': if (FX && ev.who.side === 'e') FX.puff(unitEl(ev.who), 'death'); refreshUnits(); drawBars(); await T(330); break;
       case 'tamed': floatText(ev.who, 'Tamed!', 'heal'); banner(ev.who.name + ' is tamed!', true); await T(900); break;
       case 'stole': floatText(ev.who, ev.text, 'label'); await T(300); break;
       case 'summon': drawUnits(); pulse(ev.who, 'flash'); banner(ev.who.name + ' joins the fight'); await T(500); break;
@@ -927,7 +1040,7 @@ function drawCmd() {
   const el = document.getElementById('cmd');
   if (!el) return;
   const autoBtn = `<button class="sm autobtn ${S.opts.auto ? 'on' : ''}" data-a="bAuto">Auto ${S.opts.auto ? 'on' : 'off'}</button>`;
-  if (!pending) { el.innerHTML = `<div class="cmdtop"><span class="muted small">${B && B.boss ? 'Boss fight' : ''}</span>${surgeHTML()}${autoBtn}</div>`; return; }
+  if (!pending) { el.innerHTML = `<div class="cmdtop"><span class="muted small">${ctx && ctx.arena ? 'Arena' : B && B.boss ? 'Boss fight' : ''}</span>${surgeHTML()}${autoBtn}</div>`; return; }
   const a = pending.a;
   if (pending.mode === 'main') {
     const surge = B.surgeReady() ? `<button class="surgebtn" data-a="bSurge">EMBER SURGE · ${D.SKILLS[D.SURGE[a.id]].name}</button>` : '';
@@ -1009,7 +1122,30 @@ function endBattle() {
   if (res.won && c.node) nodeOut = E.winNode(S, area, c.node);
   if (res.won && c.boss) bossScenes = E.clearArea(S, area);
   save();
-  const close = () => { const b = document.getElementById('battle'); if (b) b.remove(); document.body.style.overflow = ''; B = null; };
+  const close = () => { if (FX) { FX.stop(); FX = null; } const b = document.getElementById('battle'); if (b) b.remove(); document.body.style.overflow = ''; B = null; };
+  if (c.arena) {
+    if (!res.won) {
+      E.healParty(S); save();
+      overlay(`<div class="sheet" style="text-align:center"><h2>Beaten</h2><p>The crowd groans. The healers drag you off the sand and patch you up.</p><p class="muted">No harm done. Train, forge and come back.</p>
+        <button class="primary big" data-a="afterArena">Back to the pit</button></div>`, 'center');
+      ACT.afterArena = () => { closeOverlay(); close(); go('market'); };
+      return;
+    }
+    const out = E.arenaWin(S, c.arena), bout = E.findBout(c.arena);
+    E.healParty(S); save();
+    const xpLines = S.party.map(id => res.heroXp[id] ? `${heroName(id)} +${res.heroXp[id]} XP${res.levels[id] ? ` <b style="color:var(--gold)">Level ${S.heroes[id].lvl}!</b>` : ''}` : '').filter(Boolean).join('<br>');
+    overlay(`<div class="sheet" style="text-align:center"><h2>${bout.final && out.first ? 'Champion!' : 'The crowd roars'}</h2>
+      <p class="small">${xpLines}</p><p><span class="goldtxt">+${res.gold} gold</span></p>
+      <p><b style="color:var(--gold)">${out.first ? 'Prize: ' : ''}${out.got.join(', ')}</b></p>
+      <button class="primary big" data-a="afterArena">Continue</button></div>`, 'center');
+    ACT.afterArena = () => {
+      closeOverlay(); close(); go('market');
+      const after = () => { if (out.gearUid) equipPrompt(E.gearOf(S, out.gearUid)); };
+      if (out.creature && !S.flags.seen.fox_won) scene('fox_won', () => { go('market'); after(); });
+      else after();
+    };
+    return;
+  }
   if (res.fled) { close(); go('area', { id: area, msg: 'You got away. Nobody\'s proud of it.' }); return; }
   if (!res.won) {
     const lost = E.defeatPenalty(S); save();

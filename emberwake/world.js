@@ -23,6 +23,8 @@ const CREATURES = {
               evo: { attack: 'Acid Slime', guard: 'Rock Slime', support: 'Dew Slime' } },
   lurker:   { name: 'Bog Lurker', sprite: 'lurker', m: { hp: 1.35, str: 1.1, mag: .5, def: 1.1, res: .8, spd: .8 }, attack: ['drag', 'spit'], support: 'lick',
               evo: { attack: 'Bog Horror', guard: 'Mud Wall', support: 'Reed Lurker' } },
+  emberfox: { name: 'Ember Fox', sprite: 'emberfox', rare: true, m: { hp: 1, str: 1.05, mag: 1.3, def: .9, res: 1.1, spd: 1.3 }, attack: ['fox_flame', 'bite'], support: 'sap',
+              evo: { attack: 'Blaze Fox', guard: 'Hearth Fox', support: 'Dawn Fox' } },
   hound:    { name: 'Shadow Hound', sprite: 'hound', m: { hp: 1, str: 1.15, mag: .6, def: .9, res: .8, spd: 1.35 }, attack: ['bite', 'pounce'], support: 'lick',
               evo: { attack: 'Nightmare Hound', guard: 'Ward Hound', support: 'Shade Hound' } },
 };
@@ -49,6 +51,16 @@ const BUILDINGS = {
     levels: [
       { gold: 120, mats: { pelt: 2 }, text: 'Room for 4 creatures.' },
       { gold: 400, mats: { ore: 3, pelt: 3 }, text: 'Room for 8 creatures. Creatures in kennels earn half XP.' },
+    ] },
+  barracks: { name: 'Barracks', desc: 'Drills the militia and trains new kinds of soldier for the defence of the keep.',
+    levels: [
+      { gold: 300, mats: { ore: 4 }, text: 'Spearmen and priests. Militia 15% tougher. More levy, faster.' },
+      { gold: 700, mats: { ore: 6, bone: 4 }, text: 'Knights. Militia 30% tougher. More levy again.' },
+    ] },
+  walls: { name: 'Stone walls', desc: 'Stone in place of the palisade, a stronger gate and towers beside it.',
+    levels: [
+      { gold: 350, mats: { ore: 6 }, text: 'Stone walls. Gate half as strong again. Two gate towers for ballistas.' },
+      { gold: 800, mats: { ore: 8, moss: 4 }, text: 'Gate twice as strong. Burning oil scalds anything hitting it.' },
     ] },
 };
 const YARD_RATE = [0, 0.5, 0.8];
@@ -173,6 +185,35 @@ const EVENTS = {
   },
 };
 
+// ---------- Arena ----------
+// Bouts are fought in order within a rank. A rank's final opens the next rank.
+// Foes can carry a name, an HP multiplier (hpx) and boss status (no fleeing, no taming).
+const ARENA = [
+  { id: 'bronze', name: 'Bronze', lvl: '6 to 9', bouts: [
+    { id: 'b1', name: 'The Grey Brothers', desc: 'Three wolves raised in the pit. They hunt as one.', foes: [{ t: 'wolf', lvl: 6, name: 'Grey Brother' }, { t: 'wolf', lvl: 6, name: 'Grey Brother' }, { t: 'wolf', lvl: 6, name: 'Grey Brother' }], prize: { gold: 150 } },
+    { id: 'b2', name: 'Mag the Mauler', desc: 'A boar with a temper and a fan club.', foes: [{ t: 'boarling', lvl: 8, name: 'Mag the Mauler', hpx: 3.2 }], prize: { items: { hi_potion: 2 } } },
+    { id: 'b3', name: 'Pit fighters', desc: 'Two gladiators who have never lost in front of a crowd.', foes: [{ t: 'gladiator', lvl: 7 }, { t: 'gladiator', lvl: 7 }], prize: { gold: 250 } },
+    { id: 'b4', name: 'The Crowkeeper', desc: 'She brings her birds. Lots of them.', foes: [{ t: 'beastmaster', lvl: 8, name: 'The Crowkeeper' }, { t: 'crows', lvl: 7 }, { t: 'crows', lvl: 7 }], prize: { tome: true } },
+    { id: 'b5', name: 'Sir Halbrecht the Unbowed', desc: 'The Bronze champion. Hasn\'t taken a step back in eleven years.', final: true,
+      foes: [{ t: 'shieldbearer', lvl: 9, name: 'Sir Halbrecht', hpx: 2.6, boss: true }, { t: 'pitmage', lvl: 8 }], prize: { gear: 'gladius', gold: 300 } },
+  ] },
+  { id: 'silver', name: 'Silver', lvl: '10 to 13', bouts: [
+    { id: 's1', name: 'The Bone Dancers', desc: 'Skeletons dug out of the barrows and taught to fight for coin.', foes: [{ t: 'skeleton', lvl: 10 }, { t: 'skeleton', lvl: 10 }, { t: 'skeleton', lvl: 10 }], prize: { gold: 320 } },
+    { id: 's2', name: 'The Twins', desc: 'Two pit mages who finish each other\'s spells.', foes: [{ t: 'pitmage', lvl: 11, name: 'Ash Twin' }, { t: 'pitmage', lvl: 11, name: 'Cinder Twin' }], prize: { items: { ether: 3 } } },
+    { id: 's3', name: 'Old Gnasher', desc: 'Something from the fens, kept in a tank under the stands.', foes: [{ t: 'lurker', lvl: 12, name: 'Old Gnasher', hpx: 3.2 }], prize: { gear: 'crowd_favour' } },
+    { id: 's4', name: 'The Gilded Three', desc: 'Rich, famous and very good at this.', foes: [{ t: 'gladiator', lvl: 11 }, { t: 'shieldbearer', lvl: 11 }, { t: 'pitmage', lvl: 11 }], prize: { tome: true } },
+    { id: 's5', name: 'Varga the Beastqueen', desc: 'The Silver champion, and her hounds.', final: true,
+      foes: [{ t: 'beastmaster', lvl: 13, name: 'Varga', hpx: 3, boss: true }, { t: 'hound', lvl: 11 }, { t: 'hound', lvl: 11 }], prize: { gear: 'beastqueen_lash', creature: 'emberfox' } },
+  ] },
+  { id: 'gold', name: 'Gold', lvl: '14 and up', bouts: [
+    { id: 'g1', name: 'The Deserters', desc: 'Hollow soldiers who walked away from the tower. Nobody knows why.', foes: [{ t: 'soldier', lvl: 14 }, { t: 'soldier', lvl: 14 }, { t: 'acolyte', lvl: 14 }], prize: { gold: 600 } },
+    { id: 'g2', name: 'The Grave Pair', desc: 'Two wights bound in silver chains.', foes: [{ t: 'wight', lvl: 15 }, { t: 'wight', lvl: 15 }], prize: { tome: true } },
+    { id: 'g3', name: 'The Sunken Champion', desc: 'A knight from Fenmire who fights for whoever feeds him.', foes: [{ t: 'drowned', lvl: 14, name: 'The Sunken Champion', hpx: 0.45, boss: true }], prize: { items: { feather: 3, hi_potion: 3 } } },
+    { id: 'g4', name: 'Tarrant the Undefeated', desc: 'Never lost. Not once. He\'d like to keep it that way.', final: true,
+      foes: [{ t: 'gladiator', lvl: 17, name: 'Tarrant', hpx: 4, boss: true }, { t: 'shieldbearer', lvl: 15 }, { t: 'pitmage', lvl: 15 }], prize: { gear: 'champion_band', gold: 1000 } },
+  ] },
+];
+
 // ---------- Story added in layer two ----------
 const STORY2 = {
   camp_thorn: [
@@ -250,10 +291,47 @@ const BOARD = [
   { id: 'trader', name: 'Hob\'s trading post', how: 'Defeat Rook the Red.' },
   { id: 'surge2', name: 'Ember Surge II', how: 'Defeat Rook the Red.' },
   { id: 'evolve', name: 'First evolution', how: 'Raise a creature to level ' + EVO_LVL + '. How you use it decides what it becomes.' },
-  { id: 'arena', name: 'The market arena', how: 'Coming in the next update. Past Rook\'s camp lies the market town and its fighting pit.', future: true },
-  { id: 'siege', name: 'Defend the keep', how: 'Coming in a later update. The Hollow will come for Emberwake.', future: true },
+  { id: 'siege', name: 'Defend Emberwake', how: 'Defeat Rook the Red. He\'ll tell the Hollow where you are.' },
+  { id: 'barracks', name: 'Build: barracks', how: 'Survive the first night at Emberwake, then build it here.', build: 'barracks' },
+  { id: 'walls', name: 'Build: stone walls', how: 'Survive the first night at Emberwake, then build them here.', build: 'walls' },
+  { id: 'night5', name: 'Hold for five nights', how: 'Survive five nights. The keep\'s smiths will forge you something special.' },
+  { id: 'arena', name: 'The Brightwater arena', how: 'Defeat Rook the Red to open the road east to Brightwater market.' },
+  { id: 'bronze', name: 'Arena: Bronze champion', how: 'Beat Sir Halbrecht, the Bronze champion.' },
+  { id: 'emberfox', name: 'A rare creature', how: 'Win the Silver rank at the arena. Something with fire in it waits for the winner.' },
+  { id: 'goldrank', name: 'Arena: the Undefeated', how: 'Win the Gold rank. Nobody has done it in living memory.' },
+  { id: 'war', name: 'War campaigns', how: 'Coming in a later update. Take your army out from Emberwake and take ground back from the Hollow.', future: true },
 ];
 
-const WORLD = { CREATURES, EVO_LVL, EVO_MULT, STANCES, BUILDINGS, YARD_RATE, KENNEL_CAP, MAPS, genMap, EVENTS, STORY2, BOARD };
+const STORY3 = {
+  raid_warn: [
+    ['', 'That night carts come up the hill to Emberwake. Families from Ashby who hid in the woods, a miller and his sons, two of Rook\'s men who\'d had enough of him.'],
+    ['bram', 'There are thirty people in the yard. Thirty.'],
+    ['wren', 'And Rook got away. He knows where we are, and he knows what Isolde carries.'],
+    ['isolde', 'Then the Hollow know too. They\'ll come here.'],
+    ['bram', 'Let them. We\'ve got walls, mostly. And now we\'ve got people to stand on them.'],
+    ['', 'DEFEND EMBERWAKE unlocked. When night falls the Hollow will come. Put archers on the walls, soldiers at the gate and your heroes where they\'re needed most.'],
+    ['', 'The road east to Brightwater market is open too. They say its arena pays well.'],
+  ],
+  siege1_won: [
+    ['', 'Dawn comes up grey over the hill. The Hollow are gone and the gate still stands.'],
+    ['wren', 'We held. Thirty farmers and us, and we held.'],
+    ['bram', 'They\'ll want proper training. And proper walls. I can build both, given time and iron.'],
+    ['isolde', 'They\'ll be back every few nights, and stronger. So will we.'],
+    ['', 'The survivors patch the keep\'s roof that morning. Build a barracks and stone walls from the noticeboard. More nights wait, each harder than the last, with rewards to match.'],
+  ],
+  arena_intro: [
+    ['', 'Brightwater market is loud, crowded and, for the first time in weeks, safe. At its heart is a sand pit ringed with benches, and every bench is full.'],
+    ['wren', 'Fighting for money in front of a crowd. Finally, something I\'m qualified for.'],
+    ['', 'The pit master runs three ranks: Bronze, Silver and Gold. Every bout has a prize, and each rank\'s final has a big one. Arena healers patch you up before every bout, and losing costs nothing but pride.'],
+  ],
+  fox_won: [
+    ['', 'Varga yields. The crowd is on its feet. The pit master brings out a small iron cage, and inside it something glows.'],
+    ['hesk', 'An ember fox. I thought they were a story. They\'re drawn to fire, and to anything that burns from the inside.'],
+    ['isolde', 'It\'s looking at me.'],
+    ['', 'The Ember Fox joins your creatures. It breathes fire and evolves like any other beast.'],
+  ],
+};
+
+const WORLD = { ARENA, STORY3, CREATURES, EVO_LVL, EVO_MULT, STANCES, BUILDINGS, YARD_RATE, KENNEL_CAP, MAPS, genMap, EVENTS, STORY2, BOARD };
 if (typeof module !== 'undefined' && module.exports) module.exports = WORLD; else root.WORLD = WORLD;
 })(this);

@@ -124,6 +124,53 @@
   .strip-cell img { width:28px; height:28px; object-fit:contain; flex:0 0 auto; }
   .strip-cell .small { font-size:.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .strip-cell.ko { opacity:.45; }
+  .bgc { position:absolute; inset:0; width:100%; height:100%; }
+  .fxc { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:7; }
+  .unit .spr img { animation:idle 1.7s ease-in-out infinite alternate; animation-delay:inherit; }
+  .unit.ko .spr img { animation:none; }
+  @keyframes idle { from { transform:translateY(0); } to { transform:translateY(-3px); } }
+  .field.shake { animation:fshake .3s; }
+  @keyframes fshake { 0%,100% { transform:translate(0,0); } 20% { transform:translate(-6px,3px); } 40% { transform:translate(5px,-3px); } 60% { transform:translate(-4px,2px); } 80% { transform:translate(3px,-1px); } }
+  .keepscene { width:100%; height:auto; aspect-ratio:100/53; display:block; border-radius:14px; border:1px solid var(--line); margin:6px 0 2px; background:#2a3a24; }
+  .card.defend { border-color:#5a4a2a; background:linear-gradient(180deg,#24263a,#1c1e2b); }
+  .card.defend.alert { border-color:var(--ember); box-shadow:0 0 18px rgba(255,138,61,.18); }
+  .card.town { border-color:#6a5a3a; }
+  .bout { border-top:1px solid var(--line); padding:10px 0; }
+  .bout.final { border-left:3px solid var(--bad); padding-left:10px; }
+  .bout.won { opacity:.75; }
+  .stars { font-size:2.2rem; color:var(--gold); letter-spacing:6px; text-shadow:0 0 12px rgba(255,200,80,.5); }
+  /* Siege */
+  #siege { position:fixed; inset:0; z-index:25; background:#08090f; display:flex; flex-direction:column; user-select:none; -webkit-user-select:none; }
+  .sg-top { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; padding:calc(env(safe-area-inset-top) + 6px) 10px 6px; background:#12131c; border-bottom:1px solid var(--line); }
+  .sg-top > div:first-child { flex:1 1 auto; }
+  .sg-hp { order:3; flex:1 1 100%; display:grid; grid-template-columns:auto 1fr auto 1fr; gap:4px 6px; align-items:center; font-size:.68rem; color:var(--muted); }
+  .sg-hp .bar i { background:#c8a040; }
+  .sg-hp .bar:last-child i { background:#6ad07a; }
+  .sg-stage { flex:1 1 auto; position:relative; min-height:0; }
+  .sg-stage canvas { position:absolute; inset:0; touch-action:none; }
+  .sg-banner { position:absolute; top:12%; left:50%; transform:translateX(-50%) scale(.9); background:rgba(10,10,20,.85); border:1px solid #5a5f80; color:#ffe9b0; border-radius:12px; padding:8px 16px; font-family:Georgia,serif; font-size:1.05rem; opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; white-space:nowrap; z-index:3; }
+  .sg-banner.show { opacity:1; transform:translateX(-50%) scale(1); }
+  .sg-banner.bad { border-color:var(--bad); color:#ffb0a0; }
+  .sg-banner.warn { border-color:var(--atb); color:#fff0b0; font-family:system-ui; font-size:.85rem; }
+  .sg-hint { position:absolute; left:8px; right:8px; bottom:8px; background:rgba(20,18,12,.88); border:1px solid var(--gold); border-radius:10px; padding:8px 10px; font-size:.85rem; display:none; z-index:3; pointer-events:none; }
+  .sg-bottom { flex:0 0 auto; background:#12131c; border-top:1px solid var(--line); padding:6px 8px calc(env(safe-area-inset-bottom) + 8px); }
+  .sg-levy { color:var(--gold); font-size:.9rem; }
+  .sg-levy b { font-size:1.15rem; }
+  .sg-cards { display:flex; gap:6px; overflow-x:auto; padding:6px 0; }
+  .sg-card { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 8px; min-width:66px; font-size:.72rem; position:relative; }
+  .sg-card img { width:32px; height:32px; object-fit:contain; }
+  .sg-card b { color:var(--gold); font-size:.8rem; }
+  .sg-card.on, .sg-hero.on { border-color:var(--atb); background:#2c2a20; box-shadow:0 0 10px rgba(232,200,74,.35); }
+  .sg-card.poor { opacity:.45; }
+  .sg-heroes { display:flex; gap:6px; }
+  .sg-hero { flex:1; display:flex; align-items:center; gap:6px; padding:6px; font-size:.75rem; position:relative; overflow:hidden; text-align:left; }
+  .sg-hero img { width:30px; height:30px; object-fit:contain; flex:0 0 auto; }
+  .sg-hero .nm { position:relative; z-index:1; }
+  .sg-hero .cdv { position:absolute; left:0; right:0; bottom:0; height:0; background:rgba(0,0,0,.55); pointer-events:none; }
+  .sg-hero.ready { border-color:var(--ember); }
+  .sg-hero.done { opacity:.5; }
+  .sg-hero.down { filter:grayscale(1); }
+  #sgstart { margin-top:6px; }
   .evo { display:flex; justify-content:center; align-items:center; gap:16px; font-size:1.6rem; color:var(--gold); margin:10px 0; }
   .friends .unit:nth-child(2) { margin-right:26px; }
   .unit .uname { font-size:.68rem; background:rgba(0,0,0,.55); padding:1px 5px; border-radius:6px; margin-top:2px; white-space:nowrap; max-width:150px; overflow:hidden; text-overflow:ellipsis; }
@@ -168,6 +215,9 @@
 <script src="world.js"></script>
 <script src="engine.js"></script>
 <script src="sprites.js"></script>
+<script src="siege.js"></script>
+<script src="siegeui.js"></script>
+<script src="battlefx.js"></script>
 <script src="game.js"></script>
 <script>
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');

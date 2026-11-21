@@ -2,7 +2,7 @@
 
 A fantasy party RPG for one player on a phone. Underdog party, turn based fights with ATB gauges, deep character building, training always pays off. Built in layers.
 
-- data.js holds core content (heroes, talent trees, skills, gear, items, enemies, areas, story). world.js holds maps, creatures, events, buildings and the noticeboard. engine.js holds the rules with no DOM so it runs in node for balance tests. sprites.js draws pixel art from text maps. game.js is the screens and battle UI.
+- data.js holds core content (heroes, talent trees, skills, gear, items, enemies, areas, story). world.js holds maps, creatures, events, buildings and the noticeboard. engine.js holds the rules with no DOM so it runs in node for balance tests. siege.js holds the real time siege rules (also no DOM). sprites.js draws pixel art from text maps. siegeui.js draws the keep and runs the siege on a canvas. battlefx.js paints battle backgrounds and spell effects. game.js is the screens and battle UI.
 - Saves are localStorage on the phone (key emberwake-save-v1, save version in S.v). Settings saves a backup .txt file (share sheet on Android, download elsewhere) holding an EMBER1. code, and loads it back. Android's clipboard truncates long text, so the file is the main route. E.migrate upgrades older saves.
 - Player feedback after layer one: graphics basic but fine for now, exploring was one button, nothing to aim for, too little story, knocked out heroes fell behind. Wants to keep unlocking new people, creatures, systems and places, not just grind levels.
 - Design rule from the player: no filler. Every side system must feed main progress (gear, talent points, materials, XP).
@@ -27,10 +27,17 @@ A fantasy party RPG for one player on a phone. Underdog party, turn based fights
 - Battle field: horizon raised and shadows added so everyone stands on the ground.
 - Balance: bosses toughened (30% more HP, 12% more strength) because the creature and surge made things easier. A bot that plays well now loses one or two fights in a full run.
 
+## Layer three (21 November 2026)
+
+- Defend Emberwake: a real time siege on a canvas, at night with torchlight. Unlocked by beating Rook (raid_warn scene). Deploy phase, then waves. Levy builds over time; spend it on archers (wall spots), swordsmen (in front of the gate or in the yard), and with the barracks spearmen, priests and knights; ballistas on the gate towers once the stone walls are built. Party heroes fight as champions at their RPG strength, with one aimed power each (Rally, Arrow Storm, Ember Nova, Wild Hunt, Powder Keg). Ladder crews climb into the yard, rams batter the gate, a captain leads every fifth night. The keep falls if its hall is broken. Twelve nights, stars for gate and hall, first clear milestones (tomes, Ashby Banner, Emberwake Blade, Keeper's Mantle), replays pay iron and shards. Losing costs nothing.
+- Keep buildings: barracks (two levels) and stone walls (two levels, the palisade becomes stone with gate towers, then burning oil).
+- Brightwater market (after Rook) with an arena: Bronze, Silver and Gold ranks, bouts in order, named champions, arena healers before every bout, no penalty for losing. Prizes: gold, tomes, the Pit Gladius, Crowd's Favour, Beastqueen's Lash, Champion's Band and the Ember Fox, a rare creature only found here. Arena foes are boosted (E.boutFoes: two levels up, 1.8x HP, 1.2x power).
+- The keep screen shows a living picture of Emberwake that changes with progress: roof patched after the first night, Hob's stall, training yard, kennels, barracks, stone walls, survivors walking about, the party and creatures.
+- Battles have painted backgrounds per area and the arena, particle effects by element, idle animation and screen shake on big hits.
+- Balance from simulation: a good bot clears nights 1 to 6 comfortably, night 8 most of the time, night 10 needs levels and upgrades, night 12 is a stretch. Arena finals around 35 to 70% at the suggested level.
+
 ## Next layers
 
-- Arena in the market town past Rook's camp, with prize tiers.
-- Defend the keep waves, leading into the war mode.
 - Hand built maps for Barrow Hills, Fenmire and the Tower, with more recruits and side quests.
 - Better art: bigger shaded sprites, idle and attack animations, spell effects.
 - Rebuilding Emberwake (Stronghold style): buildings that unlock shops, training and recruits.

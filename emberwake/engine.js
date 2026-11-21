@@ -24,7 +24,17 @@ E.newGame = function () {
   };
   for (const id of D.PARTY) E.recruit(S, id, 1);
   for (const a of D.AREAS) S.areas[a.id] = { cleared: false };
+  E.ensure(S);
   E.restParty(S);
+  return S;
+};
+// Fills in anything a save from an older layer is missing.
+E.ensure = function (S) {
+  S.buildings = Object.assign({ yard: 0, kennels: 0, barracks: 0, walls: 0 }, S.buildings || {});
+  S.siege = S.siege || { best: 0, stars: {} };
+  S.arena = S.arena || { won: {} };
+  S.flags = S.flags || { seen: {}, got: {} };
+  if (S.areas && S.areas.millroad && S.areas.millroad.cleared) { S.flags.raid = true; S.flags.market = true; }
   return S;
 };
 
@@ -147,6 +157,11 @@ E.restParty = function (S) {
   for (const c of S.creatures) c.hp = E.creatureStats(c).maxHp;
   for (const id in S.maps) S.maps[id].used = {};
   S.spar = {};
+};
+// Heals everyone without touching foraging spots or sparring (used by the arena healers).
+E.healParty = function (S) {
+  for (const id of S.roster) { const st = E.heroStats(S, id); S.heroes[id].hp = st.maxHp; S.heroes[id].mp = st.maxMp; }
+  for (const c of S.creatures) c.hp = E.creatureStats(c).maxHp;
 };
 E.clampParty = function (S) {
   for (const id of S.roster) {
@@ -418,7 +433,7 @@ class Battle {
     this.bond = Math.max(0, ...this.heroes.filter(h => !h.isCreature).map(h => h.flags.beastBond || 0));
     this.enemies = [];
     this.letters = {};
-    for (const sp of specs) this.addEnemy(sp.t, sp.lvl);
+    for (const sp of specs) this.addEnemy(sp.t, sp.lvl, sp);
     this.renameEnemies();
     this.over = false; this.won = false; this.fled = false; this.turns = 0; this.dead = []; this.tamed = [];
     this.surge = S.surgeTier ? (S.surge || 0) : 0;
@@ -434,11 +449,15 @@ class Battle {
     return Object.assign(st, { side: 'h', isCreature: true, cid: c.cid, rec: c, key: 'c0', name: E.creatureName(c), sprite: E.creatureSprite(c), lvl: c.lvl,
       hp: clamp(c.hp, 0, st.maxHp), mp: 0, statuses: {}, gauge: 0, weak: {}, flags: { immune: [] }, stance: c.stance });
   }
-  addEnemy(t, lvl) {
+  addEnemy(t, lvl, o) {
+    o = o || {};
     const tpl = D.ENEMIES[t], st = enemyStats(tpl, lvl);
-    const a = Object.assign(st, { side: 'e', t, tpl, key: 'e' + (this.enemies.length), name: tpl.name, sprite: tpl.sprite, lvl,
+    if (o.hpx) st.maxHp = Math.round(st.maxHp * o.hpx);
+    if (o.pow) { st.str *= o.pow; st.mag *= o.pow; }
+    const name = o.name || tpl.name;
+    const a = Object.assign(st, { side: 'e', t, tpl, key: 'e' + (this.enemies.length), name, sprite: tpl.sprite, lvl,
       hp: st.maxHp, mp: 999, maxMp: 999, statuses: {}, gauge: this.rng() * 30, weak: tpl.weak || {}, flags: { immune: [] },
-      isBoss: !!tpl.boss, used: {}, base: tpl.name });
+      isBoss: !!tpl.boss || !!o.boss, used: {}, base: name, big: !!o.hpx || !!o.boss });
     this.enemies.push(a);
     return a;
   }
@@ -555,7 +574,7 @@ class Battle {
     if (t.hp <= 0) return;
     const r = this.calc(a, t, sk, mult);
     t.hp = Math.max(0, t.hp - r.n);
-    ev.push({ t: 'dmg', who: t, n: r.n, crit: r.crit, weak: r.weak, resist: r.resist });
+    ev.push({ t: 'dmg', who: t, n: r.n, crit: r.crit, weak: r.weak, resist: r.resist, el: sk.el || (sk.type === 'phys' ? 'phys' : 'mag'), by: a, big: r.n > t.maxHp * 0.25 });
     if (a.side === 'h') this.addSurge(2); else this.addSurge(3);
     if (sk.drain && a.hp > 0) { const h = Math.round(r.n * sk.drain); a.hp = Math.min(a.maxHp, a.hp + h); ev.push({ t: 'heal', who: a, n: h }); }
     if (t.hp <= 0) { this.ko(t, ev); return; }
@@ -926,6 +945,7 @@ E.clearArea = function (S, areaId) {
   if (areaId === 'millroad') {
     S.shopTier = Math.max(S.shopTier, 2);
     if (S.surgeTier < 2) { S.surgeTier = 2; scenes.push('surge2'); }
+    if (!S.flags.raid) { S.flags.raid = true; S.flags.market = true; scenes.push('raid_warn'); }
   }
   if (areaId === 'barrows') S.shopTier = Math.max(S.shopTier, 3);
   return scenes;
@@ -945,6 +965,14 @@ E.boardStatus = function (S, b) {
     case 'evolve': return S.creatures.some(c => c.form) ? 'done' : 'locked';
     case 'yard': return S.buildings.yard ? 'done' : S.areas.thornwood.cleared ? 'ready' : 'locked';
     case 'kennels': return S.buildings.kennels ? 'done' : has('hesk') ? 'ready' : 'locked';
+    case 'siege': return S.siege.best >= 1 ? 'done' : S.flags.raid ? 'ready' : 'locked';
+    case 'barracks': return S.buildings.barracks ? 'done' : S.siege.best >= 1 ? 'ready' : 'locked';
+    case 'walls': return S.buildings.walls ? 'done' : S.siege.best >= 1 ? 'ready' : 'locked';
+    case 'night5': return S.siege.best >= 5 ? 'done' : S.flags.raid ? 'ready' : 'locked';
+    case 'arena': return S.arena.won.b1 ? 'done' : S.flags.market ? 'ready' : 'locked';
+    case 'bronze': return S.arena.won.b5 ? 'done' : S.flags.market ? 'ready' : 'locked';
+    case 'emberfox': return S.arena.won.s5 ? 'done' : S.arena.won.b5 ? 'ready' : 'locked';
+    case 'goldrank': return S.arena.won.g4 ? 'done' : S.arena.won.s5 ? 'ready' : 'locked';
     default: return 'locked';
   }
 };
@@ -993,7 +1021,8 @@ E.fieldHeal = function (S, casterId, skillId, targetId) {
 
 // ---------- Saves from layer one ----------
 E.migrate = function (S) {
-  if (!S || S.v >= 2) return S;
+  if (!S) return S;
+  if (S.v >= 2) return E.ensure(S);
   S.v = 2;
   S.roster = D.PARTY.slice(); S.party = D.PARTY.slice();
   S.creatures = []; S.companion = null; S.nextCid = 1;
@@ -1012,7 +1041,43 @@ E.migrate = function (S) {
     }
   }
   S.opts = S.opts || { speed: 1 };
-  return S;
+  return E.ensure(S);
+};
+
+// ---------- Arena ----------
+// A bout is open when every earlier bout in its rank is won and the previous rank's final is won.
+E.boutOpen = function (S, rankIdx, boutIdx) {
+  const ranks = W.ARENA;
+  if (!S.flags.market) return false;
+  if (rankIdx > 0) { const prev = ranks[rankIdx - 1]; if (!S.arena.won[prev.bouts[prev.bouts.length - 1].id]) return false; }
+  for (let i = 0; i < boutIdx; i++) if (!S.arena.won[ranks[rankIdx].bouts[i].id]) return false;
+  return true;
+};
+// Arena fighters are seasoned: tougher than the same beast in the wild.
+E.boutFoes = b => b.foes.map(f => Object.assign({}, f, { lvl: f.lvl + 2, hpx: (f.hpx || 1) * 1.8, pow: 1.2 }));
+E.findBout = function (id) {
+  for (const r of W.ARENA) for (const b of r.bouts) if (b.id === id) return b;
+  return null;
+};
+E.arenaWin = function (S, id) {
+  const b = E.findBout(id), first = !S.arena.won[id];
+  S.arena.won[id] = true;
+  const out = { first, got: [] };
+  if (first) {
+    const p = Object.assign({}, b.prize);
+    out.got = E.applyReward(S, p);
+    out.gearUid = p._uid;
+    if (p.creature) {
+      const lvl = Math.max(8, Math.round(S.party.reduce((s, h) => s + S.heroes[h].lvl, 0) / S.party.length) - 1);
+      const c = E.addCreature(S, p.creature, lvl);
+      out.creature = E.creatureName(c);
+      out.got.push('an ' + out.creature);
+    }
+  } else {
+    const g = 40 + 10 * Math.max(...b.foes.map(f => f.lvl));
+    S.gold += g; out.got.push(g + ' gold');
+  }
+  return out;
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = E; else root.ENGINE = E;

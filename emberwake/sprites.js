@@ -195,6 +195,33 @@ const SHAPES = {
     '....kkYkYk......',
     '......Y.Y.......',
   ],
+  ram: [
+    '....................',
+    '......kkkkkkkk......',
+    '....kkRRRRRRRRkk....',
+    '...kRRrRRRRrRRRRk...',
+    '..kRRRRRRrRRRRRRRk..',
+    '.kkkkkkkkkkkkkkkkkk.',
+    'kIIWWWWwWWWWWwWWWWkk',
+    'kIIWWWWWWWWWWWWWWWk.',
+    '.kkkkkkkkkkkkkkkkkk.',
+    '..kBk..........kBk..',
+    '.kBbBk........kBbBk.',
+    '..kBk..........kBk..',
+  ],
+  ballista: [
+    '................',
+    '..k.........k...',
+    '..kWk.....kWk...',
+    '...kWk...kWk....',
+    '....kWkkkWk.....',
+    'kIISSSSSSSSSSSk.',
+    '....kWWWWWk.....',
+    '.....kWWWk......',
+    '....kBkkkBk.....',
+    '...kBBk.kBBk....',
+    '....kk...kk.....',
+  ],
   slime: [
     '................',
     '......kkkk......',
@@ -241,6 +268,22 @@ const SPRITES = {
   soldier:{ shape: 'knight', flip: true, pal: { k: '#05030a', H: '#2a2438', S: '#3a3450', E: '#ff3a3a', A: '#3a3450', a: '#5a5478', B: '#1a1424', L: '#2a2438', F: '#140e1c', W: '#8a84a8', g: '#5a5478', D: '#2a2438', d: '#ff3a3a' } },
   acolyte:{ shape: 'mage',  flip: true, pal: { k: '#05030a', P: '#2a1e3a', R: '#8a2a4a', O: '#b03aff', o: '#f0c0ff', s: '#3a2a3a', H: '#1a1424', S: '#5a5078', E: '#ff3a3a' } },
   warden: { shape: 'knight', flip: true, scale: 1.75, pal: { k: '#05030a', H: '#1a1424', S: '#2a2438', E: '#ffb03a', A: '#2a2438', a: '#4a3f6b', B: '#140e1c', L: '#1a1424', F: '#0a0610', W: '#b0a0e0', g: '#ffb03a', D: '#1a1424', d: '#ffb03a' } },
+  // Layer three: militia, Hollow siege troops, arena fighters, the ember fox.
+  m_sword:  { shape: 'knight', pal: { k: K, H: '#6a4a2a', S: SKIN, E: EYE, A: '#3f63a0', a: '#7a9ad0', B: '#3a2616', L: '#3a3f53', F: '#2a1c10', W: '#dfe6ee', g: '#d4a630', D: '#2f4f8a', d: '#e0b252' } },
+  m_spear:  { shape: 'knight', pal: { k: K, H: '#3a2a1a', S: SKIN, E: EYE, A: '#3f7a4a', a: '#7ab07a', B: '#3a2616', L: '#3a4a3a', F: '#2a1c10', W: '#c8b080', g: '#8a6a3a', D: '#2f5a3a', d: '#e0b252' } },
+  m_archer: { shape: 'ranger', pal: { k: K, G: '#2f4f8a', H: '#8a5a2a', S: SKIN, E: EYE, T: '#5a4a3a', t: '#7a6650', B: '#3a2616', L: '#3a3f53', F: '#2a1c10', b: '#a0703a' } },
+  m_priest: { shape: 'mage', pal: { k: K, P: '#d8d2c2', R: '#d4a630', O: '#fff0a0', o: '#ffffff', s: '#8a6a3a', H: '#8a8a8a', S: SKIN, E: EYE } },
+  m_knight: { shape: 'knight', scale: 1.2, pal: { k: K, H: '#b8c0d0', S: '#b8c0d0', E: '#1a2a4a', A: '#c0c8d8', a: '#eef2f8', B: '#3a2616', L: '#8a94a8', F: '#4a5468', W: '#eef2f8', g: '#d4a630', D: '#2f4f8a', d: '#e0b252' } },
+  ballista: { shape: 'ballista', pal: { k: K, W: '#8a5a2a', S: '#dfe6ee', I: '#5a5a6a', B: '#4a3a2a' } },
+  ram:      { shape: 'ram', flip: false, scale: 1.4, pal: { k: '#05030a', R: '#3a3048', r: '#4a4060', W: '#5a3a26', w: '#6a4a30', I: '#6a6a7a', B: '#2a2438', b: '#8a84a8' } },
+  h_bowman: { shape: 'ranger', flip: true, pal: { k: '#05030a', G: '#2a2438', H: '#1a1424', S: '#3a3450', E: '#ff3a3a', T: '#2a2438', t: '#3a3450', B: '#140e1c', L: '#1a1424', F: '#0a0610', b: '#5a5478' } },
+  h_ladder: { shape: 'bandit', flip: true, pal: { k: '#05030a', C: '#2a2438', M: '#1a1424', S: '#3a3450', E: '#ff3a3a', T: '#3a3450', t: '#4a4060', B: '#140e1c', L: '#1a1424', F: '#0a0610', W: '#8a84a8' } },
+  h_brute:  { shape: 'knight', flip: true, scale: 1.4, pal: { k: '#05030a', H: '#3a1a2a', S: '#4a2a3a', E: '#ff6a2a', A: '#3a2a3a', a: '#5a3a4a', B: '#1a1014', L: '#2a1a24', F: '#140a10', W: '#a08098', g: '#6a3a4a', D: '#2a1a24', d: '#ff6a2a' } },
+  gladiator:{ shape: 'bandit', flip: true, pal: { k: K, C: '#a07a2a', M: '#6a4a1a', S: SKIN, E: EYE, T: '#6a3a2a', t: '#8a5a3a', B: '#3a2616', L: '#5a3a2a', F: '#2a1c10', W: '#e0e6ee' } },
+  pitmage:  { shape: 'mage', flip: true, pal: { k: K, P: '#8a2a2a', R: '#e0b252', O: '#ff6a2a', o: '#fff0a0', s: '#4a2a1a', H: '#2a1a1a', S: SKIN, E: EYE } },
+  shieldbearer: { shape: 'knight', flip: true, scale: 1.25, pal: { k: K, H: '#7a8494', S: '#7a8494', E: '#1a1a2a', A: '#6a7a8a', a: '#a0aab8', B: '#3a2616', L: '#4a5464', F: '#2a3040', W: '#dfe6ee', g: '#a08040', D: '#8a5a2a', d: '#e0b252' } },
+  beastmaster: { shape: 'ranger', flip: true, scale: 1.2, pal: { k: K, G: '#6a4a2a', H: '#1a1410', S: '#c8946a', E: EYE, T: '#4a3a2a', t: '#6a5440', B: '#2a1c10', L: '#3a2a1a', F: '#1a1008', b: '#c8a070' } },
+  emberfox: { shape: 'wolf', flip: false, pal: { k: K, G: '#e0702a', g: '#fff0d8', E: '#ffe07a' } },
 };
 
 // Evolved creatures: the base sprite recoloured by the form it took, and a little bigger.
@@ -258,7 +301,27 @@ function variant(id) {
   for (const k in sp.pal) pal[k] = k === 'k' ? sp.pal[k] : k === 'E' ? eye : mix(sp.pal[k], col, t);
   return Object.assign({}, sp, { pal, scale: (sp.scale || 1) * 1.15 });
 }
-const cache = {};
+const cache = {}, ccache = {};
+function spriteCanvas(id, px) {
+  px = px || 1;
+  const key = id + '@' + px;
+  if (ccache[key]) return ccache[key];
+  const sp = variant(id);
+  const rows = SHAPES[sp.shape];
+  const w = Math.max(...rows.map(r => r.length)), h = rows.length;
+  const c = document.createElement('canvas');
+  c.width = w * px; c.height = h * px;
+  const g = c.getContext('2d');
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      const col = sp.pal[row[x]];
+      if (!col) continue;
+      g.fillStyle = col;
+      g.fillRect((sp.flip ? (w - 1 - x) : x) * px, y * px, px, px);
+    }
+  });
+  return (ccache[key] = { canvas: c, w: w * px, h: h * px, scale: sp.scale || 1 });
+}
 function spriteURL(id, px) {
   px = px || 4;
   const key = id + '@' + px;
@@ -282,5 +345,5 @@ function spriteURL(id, px) {
   return (cache[key] = { url: c.toDataURL(), w: w * px, h: h * px, scale: sp.scale || 1 });
 }
 
-root.SPRITES = { spriteURL, SPRITES, variant };
+root.SPRITES = { spriteURL, spriteCanvas, SPRITES, variant };
 })(this);
