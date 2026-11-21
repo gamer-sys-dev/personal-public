@@ -35,6 +35,21 @@ E.ensure = function (S) {
   S.arena = S.arena || { won: {} };
   S.flags = S.flags || { seen: {}, got: {} };
   if (S.areas && S.areas.millroad && S.areas.millroad.cleared) { S.flags.raid = true; S.flags.market = true; }
+  // Saves from before the last three areas were hand built: move them onto the new maps.
+  for (const id of ['barrows', 'fenmire', 'tower']) {
+    const st = S.maps && S.maps[id];
+    if (!st || E.map(id).nodes.some(n => n.id === st.at)) continue;
+    const old = W.genMap(E.area(id));
+    const tomeFound = old.nodes.some(n => n.reward && n.reward.tome && st.done[n.id]);
+    delete S.maps[id];
+    const ns = E.mapState(S, id);
+    let tomeMarked = false;
+    for (const n of E.map(id).nodes) {
+      if (!n.reward) continue;
+      if (n.reward.tome && tomeFound && !tomeMarked) { ns.done[n.id] = true; tomeMarked = true; }
+      if (n.reward.gear && S.flags.got[n.reward.gear] && !n.reward.tome) ns.done[n.id] = true;
+    }
+  }
   return S;
 };
 
@@ -105,14 +120,15 @@ E.heroStats = function (S, id) {
 };
 
 // ---------- Creatures ----------
-E.creatureName = c => c.form ? W.CREATURES[c.sp].evo[c.form] : W.CREATURES[c.sp].name;
-E.creatureSprite = c => W.CREATURES[c.sp].sprite + (c.form ? '@' + c.form : '');
+E.creatureName = c => c.final ? W.EVO2[c.sp][c.form] : c.form ? W.CREATURES[c.sp].evo[c.form] : W.CREATURES[c.sp].name;
+E.creatureSprite = c => W.CREATURES[c.sp].sprite + (c.form ? '@' + c.form + (c.final ? '2' : '') : '');
 E.creatureStats = function (c) {
   const sp = W.CREATURES[c.sp], L = c.lvl, m = Object.assign({}, sp.m);
   if (c.form) for (const k in W.EVO_MULT[c.form]) m[k] = (m[k] || 1) * W.EVO_MULT[c.form][k];
+  if (c.final) for (const k in m) m[k] *= 1.25;
   const skills = sp.attack.slice();
-  if (c.form === 'attack') skills.push('rend');
-  skills.push(c.form === 'support' ? 'mend' : sp.support, 'guard_ally', 'howl');
+  if (c.form === 'attack') skills.push(c.final ? 'ravage' : 'rend');
+  skills.push(c.form === 'support' ? (c.final ? 'greater_mend' : 'mend') : sp.support, 'guard_ally', 'howl');
   return {
     maxHp: Math.round(m.hp * (36 + 19 * L) * 0.9), maxMp: 0,
     str: Math.floor(m.str * (8 + 2.9 * L) * 0.85), mag: Math.floor(m.mag * (8 + 2.9 * L) * 0.85),
@@ -130,7 +146,8 @@ E.addCreature = function (S, sp, lvl) {
 };
 E.creatureOf = (S, cid) => S.creatures.find(c => c.cid === cid) || null;
 E.creatureXp = function (S, c, n) {
-  let ups = 0, evolved = null;
+  let ups = 0;
+  const evolved = [];
   c.xp += n;
   while (c.xp >= E.xpNext(c.lvl)) {
     const before = E.creatureStats(c).maxHp;
@@ -142,7 +159,13 @@ E.creatureXp = function (S, c, n) {
       const from = E.creatureName(c);
       c.form = form;
       c.hp = E.creatureStats(c).maxHp;
-      evolved = { from, to: E.creatureName(c), form };
+      evolved.push({ from, to: E.creatureName(c), form });
+    }
+    if (c.form && !c.final && c.lvl >= W.EVO2_LVL) {
+      const from = E.creatureName(c);
+      c.final = true;
+      c.hp = E.creatureStats(c).maxHp;
+      evolved.push({ from, to: E.creatureName(c), form: c.form, final: true });
     }
   }
   return { ups, evolved };
@@ -281,12 +304,16 @@ E.NEED = {
   burn: 'Needs someone who knows Fire magic in the party.',
   lock: 'Needs Dace in the party to pick the lock.',
   beast: 'Needs Hesk in the party to get near the animals.',
+  seal: 'Sealed by a knight\'s oath. Needs Aldric in the party.',
+  hex: 'Hidden by magic. Needs Morwen in the party to see the way.',
 };
 E.meets = function (S, need) {
   if (!need) return true;
   if (need === 'burn') return S.party.some(h => (S.heroes[h].talents.fire || 0) >= 1);
   if (need === 'lock') return S.party.includes('dace');
   if (need === 'beast') return S.party.includes('hesk');
+  if (need === 'seal') return S.party.includes('aldric');
+  if (need === 'hex') return S.party.includes('morwen');
   return !!S.flags[need];
 };
 // Can the party walk to this node now? Returns null if fine, or a reason.
@@ -342,6 +369,7 @@ E.arrive = function (S, id) {
     case 'treasure': {
       if (st.done[n.id]) return { type: 'none' };
       st.done[n.id] = true;
+      if (n.flag) S.flags[n.flag] = true;
       const got = E.applyReward(S, n.reward);
       return { type: 'treasure', got, gearUid: n.reward && n.reward._uid };
     }
@@ -360,7 +388,7 @@ E.arrive = function (S, id) {
         }
         for (const c of S.creatures) if (c.hp > 0) c.hp = Math.min(E.creatureStats(c).maxHp, c.hp + Math.round(E.creatureStats(c).maxHp * 0.35));
       }
-      const talk = (n.talks || []).find(k => !S.flags.seen[k] && (k === 'camp_hesk' ? S.roster.includes('hesk') : k === 'camp_dace' ? S.roster.includes('dace') : true));
+      const talk = (n.talks || []).find(k => !S.flags.seen[k] && (E.TALK_REQ[k] ? S.roster.includes(E.TALK_REQ[k]) : true));
       return { type: 'camp', healed, talk };
     }
     case 'event': return st.done[n.id] ? { type: 'none' } : { type: 'event', ev: n.ev };
@@ -388,11 +416,26 @@ E.eventChoice = function (S, id, nid, idx) {
   st.done[nid] = true;
   const o = ev.choices[idx].out;
   if (o.flag) S.flags[o.flag] = true;
+  if (o.flag2) S.flags[o.flag2] = true;
   E.applyReward(S, o);
   if (o.xp) for (const h of S.party) if (S.heroes[h].hp > 0) E.gainXp(S, h, o.xp);
   return o.text;
 };
+E.TALK_REQ = { camp_hesk: 'hesk', camp_dace: 'dace', camp_aldric: 'aldric', camp_morwen: 'morwen' };
+E.lanterns = S => ['lantern1', 'lantern2', 'lantern3'].filter(f => S.flags[f]).length;
 E.quest = function (S, q) {
+  if (q === 'aldric') {
+    if (!S.flags.aldric_met) { S.flags.aldric_met = true; return 'aldric_meet'; }
+    if (!S.flags.seal_found) return 'aldric_wait';
+    if (!S.roster.includes('aldric')) { E.recruit(S, 'aldric'); return 'aldric_join'; }
+    return 'aldric_after';
+  }
+  if (q === 'morwen') {
+    if (!S.flags.morwen_met) { S.flags.morwen_met = true; return 'morwen_meet'; }
+    if (E.lanterns(S) < 3) return 'morwen_wait';
+    if (!S.roster.includes('morwen')) { E.recruit(S, 'morwen'); return 'morwen_join'; }
+    return 'morwen_after';
+  }
   if (q === 'hesk') {
     if (!S.flags.hesk_quest) { S.flags.hesk_quest = true; return 'hesk_meet'; }
     if (!S.flags.poachers) return 'hesk_wait';
@@ -577,6 +620,10 @@ class Battle {
     ev.push({ t: 'dmg', who: t, n: r.n, crit: r.crit, weak: r.weak, resist: r.resist, el: sk.el || (sk.type === 'phys' ? 'phys' : 'mag'), by: a, big: r.n > t.maxHp * 0.25 });
     if (a.side === 'h') this.addSurge(2); else this.addSurge(3);
     if (sk.drain && a.hp > 0) { const h = Math.round(r.n * sk.drain); a.hp = Math.min(a.maxHp, a.hp + h); ev.push({ t: 'heal', who: a, n: h }); }
+    if (t.hp <= 0 && t.flags && t.flags.undying && !t.usedUndying) {
+      t.usedUndying = true; t.hp = 1;
+      ev.push({ t: 'say', text: t.name + ' refuses to fall' });
+    }
     if (t.hp <= 0) { this.ko(t, ev); return; }
     if (sk.status && this.rng() < (sk.chance == null ? 1 : sk.chance)) for (const s in sk.status) this.addStatus(t, s, sk.status[s], ev);
     if (sk.el === 'fire' && a.flags && a.flags.burnChance && this.rng() < a.flags.burnChance) this.addStatus(t, 'burn', 3, ev);
@@ -903,7 +950,7 @@ E.finishBattle = function (S, B) {
     const gain = Math.max(1, Math.round(xp * factor(c.lvl) * rate));
     const r = E.creatureXp(S, c, gain);
     if (fighting) out.creature = { name: E.creatureName(c), xp: gain, ups: r.ups, lvl: c.lvl };
-    if (r.evolved) (out.evolved = out.evolved || []).push(r.evolved);
+    if (r.evolved.length) out.evolved = (out.evolved || []).concat(r.evolved);
   }
   for (const t of B.tamed) {
     if (S.creatures.length >= E.capacity(S)) break;
@@ -966,6 +1013,9 @@ E.boardStatus = function (S, b) {
     case 'evolve': return S.creatures.some(c => c.form) ? 'done' : 'locked';
     case 'yard': return S.buildings.yard ? 'done' : S.areas.thornwood.cleared ? 'ready' : 'locked';
     case 'kennels': return S.buildings.kennels ? 'done' : has('hesk') ? 'ready' : 'locked';
+    case 'aldric': case 'sealed': return has('aldric') ? 'done' : S.unlocked >= 3 ? 'ready' : 'locked';
+    case 'morwen': case 'hidden': return has('morwen') ? 'done' : S.unlocked >= 4 ? 'ready' : 'locked';
+    case 'evolve2': return S.creatures.some(c => c.final) ? 'done' : S.creatures.some(c => c.form) ? 'ready' : 'locked';
     case 'siege': return S.siege.best >= 1 ? 'done' : S.flags.raid ? 'ready' : 'locked';
     case 'barracks': return S.buildings.barracks ? 'done' : S.siege.best >= 1 ? 'ready' : 'locked';
     case 'walls': return S.buildings.walls ? 'done' : S.siege.best >= 1 ? 'ready' : 'locked';

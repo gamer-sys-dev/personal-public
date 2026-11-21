@@ -91,13 +91,18 @@ function objective() {
   if (f.poachers && !has('hesk')) lines.push('Side quest: take the animals back to Hesk\'s hut.');
   if (S.areas.thornwood.cleared && !has('dace') && S.unlocked >= 2) lines.push('Rumour: the Mill Road bandits are holding a prisoner in their stockade.');
   if (has('dace') && !S.flags.got.lucky_coin) lines.push('Dace could open the old hunting lodge in Thornwood.');
+  if (f.aldric_met && !f.seal_found) lines.push('Side quest: find King Edric\'s seal in the royal vault in the Barrow Hills.');
+  if (f.seal_found && !has('aldric')) lines.push('Side quest: take the seal back to the knight\'s tomb.');
+  if (f.morwen_met && !has('morwen')) lines.push(`Side quest: find Morwen's three lanterns in Fenmire (${E.lanterns(S)} of 3).`);
+  if (has('aldric') && !S.flags.got.kings_signet) lines.push('Aldric can open the oathbound door in the Barrow Hills.');
+  if (has('morwen') && !S.flags.got.witch_lantern) lines.push('Morwen can see the path through the mist in Fenmire.');
   return lines.map((l, i) => `<div class="${i ? 'small muted' : ''}" style="${i ? 'margin-top:6px' : ''}">${l}</div>`).join('');
 }
 function boardReady() { return W.BOARD.some(b => E.boardStatus(S, b) === 'ready'); }
 
 // ---------- Story ----------
 function scene(key, then) {
-  const lines = D.STORY[key] || W.STORY2[key] || W.STORY3[key];
+  const lines = D.STORY[key] || W.STORY2[key] || W.STORY3[key] || W.STORY4[key];
   if (!lines) { then && then(); return; }
   S.flags.seen[key] = true; save();
   let i = 0;
@@ -821,15 +826,22 @@ ACT.talk = () => {
   const key = E.quest(S, n.q);
   save();
   scene(key, () => {
-    if (S.roster.length > before) {
-      render();
-      overlay(`<div class="sheet" style="text-align:center">${img(D.HEROES.hesk.sprite, 4)}<h2 style="margin-top:8px">Hesk joins!</h2>
-        <p>She brings a wolf cub that fights beside the party. In battle Hesk can <b>Tame</b> wounded beasts.</p>
-        <p class="muted small">New on the noticeboard: kennels. Swap people in and out from Party, Line-up.</p>
-        <button class="primary big" data-a="closeOv">Brilliant</button></div>`, 'center');
-    } else render();
+    render();
+    if (S.roster.length > before) joinCard(S.roster[S.roster.length - 1]);
   });
 };
+const JOIN = {
+  hesk: ['She brings a wolf cub that fights beside the party. In battle Hesk can <b>Tame</b> wounded beasts.', 'New on the noticeboard: kennels.'],
+  dace: ['He can <b>Steal</b> in battle and pick locks. Take him back to the locked lodge in Thornwood and the toll house on the road.', ''],
+  aldric: ['A wall in armour with holy steel. <b>Stand Fast</b> draws enemy attacks for free, and once his Oath tree is trained he refuses to fall. He opens <b>oathbound doors</b>: one in these hills, one in the tower.', 'His siege power, Oath of Iron, halves damage to every defender.'],
+  morwen: ['Curses, drains and <b>Mire</b>, which slows every enemy at once. She sees <b>hidden paths</b>: one in this fen, one in the tower.', 'Her siege power, Mire, bogs down a whole crowd.'],
+};
+function joinCard(id) {
+  const j = JOIN[id] || ['', ''];
+  overlay(`<div class="sheet" style="text-align:center">${img(D.HEROES[id].sprite, 4)}<h2 style="margin-top:8px">${heroName(id)} joins!</h2>
+    <p>${j[0]}</p><p class="muted small">${j[1]} Swap people in and out from Party, Line-up.</p>
+    <button class="primary big" data-a="closeOv">Brilliant</button></div>`, 'center');
+}
 ACT.train = () => {
   const id = view.id, n = E.node(id, E.mapState(S, id).at);
   startBattle(E.randomFight(S, id, n), { area: id });
@@ -843,8 +855,13 @@ ACT.hunt = () => {
 };
 ACT.boss = () => {
   const id = view.id, a = E.area(id);
-  const fight = () => startBattle(E.bossSpecs(a), { area: id, boss: true });
-  if (!S.flags.seen[id + '_boss']) scene(id + '_boss', fight); else fight();
+  const specs = E.bossSpecs(a);
+  if (id === 'tower' && S.flags.warden_secret) specs[0].hpx = 0.82;
+  const fight = () => startBattle(specs, { area: id, boss: true });
+  const pre = [];
+  if (!S.flags.seen[id + '_boss']) pre.push(id + '_boss');
+  if (id === 'barrows' && S.party.includes('aldric') && !S.flags.seen.shade_aldric) pre.push('shade_aldric');
+  if (pre.length) scenes(pre, fight); else fight();
 };
 
 document.addEventListener('click', e => {
@@ -1190,9 +1207,8 @@ function endBattle() {
       if (nodeOut && nodeOut.scene) {
         scene(nodeOut.scene, () => {
           go('area', { id: area, msg: null });
-          if (S.roster.includes('dace') && nodeOut.scene === 'dace_join') overlay(`<div class="sheet" style="text-align:center">${img(D.HEROES.dace.sprite, 4)}<h2 style="margin-top:8px">Dace joins!</h2>
-            <p>He can <b>Steal</b> in battle and pick locks. Take him back to the locked lodge in Thornwood and the toll house on this road.</p>
-            <p class="muted small">Swap him in from Party, Line-up.</p><button class="primary big" data-a="closeOv">Brilliant</button></div>`, 'center');
+          if (S.roster.includes('dace') && nodeOut.scene === 'dace_join') joinCard('dace');
+          if (nodeOut.scene === 'lantern_got' || nodeOut.scene === 'seal_found') toast(nodeOut.scene === 'seal_found' ? 'Take the seal back to the knight\'s tomb.' : `Lanterns found: ${E.lanterns(S)} of 3.`, 3000);
         });
         return;
       }
@@ -1206,8 +1222,8 @@ function evolveScreen(ev, then) {
   const c = S.creatures.find(x => E.creatureName(x) === ev.to);
   const sprite = c ? E.creatureSprite(c) : null;
   overlay(`<div class="sheet" style="text-align:center"><p class="muted">Something is happening to ${esc(ev.from)}...</p>
-    ${sprite ? `<div class="evo">${img(sprite.split('@')[0], 4)}<span>→</span>${img(sprite, 4)}</div>` : ''}
-    <h2>${esc(ev.from)} became a ${esc(ev.to)}!</h2><p class="muted small">${W.STANCES[ev.form].name} form, shaped by how it fought. It's stronger in every way and learned new moves.</p>
+    ${sprite ? `<div class="evo">${img(ev.final ? sprite.slice(0, -1) : sprite.split('@')[0], 4)}<span>→</span>${img(sprite, 4)}</div>` : ''}
+    <h2>${esc(ev.from)} became a ${esc(ev.to)}!</h2><p class="muted small">${ev.final ? 'Its final form. Stronger in every way, with its most powerful move.' : W.STANCES[ev.form].name + ' form, shaped by how it fought. It\'s stronger in every way and learned new moves.'}</p>
     <button class="primary big" data-a="evoOk">Brilliant</button></div>`, 'center');
   ACT.evoOk = () => { closeOverlay(); then(); };
 }

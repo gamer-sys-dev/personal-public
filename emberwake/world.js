@@ -28,7 +28,20 @@ const CREATURES = {
   hound:    { name: 'Shadow Hound', sprite: 'hound', m: { hp: 1, str: 1.15, mag: .6, def: .9, res: .8, spd: 1.35 }, attack: ['bite', 'pounce'], support: 'lick',
               evo: { attack: 'Nightmare Hound', guard: 'Ward Hound', support: 'Shade Hound' } },
 };
-const EVO_LVL = 8;
+const EVO_LVL = 8, EVO2_LVL = 16;
+// Final forms at level 16 follow the first form.
+const EVO2 = {
+  rat: { attack: 'Plague Lord', guard: 'Warren King', support: 'Hedge Mother' },
+  wolf: { attack: 'Bloodfang', guard: 'Wallfang', support: 'Moonhowler' },
+  boarling: { attack: 'Warboar', guard: 'Bastion Boar', support: 'Elderroot' },
+  briar: { attack: 'Thornlord', guard: 'Bramblewall', support: 'Bloom Queen' },
+  crows: { attack: 'Storm of Crows', guard: 'Iron Rookery', support: 'Crow Oracle' },
+  bat: { attack: 'Nightreaver', guard: 'Cavern Lord', support: 'Twilight Bat' },
+  slime: { attack: 'Ooze Tyrant', guard: 'Stone Slime', support: 'Living Spring' },
+  lurker: { attack: 'Fen Terror', guard: 'Bog Bastion', support: 'Reed Mother' },
+  emberfox: { attack: 'Inferno Fox', guard: 'Ember Guardian', support: 'Sunrise Fox' },
+  hound: { attack: 'Dread Hound', guard: 'Aegis Hound', support: 'Spirit Hound' },
+};
 const EVO_MULT = {
   attack:  { hp: 1.1, str: 1.4, mag: 1.2, spd: 1.1 },
   guard:   { hp: 1.5, def: 1.5, res: 1.3 },
@@ -121,9 +134,83 @@ const MAPS = {
     edges: [['m0', 'm1'], ['m1', 'm2'], ['m1', 'm3'], ['m2', 'm4'], ['m3', 'm4'], ['m2', 'm5'], ['m3', 'm10'], ['m4', 'm9'], ['m4', 'm6'], ['m5', 'm9'],
       ['m9', 'm8'], ['m10', 'm6'], ['m6', 'm7'], ['m9', 'm11'], ['m6', 'm11'], ['m7', 'm12'], ['m11', 'm13'], ['m12', 'm13'], ['m11', 'm15'], ['m15', 'm13'], ['m13', 'm14']],
   },
+  barrows: {
+    nodes: [
+      { id: 'b0', x: 2, y: 7, t: 'start', name: 'The hill path', desc: 'Mist sits in the hollows. The keep is a long walk behind you now.' },
+      { id: 'b1', x: 2, y: 6, t: 'fight', name: 'Open grave', desc: 'The earth is turned outwards, not in.', enemies: [{ t: 'skeleton', lvl: 5 }, { t: 'skeleton', lvl: 5 }] },
+      { id: 'b2', x: 1, y: 5, t: 'treasure', name: 'Grave goods', desc: 'A chieftain\'s burial, already half robbed.', reward: { gold: 120, items: { antidote: 2 } } },
+      { id: 'b3', x: 3, y: 5, t: 'gather', name: 'Bone field', desc: 'Old bones, ground fine by the wind. The forge has a use for them.', mats: { bone: 2 } },
+      { id: 'b4', x: 2, y: 4, t: 'camp', name: 'Ring of stones', desc: 'The dead won\'t cross this circle. Nobody remembers why.', talks: ['camp_barrows', 'camp_aldric'] },
+      { id: 'b5', x: 0, y: 5, t: 'fight', name: 'Bat-choked hollow', desc: 'Something rustles overhead. A lot of somethings.', enemies: [{ t: 'bat', lvl: 5 }, { t: 'bat', lvl: 5 }, { t: 'bat', lvl: 6 }] },
+      { id: 'b6', x: 0, y: 4, t: 'treasure', need: 'burn', name: 'Cobwebbed crypt', desc: 'Webs as thick as sailcloth seal the door. Fire would clear them.', reward: { tome: true } },
+      { id: 'b7', x: 4, y: 4, t: 'quest', q: 'aldric', name: 'A knight\'s tomb', desc: 'A stone tomb with its lid pushed aside. Someone stands guard at it.' },
+      { id: 'b8', x: 1, y: 3, t: 'event', ev: 'stone', name: 'The weeping stone', desc: 'A standing stone that runs with water on a dry day.' },
+      { id: 'b9', x: 3, y: 3, t: 'fight', name: 'Barrow mouth', desc: 'Cold air breathes out of the hill.', enemies: [{ t: 'skeleton', lvl: 6 }, { t: 'wight', lvl: 6 }] },
+      { id: 'b10', x: 4, y: 2, t: 'fight', hidden: 'aldric_met', name: 'The king\'s vault', desc: 'Behind a false wall, the old king\'s treasury. Its guards never left.',
+        enemies: [{ t: 'wight', lvl: 7 }, { t: 'wight', lvl: 7 }, { t: 'skeleton', lvl: 7 }], win: { flag: 'seal_found', scene: 'seal_found' } },
+      { id: 'b11', x: 3, y: 1, t: 'den', need: 'beast', name: 'Bat roost', desc: 'A cave packed with grave bats. Hesk could coax one down.',
+        enemies: [{ t: 'bat', lvl: 6 }, { t: 'bat', lvl: 6 }], hunt: ['bat', 'bat'], reward: { items: { hi_potion: 2 } } },
+      { id: 'b12', x: 1, y: 2, t: 'gather', name: 'Barrow moss', desc: 'Grey moss that grows only on old graves.', mats: { bone: 1 }, items: { ether: 1 } },
+      { id: 'b13', x: 2, y: 1, t: 'fight', name: 'Kings\' row', desc: 'A line of mounds, every one of them open.', enemies: [{ t: 'wight', lvl: 7 }, { t: 'skeleton', lvl: 7 }, { t: 'skeleton', lvl: 7 }] },
+      { id: 'b14', x: 2, y: 0, t: 'boss', name: 'The great barrow', desc: 'The largest mound of all. A crown glints in the dark of its doorway.' },
+      { id: 'b15', x: 0, y: 1, t: 'treasure', need: 'lock', name: 'Grave robbers\' cache', desc: 'An iron box chained to a tree, full of what the robbers took. Good lock.', reward: { gold: 200, gear: 'prayer_beads' } },
+      { id: 'b16', x: 1, y: 1, t: 'treasure', need: 'seal', name: 'The oathbound door', desc: 'A door sealed by a knight\'s vow. Only one of the old king\'s knights could open it.', reward: { tome: true, gear: 'kings_signet' } },
+    ],
+    edges: [['b0', 'b1'], ['b1', 'b2'], ['b1', 'b3'], ['b2', 'b5'], ['b5', 'b6'], ['b2', 'b4'], ['b3', 'b4'], ['b4', 'b8'], ['b4', 'b9'], ['b9', 'b7'],
+      ['b7', 'b10'], ['b10', 'b11'], ['b6', 'b8'], ['b8', 'b12'], ['b12', 'b13'], ['b11', 'b13'], ['b13', 'b14'], ['b12', 'b15'], ['b12', 'b16'], ['b15', 'b16']],
+  },
+  fenmire: {
+    nodes: [
+      { id: 'f0', x: 2, y: 7, t: 'start', name: 'Edge of the fen', desc: 'The road gives up here. After this it\'s planks, tussocks and black water.' },
+      { id: 'f1', x: 2, y: 6, t: 'fight', name: 'Reed bed', desc: 'The reeds close in behind you.', enemies: [{ t: 'lurker', lvl: 7 }, { t: 'lurker', lvl: 7 }] },
+      { id: 'f2', x: 1, y: 5, t: 'gather', name: 'Moss banks', desc: 'Thick green moss. The forge will want it.', mats: { moss: 2 } },
+      { id: 'f3', x: 3, y: 5, t: 'treasure', name: 'Sunken boat', desc: 'A fisher\'s boat, upside down in the mud.', reward: { gold: 150, items: { potion: 2 } } },
+      { id: 'f4', x: 2, y: 4, t: 'camp', name: 'Fisher\'s hummock', desc: 'A dry island with a turf shelter on it.', talks: ['camp_fen', 'camp_morwen'] },
+      { id: 'f5', x: 0, y: 5, t: 'quest', q: 'morwen', name: 'Hut on stilts', desc: 'A crooked hut on stilts, lit from inside by green lanterns.' },
+      { id: 'f6', x: 0, y: 3, t: 'treasure', hidden: 'morwen_met', need: 'burn', flag: 'lantern1', name: 'Frozen pool', desc: 'A lantern glows under a skin of black ice. Fire would melt it.', reward: { items: { ether: 1 } } },
+      { id: 'f7', x: 1, y: 3, t: 'event', ev: 'wisp', name: 'Will-o\'-the-wisp', desc: 'A pale light bobs over the water, just out of reach.' },
+      { id: 'f8', x: 4, y: 4, t: 'den', need: 'beast', name: 'Slime pools', desc: 'Warm pools full of something that moves. Hesk could tame one.',
+        enemies: [{ t: 'slime', lvl: 8 }, { t: 'slime', lvl: 8 }], hunt: ['slime', 'slime', 'lurker'], reward: { items: { ether: 2 } } },
+      { id: 'f9', x: 3, y: 3, t: 'fight', name: 'Hag circle', desc: 'Three stumps, three fires and three old women who aren\'t.', enemies: [{ t: 'hag', lvl: 8 }, { t: 'hag', lvl: 8 }, { t: 'lurker', lvl: 7 }] },
+      { id: 'f10', x: 4, y: 2, t: 'fight', hidden: 'morwen_met', name: 'Lantern thieves', desc: 'Something has dragged a lantern into its nest.',
+        enemies: [{ t: 'lurker', lvl: 9 }, { t: 'lurker', lvl: 9 }, { t: 'hag', lvl: 8 }], win: { flag: 'lantern2', scene: 'lantern_got' } },
+      { id: 'f11', x: 2, y: 2, t: 'treasure', hidden: 'morwen_met', flag: 'lantern3', name: 'Eel weir', desc: 'A lantern hangs from the weir posts, still lit after all these years.', reward: { items: { potion: 1 } } },
+      { id: 'f12', x: 1, y: 2, t: 'gather', name: 'Peat cutting', desc: 'Old peat cuttings, and moss in every one.', mats: { moss: 2 }, items: { hi_potion: 1 } },
+      { id: 'f13', x: 2, y: 1, t: 'fight', name: 'The causeway', desc: 'Stone under the water. Things wait beside it.', enemies: [{ t: 'lurker', lvl: 9 }, { t: 'hag', lvl: 9 }, { t: 'slime', lvl: 9 }] },
+      { id: 'f14', x: 2, y: 0, t: 'boss', name: 'The drowned causeway', desc: 'A knight stands chest deep in the water, blocking the way.' },
+      { id: 'f15', x: 3, y: 1, t: 'treasure', need: 'lock', name: 'Smuggler\'s chest', desc: 'A chest sunk on a rope under the planks. Locked tight.', reward: { gold: 260, gear: 'fenwitch_staff' } },
+      { id: 'f16', x: 0, y: 1, t: 'treasure', need: 'hex', name: 'Path through the mist', desc: 'The mist here hides a path. Only someone who knows the fen could see it.', reward: { tome: true, gear: 'witch_lantern' } },
+    ],
+    edges: [['f0', 'f1'], ['f1', 'f2'], ['f1', 'f3'], ['f2', 'f5'], ['f2', 'f4'], ['f3', 'f4'], ['f3', 'f8'], ['f4', 'f7'], ['f4', 'f9'], ['f5', 'f6'], ['f6', 'f7'],
+      ['f8', 'f9'], ['f9', 'f10'], ['f10', 'f15'], ['f7', 'f11'], ['f7', 'f12'], ['f11', 'f13'], ['f12', 'f13'], ['f12', 'f16'], ['f15', 'f13'], ['f13', 'f14']],
+  },
+  tower: {
+    nodes: [
+      { id: 'w0', x: 2, y: 7, t: 'start', name: 'The open doors', desc: 'The tower doors stand open. Nothing inside makes a sound.' },
+      { id: 'w1', x: 2, y: 6, t: 'fight', name: 'Gatehouse', desc: 'Hollow soldiers turn their empty helms towards you.', enemies: [{ t: 'soldier', lvl: 9 }, { t: 'soldier', lvl: 9 }] },
+      { id: 'w2', x: 1, y: 5, t: 'treasure', name: 'Quartermaster\'s store', desc: 'Supplies for an army that doesn\'t eat.', reward: { gold: 200, items: { hi_potion: 2 } } },
+      { id: 'w3', x: 3, y: 5, t: 'gather', name: 'Shard seam', desc: 'Black crystal grows out of the walls like frost.', mats: { shard: 2 } },
+      { id: 'w4', x: 2, y: 4, t: 'camp', name: 'A guardroom that locks', desc: 'A door that bolts from the inside. That will do.', talks: ['camp_tower', 'camp_ember'] },
+      { id: 'w5', x: 0, y: 5, t: 'fight', name: 'Hollow kennels', desc: 'Chains, bowls and the things that eat from them.', enemies: [{ t: 'hound', lvl: 9 }, { t: 'hound', lvl: 9 }, { t: 'hound', lvl: 10 }] },
+      { id: 'w6', x: 0, y: 4, t: 'den', need: 'beast', name: 'Hound pens', desc: 'Shadow hounds, starved and angry. Hesk thinks she could turn one.',
+        enemies: [{ t: 'hound', lvl: 10 }, { t: 'hound', lvl: 10 }], hunt: ['hound', 'hound'], reward: { items: { feather: 1 } } },
+      { id: 'w7', x: 1, y: 3, t: 'event', ev: 'prisoner', name: 'The cells', desc: 'Someone is crying in the dark. A human voice.' },
+      { id: 'w8', x: 3, y: 3, t: 'fight', name: 'Long gallery', desc: 'Portraits with the faces scratched out.', enemies: [{ t: 'soldier', lvl: 10 }, { t: 'acolyte', lvl: 10 }, { t: 'hound', lvl: 10 }] },
+      { id: 'w9', x: 4, y: 4, t: 'treasure', need: 'seal', name: 'Chapel of the old order', desc: 'Emberwake\'s knights built this chapel before the Hollow took the tower. The door answers to their oath.', reward: { tome: true, items: { feather: 2 } } },
+      { id: 'w10', x: 4, y: 2, t: 'treasure', need: 'hex', name: 'The false wall', desc: 'A wall that isn\'t quite there. Morwen can see the room behind it.', reward: { gold: 300, gear: 'iron_heart' } },
+      { id: 'w11', x: 3, y: 1, t: 'fight', name: 'Acolyte choir', desc: 'They are singing. You wish they weren\'t.', enemies: [{ t: 'acolyte', lvl: 11 }, { t: 'acolyte', lvl: 11 }, { t: 'soldier', lvl: 11 }] },
+      { id: 'w12', x: 1, y: 2, t: 'gather', name: 'Armoury racks', desc: 'Black iron weapons, and shards in the hilts.', mats: { shard: 1, ore: 2 }, items: { hi_potion: 1 } },
+      { id: 'w13', x: 2, y: 1, t: 'fight', name: 'Upper stair', desc: 'The last stair. Something waits above.', enemies: [{ t: 'soldier', lvl: 11 }, { t: 'soldier', lvl: 11 }, { t: 'hound', lvl: 11 }] },
+      { id: 'w14', x: 2, y: 0, t: 'boss', name: 'The Warden\'s hall', desc: 'A tall figure in black iron stands at the window.' },
+      { id: 'w15', x: 0, y: 2, t: 'treasure', need: 'lock', name: 'Warden\'s strongbox', desc: 'Everything the Warden took from Ashby, behind a very good lock.', reward: { gold: 400, items: { feather: 2 } } },
+      { id: 'w16', x: 1, y: 1, t: 'treasure', need: 'burn', name: 'Black ice stair', desc: 'A side stair choked with black ice. Fire would clear it.', reward: { tome: true } },
+    ],
+    edges: [['w0', 'w1'], ['w1', 'w2'], ['w1', 'w3'], ['w2', 'w5'], ['w5', 'w6'], ['w2', 'w4'], ['w3', 'w4'], ['w3', 'w9'], ['w4', 'w7'], ['w4', 'w8'], ['w8', 'w9'],
+      ['w8', 'w10'], ['w10', 'w11'], ['w7', 'w12'], ['w7', 'w15'], ['w12', 'w13'], ['w11', 'w13'], ['w12', 'w16'], ['w16', 'w13'], ['w13', 'w14']],
+  },
 };
 
-// Later areas get a generated map until they're hand built in a later layer.
+// Older saves used generated maps for the last three areas. genMap is kept to migrate them. until they're hand built in a later layer.
 function seeded(str) {
   let h = 2166136261;
   for (const c of str) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
@@ -174,6 +261,27 @@ const EVENTS = {
     choices: [
       { label: 'Cut it free', out: { flag: 'fox_cache', text: 'The fox limps a few yards, stops and looks back at you. It wants you to follow. A new spot is marked on your map.' } },
       { label: 'Take the pelt', out: { mats: { pelt: 3 }, text: 'Wren is quick and quiet about it. Three good pelts for the forge.' } },
+    ],
+  },
+  stone: {
+    lines: [['', 'Water runs down the standing stone and pools at its foot. It is clear and very cold.'], ['isolde', 'There\'s old magic in it. Kind magic, I think.'], ['wren', 'You think.']],
+    choices: [
+      { label: 'Drink from the pool', out: { xp: 140, text: 'It tastes of snow. Everyone feels steadier and sharper, as if they\'d slept a week. The party gains experience.' } },
+      { label: 'Take the carved capstone', out: { items: { feather: 1 }, mats: { bone: 2 }, text: 'Under the capstone is an ember feather wrapped in oilcloth, and a scatter of bone dust. The stone stops weeping.' } },
+    ],
+  },
+  wisp: {
+    lines: [['', 'A pale light floats over the water, waiting.'], ['bram', 'Every story I know says don\'t follow those.']],
+    choices: [
+      { label: 'Follow it', out: { gold: 220, text: 'It leads you, dry footed, to a drowned purse caught in the roots of a willow. Then it winks out. Bram looks very uncomfortable about the whole thing.' } },
+      { label: 'Let it go', out: { mats: { moss: 3 }, items: { ether: 1 }, text: 'You stay on the planks. Wren spots a stash of moss and a stoppered bottle a smuggler left behind.' } },
+    ],
+  },
+  prisoner: {
+    lines: [['', 'In the last cell is a woman in a torn Ashby apron. She stares at you as if you might not be real.'], ['', '"You came from Emberwake? Then it still stands. Oh, thank the stars."'], ['bram', 'Mistress Penn. She ran the bakery.'], ['wren', '...The bakery.']],
+    choices: [
+      { label: 'Free her and send her home', out: { flag: 'penn_freed', items: { hi_potion: 2 }, text: 'Penn presses two potions on you and slips out by the servants\' stair. Emberwake gains another pair of hands: every siege night now starts with 5 more levy.' } },
+      { label: 'Ask what she knows first', out: { flag: 'warden_secret', flag2: 'penn_freed', text: 'Penn talks fast. She\'s been mending the Warden\'s armour for weeks, and she has been mending it badly. "Hit him under the left arm. It\'ll give." The Warden will be easier to break. Then she runs for home.' } },
     ],
   },
   scout: {
@@ -290,7 +398,12 @@ const BOARD = [
   { id: 'locks', name: 'Locked places', how: 'Recruit Dace. He can open the lodge in Thornwood and the toll house on the road.' },
   { id: 'trader', name: 'Hob\'s trading post', how: 'Defeat Rook the Red.' },
   { id: 'surge2', name: 'Ember Surge II', how: 'Defeat Rook the Red.' },
+  { id: 'aldric', name: 'Recruit: the knight in the barrow', how: 'Someone still stands guard over a tomb in the Barrow Hills.' },
+  { id: 'morwen', name: 'Recruit: the witch of Fenmire', how: 'A hut on stilts in Fenmire, lit by green lanterns. Its owner wants something.' },
+  { id: 'sealed', name: 'Oathbound doors', how: 'Recruit Aldric. He can open doors sealed by the old knights in the barrows and the tower.' },
+  { id: 'hidden', name: 'Hidden paths', how: 'Recruit Morwen. She can see paths hidden by magic in Fenmire and the tower.' },
   { id: 'evolve', name: 'First evolution', how: 'Raise a creature to level ' + EVO_LVL + '. How you use it decides what it becomes.' },
+  { id: 'evolve2', name: 'Final evolution', how: 'Raise an evolved creature to level 16. It becomes the final version of what it became.' },
   { id: 'siege', name: 'Defend Emberwake', how: 'Defeat Rook the Red. He\'ll tell the Hollow where you are.' },
   { id: 'barracks', name: 'Build: barracks', how: 'Survive the first night at Emberwake, then build it here.', build: 'barracks' },
   { id: 'walls', name: 'Build: stone walls', how: 'Survive the first night at Emberwake, then build them here.', build: 'walls' },
@@ -332,6 +445,84 @@ const STORY3 = {
   ],
 };
 
-const WORLD = { ARENA, STORY3, CREATURES, EVO_LVL, EVO_MULT, STANCES, BUILDINGS, YARD_RATE, KENNEL_CAP, MAPS, genMap, EVENTS, STORY2, BOARD };
+const STORY4 = {
+  camp_barrows: [
+    ['isolde', 'The stone has been quiet since the Shade spoke. Like it\'s listening.'],
+    ['wren', 'Can you not say things like that in a graveyard?'],
+    ['bram', 'My grandad said the barrow kings were good kings. Fair. Hard, but fair.'],
+    ['isolde', 'Then whatever woke them must be very cruel.'],
+  ],
+  camp_aldric: [
+    ['aldric', 'You keep looking at my hands.'],
+    ['wren', 'They\'re a bit... see through. In this light.'],
+    ['aldric', 'I know. I have known for some time, I think. I simply chose not to look.'],
+    ['aldric', 'Let me stand with you while I can. A knight who outlived his king should at least die well. Again.'],
+  ],
+  aldric_meet: [
+    ['', 'Beside the open tomb stands a knight in armour a century out of date. His shield bears a crown and a candle.'],
+    ['', '"Halt. This is the resting place of the king\'s champion. None may pass while the king lives."'],
+    ['bram', 'The king? Which king?'],
+    ['', '"King Edric the Fair, of course. I await his seal and his summons. Have you news from court?"'],
+    ['isolde', 'He doesn\'t know. He doesn\'t know any of it.'],
+    ['', '"His seal lies in the royal vault, beyond the false wall to the north east. If you are true, fetch it, and I will know the king\'s will."'],
+  ],
+  aldric_wait: [['', '"The seal. The royal vault, beyond the false wall to the north east. I will wait. I am good at waiting."']],
+  seal_found: [
+    ['', 'In the vault, among cold gold, lies a heavy seal on a broken chain. King Edric\'s seal. It is dated a hundred and four years ago.'],
+    ['isolde', 'We have to take this back to him. Even if it hurts.'],
+  ],
+  aldric_join: [
+    ['', 'The knight takes the seal and turns it over and over in gauntleted hands.'],
+    ['', '"A hundred years. And I stood here the whole time. My king is the thing in the great barrow, isn\'t he? The crowned shadow."'],
+    ['bram', 'I\'m sorry.'],
+    ['', '"Don\'t be. Now I know what I am for. I am Aldric, last of the king\'s champions, and I will put my king to rest."'],
+    ['', 'Aldric joins the party. He is tough as a wall, fights with holy steel and can open doors sealed by the old knights\' oath. One is in these hills. Another is in the Hollow Tower.'],
+  ],
+  aldric_after: [['', 'The tomb is empty now, and the lid is back in place. Someone has scratched a candle on it.']],
+  shade_aldric: [
+    ['aldric', 'My king. It is Aldric. I have come to relieve you of your watch.'],
+    ['', 'For a moment the Shade hesitates. Then the cold fire in its eyes flares, and it lifts its sword.'],
+    ['aldric', 'Then forgive me, sire.'],
+  ],
+  camp_fen: [
+    ['wren', 'I have mud in places mud should never be.'],
+    ['bram', 'You said that in Thornwood.'],
+    ['wren', 'And it was true then too. It\'s just more true now.'],
+    ['isolde', 'The tower\'s close. I can feel it, like a draught on the back of my neck.'],
+  ],
+  camp_morwen: [
+    ['morwen', 'You\'re wondering what I want with you.'],
+    ['isolde', 'A bit.'],
+    ['morwen', 'The Hollow poisoned my fen. Rotted my eels, drowned my lanterns, set the hags on me. I want them gone. And I want to see what that stone of yours does when it\'s angry.'],
+  ],
+  morwen_meet: [
+    ['', 'The door of the stilt hut opens before you knock. A woman with river weed in her hair looks you over.'],
+    ['morwen', 'Ember carrier. I wondered when you\'d come squelching by.'],
+    ['morwen', 'The Hollow put my three lanterns out and scattered them. Without them I can\'t see through the mist, and neither can anyone else.'],
+    ['morwen', 'One sits in a frozen pool to the west. One was dragged off by lurkers to the east. One hangs on the eel weir. Bring all three and I\'ll walk with you. I know paths here nobody else does.'],
+  ],
+  morwen_wait: [['morwen', 'Three lanterns. The frozen pool, the lurkers\' nest and the eel weir. I can wait. The fen can\'t.']],
+  lantern_got: [['', 'In the nest, among bones and rags, a green lantern still glows. Morwen\'s.']],
+  morwen_join: [
+    ['', 'Morwen hangs the three lanterns from the eaves. Green light spills over the black water, and paths appear that weren\'t there before.'],
+    ['morwen', 'There. Now I can see properly. And what I see is a tower full of things that need cursing.'],
+    ['', 'Morwen joins the party. She curses, drains and slows, and she can see paths hidden by magic. There is one in this fen and another in the Hollow Tower.'],
+  ],
+  morwen_after: [['', 'The lanterns burn green over the hut. Morwen has left a sign: BACK WHEN THEY\'RE DEAD.']],
+  camp_tower: [
+    ['bram', 'Whatever happens up there, we came a long way from the sheep in Thornwood.'],
+    ['wren', 'I liked the sheep. The sheep didn\'t have empty helmets.'],
+    ['isolde', 'If I lose control of the stone up there, run. Don\'t wait for me.'],
+    ['bram', 'No.'],
+  ],
+  camp_ember: [
+    ['isolde', 'My master told me something before the end. I didn\'t understand it then.'],
+    ['isolde', '"The ember is a piece of the first fire. The Hollow King is what\'s left when that fire goes out." I think he wants it back to light himself again.'],
+    ['wren', 'So we keep it away from him. Easy.'],
+    ['isolde', 'Or we use it to finish him. Harder.'],
+  ],
+};
+
+const WORLD = { EVO2_LVL, EVO2, STORY4, ARENA, STORY3, CREATURES, EVO_LVL, EVO_MULT, STANCES, BUILDINGS, YARD_RATE, KENNEL_CAP, MAPS, genMap, EVENTS, STORY2, BOARD };
 if (typeof module !== 'undefined' && module.exports) module.exports = WORLD; else root.WORLD = WORLD;
 })(this);

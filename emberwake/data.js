@@ -43,11 +43,27 @@ const HEROES = {
     innate: ['steal'],
     start: { talents: { shadow: 1 }, equip: { weapon: 'twin_knives', armour: 'padded_jerkin' } },
   },
+  aldric: {
+    name: 'Aldric', role: 'Barrow knight', sprite: 'aldric', recruit: true,
+    blurb: 'A knight of the old king who has guarded an empty tomb for a hundred years. He is not entirely sure he is alive. He is right to wonder.',
+    base:   { hp: 130, mp: 18, str: 13, mag: 7, def: 14, res: 10, spd: 7, crit: 5 },
+    growth: { hp: 15, mp: 2, str: 2.1, mag: 1, def: 2, res: 1.4, spd: 0.6, crit: 0 },
+    innate: ['stand_fast'],
+    start: { talents: { oath: 1 }, equip: { weapon: 'iron_sword', armour: 'chainmail' } },
+  },
+  morwen: {
+    name: 'Morwen', role: 'Fen witch', sprite: 'morwen', recruit: true,
+    blurb: 'She lives on stilts above the black water and trades in secrets. Curses, drains and slows. Sees through things meant to stay hidden.',
+    base:   { hp: 80, mp: 45, str: 5, mag: 16, def: 6, res: 13, spd: 11, crit: 5 },
+    growth: { hp: 9, mp: 5, str: 0.6, mag: 2.6, def: 0.8, res: 1.9, spd: 0.9, crit: 0 },
+    innate: ['mire'],
+    start: { talents: { hex: 1 }, equip: { weapon: 'oak_staff', armour: 'woven_robe' } },
+  },
 };
 const PARTY = ['bram', 'wren', 'isolde'];
-const ROSTER = ['bram', 'wren', 'isolde', 'hesk', 'dace'];
+const ROSTER = ['bram', 'wren', 'isolde', 'hesk', 'dace', 'aldric', 'morwen'];
 // Ember Surge moves, one per hero. Unlocked by the story.
-const SURGE = { bram: 'anvil_fall', wren: 'arrow_storm', isolde: 'ember_nova', hesk: 'wild_hunt', dace: 'thousand_cuts' };
+const SURGE = { bram: 'anvil_fall', wren: 'arrow_storm', isolde: 'ember_nova', hesk: 'wild_hunt', dace: 'thousand_cuts', aldric: 'kings_judgement', morwen: 'drowning_dark' };
 
 
 // Talent trees. Any hero can learn any tree. Rank n needs hero level REQ[n] and costs COST[n] points.
@@ -117,6 +133,24 @@ const TREES = {
       { skill: 'assassinate' },
       { stats: { str: 5, crit: 10 }, text: '+5 Strength, +10% critical chance' },
     ] },
+  oath: { name: 'Oath', colour: '#b8c8e8', desc: 'An old knight\'s vows. Holy steel, warding and refusing to fall.',
+    ranks: [
+      { skill: 'oath_strike' },
+      { stats: { hp: 30, def: 3 }, text: '+30 HP, +3 Defence' },
+      { skill: 'grave_ward' },
+      { flags: { undying: 1 }, text: 'Once per battle, survive a killing blow with 1 HP' },
+      { skill: 'judgement' },
+      { stats: { str: 5, res: 5, hp: 50 }, text: '+5 Strength, +5 Resistance, +50 HP' },
+    ] },
+  hex: { name: 'Hex', colour: '#8ad0a0', desc: 'Curses and drains from the fen. Weakens everything it touches.',
+    ranks: [
+      { skill: 'curse' },
+      { stats: { mag: 3, mp: 10 }, text: '+3 Magic, +10 MP' },
+      { skill: 'leech' },
+      { stats: { mag: 4, res: 3 }, text: '+4 Magic, +3 Resistance' },
+      { skill: 'doom' },
+      { stats: { mag: 6 }, flags: { boost_dark: 0.25, mpCut: 0.1 }, text: '+6 Magic, dark damage +25%, spells cost 10% less' },
+    ] },
   light: { name: 'Light', colour: '#ffe27a', desc: 'Healing, bringing people back and burning the dead.',
     ranks: [
       { skill: 'heal' },
@@ -167,6 +201,19 @@ const SKILLS = {
   cheap_shot:   { name: 'Cheap Shot', type: 'phys', power: 1.3, target: 'enemy', mp: 5, status: { slow: 2 }, chance: 0.7, desc: 'Hit them where it hurts. May slow.' },
   flurry:       { name: 'Flurry', type: 'phys', power: 0.5, hits: 4, target: 'random', mp: 9, desc: 'Four quick cuts at random enemies.' },
   assassinate:  { name: 'Assassinate', type: 'phys', power: 2.4, target: 'enemy', mp: 14, execute: 0.4, desc: '2.4x damage, doubled on anyone below 40% health.' },
+  // Oath and Hex
+  oath_strike:  { name: 'Oath Strike', type: 'phys', el: 'light', power: 1.5, target: 'enemy', mp: 5, drain: 0.2, desc: 'Holy steel. Heals Aldric for a fifth of the damage.' },
+  grave_ward:   { name: 'Grave Ward', type: 'buff', target: 'allies', mp: 9, status: { defUp: 3, resUp: 3 }, desc: 'Raises the whole party\'s defence and resistance.' },
+  judgement:    { name: 'Judgement', type: 'phys', el: 'light', power: 1.2, target: 'enemies', mp: 16, desc: 'Holy damage to every enemy. Ruinous to the dead.' },
+  curse:        { name: 'Curse', type: 'mag', el: 'dark', power: 0.9, target: 'enemy', mp: 5, status: { defDown: 3 }, chance: 0.9, desc: 'Dark damage that breaks armour.' },
+  leech:        { name: 'Leech', type: 'mag', el: 'dark', power: 1.4, target: 'enemy', mp: 10, drain: 0.5, desc: 'Drains life. Morwen heals for half.' },
+  doom:         { name: 'Doom', type: 'mag', el: 'dark', power: 1.3, target: 'enemies', mp: 20, status: { slow: 2 }, chance: 0.6, desc: 'Darkness over every enemy. Many slow down.' },
+  stand_fast:   { name: 'Stand Fast', type: 'buff', target: 'self', mp: 0, status: { taunt: 2, defUp: 2 }, desc: 'Draw the enemy\'s attacks and brace. Costs nothing.' },
+  mire:         { name: 'Mire', type: 'buff', target: 'enemies', mp: 6, status: { slow: 2 }, foe: true, desc: 'The ground turns to bog under every enemy. They slow.' },
+  kings_judgement: { name: 'The King\'s Judgement', type: 'phys', el: 'light', power: 1.7, target: 'enemies', surge: true, after: { regen: 3 }, desc: 'Light breaks over the field. The party regenerates after.' },
+  drowning_dark:{ name: 'Drowning Dark', type: 'mag', el: 'dark', power: 1.6, target: 'enemies', surge: true, status: { slow: 3, defDown: 3 }, chance: 1, desc: 'Black water rises. Every enemy slows and their armour rots.' },
+  ravage:       { name: 'Ravage', type: 'phys', power: 2.1, target: 'enemy' },
+  greater_mend: { name: 'Greater Mend', type: 'heal', power: 1.5, target: 'ally' },
   // Innate
   tame:         { name: 'Tame', type: 'tame', target: 'enemy', mp: 0, desc: 'Try to tame a wounded beast. The lower its health, the better the odds.' },
   steal:        { name: 'Steal', type: 'steal', target: 'enemy', mp: 0, desc: 'Lift something from an enemy. Once per enemy.' },
@@ -263,6 +310,9 @@ const GEAR = {
   ember_charm:    { name: 'Ember Charm', slot: 'charm', flags: { boost_fire: 0.2 }, price: 600, tier: 3, desc: 'Fire damage +20%' },
   rime_charm:     { name: 'Rime Charm', slot: 'charm', flags: { boost_frost: 0.2 }, price: 600, tier: 3, desc: 'Frost damage +20%' },
   prayer_beads:   { name: 'Prayer Beads', slot: 'charm', flags: { boost_light: 0.2, healBoost: 0.2 }, price: 600, tier: 3, desc: 'Light damage and healing +20%' },
+  kings_signet:   { name: 'King\'s Signet', slot: 'charm', stats: { mag: 4, res: 4, mp: 15, hp: 20 }, price: 900, unique: true },
+  witch_lantern:  { name: 'Witch\'s Lantern', slot: 'charm', flags: { boost_dark: 0.2, boost_light: 0.2 }, stats: { mag: 3 }, price: 900, unique: true, desc: 'Light and dark damage +20%' },
+  hollow_crown:   { name: 'Hollow Crown', slot: 'charm', stats: { hp: 30, str: 5, mag: 5, spd: 3 }, price: 2400, unique: true },
   // Layer three: siege and arena prizes
   ashby_banner:   { name: 'Ashby Banner', slot: 'charm', stats: { hp: 20, str: 2, mag: 2, def: 2, res: 2 }, price: 500, unique: true },
   emberwake_blade:{ name: 'Emberwake Blade', slot: 'weapon', stats: { str: 16, crit: 8 }, price: 1100, unique: true },

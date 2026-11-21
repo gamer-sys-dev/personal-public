@@ -283,6 +283,8 @@ const SPRITES = {
   pitmage:  { shape: 'mage', flip: true, pal: { k: K, P: '#8a2a2a', R: '#e0b252', O: '#ff6a2a', o: '#fff0a0', s: '#4a2a1a', H: '#2a1a1a', S: SKIN, E: EYE } },
   shieldbearer: { shape: 'knight', flip: true, scale: 1.25, pal: { k: K, H: '#7a8494', S: '#7a8494', E: '#1a1a2a', A: '#6a7a8a', a: '#a0aab8', B: '#3a2616', L: '#4a5464', F: '#2a3040', W: '#dfe6ee', g: '#a08040', D: '#8a5a2a', d: '#e0b252' } },
   beastmaster: { shape: 'ranger', flip: true, scale: 1.2, pal: { k: K, G: '#6a4a2a', H: '#1a1410', S: '#c8946a', E: EYE, T: '#4a3a2a', t: '#6a5440', B: '#2a1c10', L: '#3a2a1a', F: '#1a1008', b: '#c8a070' } },
+  aldric:   { shape: 'knight', pal: { k: '#0a1420', H: '#9aa8c0', S: '#c8d4e4', E: '#a0f0ff', A: '#8a9ab8', a: '#c8d8f0', B: '#4a5068', L: '#6a7490', F: '#3a4058', W: '#e8f4ff', g: '#d4a630', D: '#3a4a7a', d: '#ffe27a' } },
+  morwen:   { shape: 'mage', pal: { k: K, P: '#2a4a3a', R: '#7ad0a0', O: '#7affb0', o: '#e0fff0', s: '#4a3a2a', H: '#1a2a20', S: '#c8d0b0', E: '#2a1a10' } },
   emberfox: { shape: 'wolf', flip: false, pal: { k: K, G: '#e0702a', g: '#fff0d8', E: '#ffe07a' } },
 };
 
@@ -294,12 +296,14 @@ function mix(a, b, t) {
   return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
 }
 function variant(id) {
-  const [base, form] = id.split('@');
+  const [base, f] = id.split('@');
   const sp = SPRITES[base] || SPRITES.rat;
+  const final = f && f.endsWith('2'), form = final ? f.slice(0, -1) : f;
   if (!form || !TINT[form]) return sp;
   const [col, t, eye] = TINT[form], pal = {};
-  for (const k in sp.pal) pal[k] = k === 'k' ? sp.pal[k] : k === 'E' ? eye : mix(sp.pal[k], col, t);
-  return Object.assign({}, sp, { pal, scale: (sp.scale || 1) * 1.15 });
+  const tt = final ? Math.min(0.7, t * 1.5) : t;
+  for (const k in sp.pal) pal[k] = k === 'k' ? (final ? '#000000' : sp.pal[k]) : k === 'E' ? (final ? '#ffffff' : eye) : mix(sp.pal[k], col, tt);
+  return Object.assign({}, sp, { pal, scale: (sp.scale || 1) * (final ? 1.35 : 1.15) });
 }
 const cache = {}, ccache = {};
 function spriteCanvas(id, px) {

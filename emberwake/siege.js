@@ -38,6 +38,8 @@ SG.POWERS = {
   wren:   { name: 'Arrow Storm', cd: 28, aim: true, r: 12, desc: 'Rains arrows over the spot you tap.' },
   isolde: { name: 'Ember Nova', cd: 32, aim: true, r: 13, desc: 'A blast of fire that leaves everything burning.' },
   hesk:   { name: 'Wild Hunt', cd: 40, aim: true, r: 6, desc: 'Three wolves charge in where you tap.' },
+  aldric: { name: 'Oath of Iron', cd: 38, aim: false, desc: 'Every defender takes half damage for 7 seconds.' },
+  morwen: { name: 'Mire', cd: 30, aim: true, r: 14, desc: 'The ground turns to bog. Everything there slows right down and rots.' },
   dace:   { name: 'Powder Keg', cd: 30, aim: true, r: 10, desc: 'A keg goes off after a moment. Wrecks rams and brutes.' },
 };
 SG.BUILDINGS = {
@@ -120,7 +122,7 @@ class Siege {
     this.S = S; this.n = n; this.rng = opts.rng || Math.random;
     this.t = 0; this.phase = 'deploy';
     const b = S.buildings.barracks || 0, wl = S.buildings.walls || 0;
-    this.levy = 30 + 8 * b; this.regen = 0.7 + 0.2 * b; this.drill = 1 + 0.15 * b;
+    this.levy = 30 + 8 * b + (S.flags && S.flags.penn_freed ? 5 : 0); this.regen = 0.7 + 0.2 * b; this.drill = 1 + 0.15 * b;
     const gateHp = 700 * [1, 1.5, 2.1][wl];
     this.gate = { hp: gateHp, max: gateHp, oil: wl >= 2 };
     this.keep = { hp: 900, max: 900 };
@@ -201,6 +203,8 @@ class Siege {
     if (id === 'isolde') Object.assign(base, { range: 38, dmg: st.mag * 0.55, proj: 'fire', splash: 4.5, rate: 1.3 });
     if (id === 'dace') Object.assign(base, { rate: 0.65, range: 3.5, dmg: st.str * 0.55 });
     if (id === 'hesk') Object.assign(base, { dmg: st.str * 0.65 });
+    if (id === 'aldric') Object.assign(base, { hp: Math.round(st.maxHp * 2.4), armour: st.def / 4, dmg: st.str * 0.65 });
+    if (id === 'morwen') Object.assign(base, { range: 36, dmg: st.mag * 0.5, proj: 'fire', splash: 3, rate: 1.2 });
     return { base, st };
   }
   placeHero(id, x, y) {
@@ -264,6 +268,12 @@ class Siege {
         const w = this.makeUnit('p', 'wolf', { name: 'Wolf', sprite: 'wolf', hp: 110 + st.str * 2, dmg: st.str * 0.5, rate: 0.8, range: 3, speed: 16, armour: 2 }, x + (i - 1) * 4, py, zone, { temp: 18 });
         this.units.push(w);
       }
+    } else if (id === 'aldric') {
+      this.oath = 7;
+      for (const u of this.units) if (u.side === 'p' && u.hp > 0) this.fx.push({ k: 'heal', x: u.x, y: u.y });
+    } else if (id === 'morwen') {
+      this.fx.push({ k: 'boom', x, y, r: d.r });
+      for (const u of foesNear(x, y, d.r)) { u.slow = 7; this.damage(null, u, st.mag * 2, { power: true }); u.burn = 4; u.burnDps = st.mag * 0.25; }
     } else if (id === 'dace') {
       this.fx.push({ k: 'keg', x, y, t: 1.5 });
       this.delayed.push({ t: 1.5, fn: () => {
@@ -280,6 +290,7 @@ class Siege {
     if (t.hp <= 0) return;
     let n = amount;
     if (src && src.side === 'p' && this.rally > 0) n *= 1.4;
+    if (t.side === 'p' && this.oath > 0) n *= 0.5;
     if (src && src.side === 'e') {
       const cap = this.units.find(u => u.aura && u.hp > 0 && dist(u, src) < 15);
       if (cap) n *= 1.3;
@@ -342,6 +353,7 @@ class Siege {
     this.levy = Math.min(99, this.levy + this.regen * dt);
     for (const id in this.powers) this.powers[id].cd = Math.max(0, this.powers[id].cd - dt);
     this.rally = Math.max(0, this.rally - dt);
+    this.oath = Math.max(0, (this.oath || 0) - dt);
     if (this.phase === 'break') {
       this.breakT -= dt;
       if (this.breakT <= 0) { this.phase = 'fight'; this.nextWave(); }

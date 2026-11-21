@@ -19,7 +19,7 @@ A fantasy party RPG for one player on a phone. Underdog party, turn based fights
 
 ## Layer two (21 November 2026)
 
-- Areas are maps of connected spots. Tap a spot next to you to move, or any visited spot to go back. Moving can trigger an ambush. Spot types: fight, treasure, gather (regrows after resting at the keep), camp (heals 35% once per rest, plays party conversations), event with a choice, den (tame beasts, needs Hesk), quest, boss. Some spots need the right party member: Fire for brambles, Dace for locks, Hesk for dens. Thornwood and Mill Road are hand built; the later three are generated from world.js until they get hand built.
+- Areas are maps of connected spots. Tap a spot next to you to move, or any visited spot to go back. Moving can trigger an ambush. Spot types: fight, treasure, gather (regrows after resting at the keep), camp (heals 35% once per rest, plays party conversations), event with a choice, den (tame beasts, needs Hesk), quest, boss. Some spots need the right party member: Fire for brambles, Dace for locks, Hesk for dens. All five areas are hand built (the last three since layer four).
 - Recruits: Hesk (beast tamer, Wild tree, innate Tame) via the hermit's hut quest in Thornwood. Dace (cutpurse, Shadow tree, innate Steal) from the bandit stockade on the Mill Road. Roster of five, three in the party, swap from Party, Line-up. Recruits join at the party's level with matching talent points.
 - Creatures: Hesk tames beasts below about half health (odds shown when targeting). One creature fights beside the party under AI with a stance (Attack, Guard, Support). At level 8 it evolves into one of three forms by the stance it used most. Kennel space 2, 4 or 8.
 - Ember Surge: a shared gauge that fills as you deal and take hits and carries between battles. Unlocked by beating Old Tusk; Surge II (1.5x) by beating Rook. Each hero has their own surge move.
@@ -36,9 +36,21 @@ A fantasy party RPG for one player on a phone. Underdog party, turn based fights
 - Battles have painted backgrounds per area and the arena, particle effects by element, idle animation and screen shake on big hits.
 - Balance from simulation: a good bot clears nights 1 to 6 comfortably, night 8 most of the time, night 10 needs levels and upgrades, night 12 is a stretch. Arena finals around 35 to 70% at the suggested level.
 
+## Layer four (22 November 2026)
+
+- Hand built maps for Barrow Hills, Fenmire and the Hollow Tower (17 spots each), with events that have real choices (the weeping stone, the will-o'-the-wisp, Mistress Penn in the tower cells). Every boss is reachable without any recruit; recruits open extra rewards. Saves on the old generated maps are moved onto the new ones in E.ensure, keeping tomes and unique gear already found.
+- Arena fix: arena bouts count as boss fights, so wins no longer try to clear an area.
+- Aldric, barrow knight (Oath tree: holy strikes, party wards, survive one killing blow per battle; innate Stand Fast). Quest: meet him at the knight's tomb, fetch King Edric's seal from the royal vault, bring it back. Opens oathbound doors (need 'seal') in the barrows and the tower. Extra scene before the Shade if he's in the party.
+- Morwen, fen witch (Hex tree: curses, drains, Doom; innate Mire slows every enemy). Quest: find her three lanterns in Fenmire (frozen pool, lurker nest, eel weir). Sees hidden paths (need 'hex') in Fenmire and the tower.
+- Both have surge moves (The King's Judgement, Drowning Dark) and siege powers (Oath of Iron halves damage to defenders, Mire slows and rots a crowd).
+- Freeing Penn adds 5 starting levy to every siege night. Asking her first also weakens the Warden (82% HP).
+- Final creature evolutions at level 16, following the first form (Bloodfang, Wallfang, Moonhowler and so on), 25% stronger again with a top move (Ravage or Greater Mend).
+- New uniques: King's Signet, Witch's Lantern, Hollow Crown (reserved for later).
+
 ## Next layers
 
-- Hand built maps for Barrow Hills, Fenmire and the Tower, with more recruits and side quests.
+- War campaigns (agreed as the next big piece): a territory map, Hollow held villages and forts, battles with the soldiers trained for the siege plus heroes, captured ground paying out daily.
+- Chapter two: the Hollow King.
 - Better art: bigger shaded sprites, idle and attack animations, spell effects.
 - Rebuilding Emberwake (Stronghold style): buildings that unlock shops, training and recruits.
 - War campaigns with archers, swordsmen and cavalry on a grid, taking territory for resources.
