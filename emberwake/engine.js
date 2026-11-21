@@ -938,6 +938,7 @@ E.defeatPenalty = function (S) {
 // After a boss win: unlocks the next area, shop tiers and surge. Returns story scenes to show.
 E.clearArea = function (S, areaId) {
   const i = E.areaIndex(areaId);
+  if (i < 0 || !S.areas[areaId]) return [];
   S.areas[areaId].cleared = true;
   S.unlocked = Math.max(S.unlocked, Math.min(D.AREAS.length, i + 2));
   const scenes = [areaId + '_out'];

@@ -1120,7 +1120,7 @@ function endBattle() {
   const c = ctx, area = c.area;
   let nodeOut = null, bossScenes = null;
   if (res.won && c.node) nodeOut = E.winNode(S, area, c.node);
-  if (res.won && c.boss) bossScenes = E.clearArea(S, area);
+  if (res.won && c.boss && !c.arena) bossScenes = E.clearArea(S, area);
   save();
   const close = () => { if (FX) { FX.stop(); FX = null; } const b = document.getElementById('battle'); if (b) b.remove(); document.body.style.overflow = ''; B = null; };
   if (c.arena) {
