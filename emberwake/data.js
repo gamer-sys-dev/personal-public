@@ -27,8 +27,28 @@ const HEROES = {
     growth: { hp: 8, mp: 5, str: 0.7, mag: 2.5, def: 0.8, res: 1.8, spd: 0.8, crit: 0 },
     start: { talents: { fire: 1, light: 1 }, equip: { weapon: 'ash_staff', armour: 'apprentice_robe' } },
   },
+  hesk: {
+    name: 'Hesk', role: 'Beast tamer', sprite: 'hesk', recruit: true,
+    blurb: 'Lived alone in Thornwood with her animals until the poachers came. Can tame wounded beasts and fights beside them.',
+    base:   { hp: 100, mp: 25, str: 11, mag: 9, def: 9, res: 9, spd: 11, crit: 6 },
+    growth: { hp: 12, mp: 3, str: 1.8, mag: 1.4, def: 1.3, res: 1.2, spd: 0.9, crit: 0 },
+    innate: ['tame'],
+    start: { talents: { wild: 1 }, equip: { weapon: 'hunting_spear', armour: 'padded_jerkin' } },
+  },
+  dace: {
+    name: 'Dace', role: 'Cutpurse', sprite: 'dace', recruit: true,
+    blurb: 'A thief the bandits locked up for stealing from them. Picks locks, picks pockets and fights dirty with two knives.',
+    base:   { hp: 88, mp: 22, str: 13, mag: 6, def: 7, res: 7, spd: 15, crit: 15 },
+    growth: { hp: 10, mp: 2.5, str: 2.2, mag: 0.8, def: 1, res: 1, spd: 1.2, crit: 0 },
+    innate: ['steal'],
+    start: { talents: { shadow: 1 }, equip: { weapon: 'twin_knives', armour: 'padded_jerkin' } },
+  },
 };
 const PARTY = ['bram', 'wren', 'isolde'];
+const ROSTER = ['bram', 'wren', 'isolde', 'hesk', 'dace'];
+// Ember Surge moves, one per hero. Unlocked by the story.
+const SURGE = { bram: 'anvil_fall', wren: 'arrow_storm', isolde: 'ember_nova', hesk: 'wild_hunt', dace: 'thousand_cuts' };
+
 
 // Talent trees. Any hero can learn any tree. Rank n needs hero level REQ[n] and costs COST[n] points.
 const TALENT_REQ = [1, 3, 5, 8, 11, 14];
@@ -79,6 +99,24 @@ const TREES = {
       { skill: 'blizzard' },
       { stats: { mag: 6 }, flags: { mpCut: 0.15 }, text: '+6 Magic, all spells cost 15% less MP' },
     ] },
+  wild: { name: 'Wild', colour: '#c8955a', desc: 'Fight as a pack. Makes your creature hit harder.',
+    ranks: [
+      { skill: 'rally_cry' },
+      { stats: { str: 3, spd: 2 }, text: '+3 Strength, +2 Speed' },
+      { skill: 'maul' },
+      { flags: { beastBond: 0.25 }, text: 'Your creature deals 25% more damage while this hero is in the party' },
+      { skill: 'feral_howl' },
+      { stats: { hp: 40, str: 5 }, flags: { beastBond: 0.25 }, text: '+40 HP, +5 Strength, creature damage +25% more' },
+    ] },
+  shadow: { name: 'Shadow', colour: '#9a8ad8', desc: 'Dirty fighting. Quick strikes and finishing blows.',
+    ranks: [
+      { skill: 'cheap_shot' },
+      { stats: { spd: 3, crit: 5 }, text: '+3 Speed, +5% critical chance' },
+      { skill: 'flurry' },
+      { flags: { stealPlus: 1 }, text: 'Steal can lift rarer things' },
+      { skill: 'assassinate' },
+      { stats: { str: 5, crit: 10 }, text: '+5 Strength, +10% critical chance' },
+    ] },
   light: { name: 'Light', colour: '#ffe27a', desc: 'Healing, bringing people back and burning the dead.',
     ranks: [
       { skill: 'heal' },
@@ -122,6 +160,28 @@ const SKILLS = {
   smite:        { name: 'Smite', type: 'mag', el: 'light', power: 1.5, target: 'enemy', mp: 10, desc: 'Holy damage. Brutal on the dead and the Hollow.' },
   sanctuary:    { name: 'Sanctuary', type: 'heal', power: 1.3, target: 'allies', mp: 26, status: { regen: 3 }, desc: 'Big party heal plus regeneration.' },
 
+  // Wild and Shadow
+  rally_cry:    { name: 'Rally Cry', type: 'buff', target: 'allies', mp: 6, status: { strUp: 3 }, desc: 'Raises the party\'s strength for 3 turns.' },
+  maul:         { name: 'Maul', type: 'phys', power: 1.7, target: 'enemy', mp: 8, status: { poison: 3 }, chance: 0.6, desc: '1.7x damage. Wounds can fester.' },
+  feral_howl:   { name: 'Feral Howl', type: 'buff', target: 'enemies', mp: 10, status: { defDown: 3 }, foe: true, desc: 'Breaks every enemy\'s nerve and armour.' },
+  cheap_shot:   { name: 'Cheap Shot', type: 'phys', power: 1.3, target: 'enemy', mp: 5, status: { slow: 2 }, chance: 0.7, desc: 'Hit them where it hurts. May slow.' },
+  flurry:       { name: 'Flurry', type: 'phys', power: 0.5, hits: 4, target: 'random', mp: 9, desc: 'Four quick cuts at random enemies.' },
+  assassinate:  { name: 'Assassinate', type: 'phys', power: 2.4, target: 'enemy', mp: 14, execute: 0.4, desc: '2.4x damage, doubled on anyone below 40% health.' },
+  // Innate
+  tame:         { name: 'Tame', type: 'tame', target: 'enemy', mp: 0, desc: 'Try to tame a wounded beast. The lower its health, the better the odds.' },
+  steal:        { name: 'Steal', type: 'steal', target: 'enemy', mp: 0, desc: 'Lift something from an enemy. Once per enemy.' },
+  // Ember Surge
+  anvil_fall:   { name: 'Anvil Fall', type: 'phys', power: 3.2, target: 'enemy', surge: true, after: { defUp: 3 }, desc: 'A crushing blow, then the whole party braces.' },
+  arrow_storm:  { name: 'Arrow Storm', type: 'phys', power: 0.9, hits: 3, target: 'enemies', surge: true, desc: 'Three volleys over every enemy.' },
+  ember_nova:   { name: 'Ember Nova', type: 'mag', el: 'fire', power: 2.3, target: 'enemies', surge: true, status: { burn: 3 }, chance: 1, desc: 'The stone lets go. Fire over everything, and it burns.' },
+  wild_hunt:    { name: 'Wild Hunt', type: 'phys', power: 1.8, target: 'enemies', surge: true, after: { strUp: 3, haste: 2 }, desc: 'Hesk and her creature run the enemy down. The party is fired up after.' },
+  thousand_cuts:{ name: 'Thousand Cuts', type: 'phys', power: 0.7, hits: 7, target: 'random', surge: true, desc: 'Seven cuts at random enemies.' },
+  // Creature moves
+  guard_ally:   { name: 'Guard', type: 'buff', target: 'self', status: { taunt: 2, defUp: 2 } },
+  lick:         { name: 'Lick Wounds', type: 'heal', power: 0.6, target: 'ally' },
+  sap:          { name: 'Healing Sap', type: 'heal', power: 0.9, target: 'ally' },
+  howl:         { name: 'Howl', type: 'buff', target: 'allies', status: { strUp: 2 } },
+  rend:         { name: 'Rend', type: 'phys', power: 1.6, target: 'enemy' },
   // Enemy skills
   bite:         { name: 'Bite', type: 'phys', power: 1.0, target: 'enemy' },
   savage_bite:  { name: 'Savage Bite', type: 'phys', power: 1.45, target: 'enemy' },
@@ -170,6 +230,10 @@ const GEAR = {
   steel_blade:    { name: 'Steel Blade', slot: 'weapon', stats: { str: 12 }, price: 650, tier: 3 },
   longbow:        { name: 'Longbow', slot: 'weapon', stats: { str: 9, spd: 3, crit: 5 }, price: 650, tier: 3 },
   runed_staff:    { name: 'Runed Staff', slot: 'weapon', stats: { mag: 12, mp: 15, res: 2 }, price: 650, tier: 3 },
+  hunting_spear:  { name: 'Hunting Spear', slot: 'weapon', stats: { str: 4, mag: 1 }, price: 120, tier: 1 },
+  twin_knives:    { name: 'Twin Knives', slot: 'weapon', stats: { str: 4, crit: 4 }, price: 120, tier: 1 },
+  boar_spear:     { name: 'Boar Spear', slot: 'weapon', stats: { str: 8, mag: 2 }, price: 300, tier: 2 },
+  stilettos:      { name: 'Stilettos', slot: 'weapon', stats: { str: 7, spd: 2, crit: 6 }, price: 300, tier: 2 },
   wolfbone_bow:   { name: 'Wolfbone Bow', slot: 'weapon', stats: { str: 6, spd: 2, crit: 6 }, price: 400, unique: true },
   redcap_cutlass: { name: 'Redcap Cutlass', slot: 'weapon', stats: { str: 9, crit: 6 }, price: 500, unique: true },
   barrow_blade:   { name: 'Barrow Blade', slot: 'weapon', stats: { str: 15, res: 3 }, price: 800, unique: true },
@@ -227,13 +291,15 @@ const FORGE = [
 // Enemies. Stats scale with level; multipliers shape each type.
 // weak: damage taken multiplier by element. tags: undead, hollow.
 const ENEMIES = {
-  rat:      { name: 'Thorn Rat', sprite: 'rat', m: { hp: .7, str: .8, mag: .5, def: .7, res: .6, spd: 1.2 }, xp: .8, gold: .7,
+  boarling: { name: 'Wild Boar', sprite: 'boarling', tame: 'boarling', m: { hp: 1.25, str: 1.1, mag: .5, def: 1.1, res: .7, spd: .9 }, xp: 1.1, gold: .8,
+              skills: [{ id: 'gore', w: 1 }, { id: 'bite', w: 1 }], drops: [{ mat: 'pelt', c: .5 }] },
+  rat:      { name: 'Thorn Rat', tame: 'rat', sprite: 'rat', m: { hp: .7, str: .8, mag: .5, def: .7, res: .6, spd: 1.2 }, xp: .8, gold: .7,
               skills: [{ id: 'bite', w: 1 }], drops: [{ mat: 'pelt', c: .2 }] },
-  wolf:     { name: 'Grey Wolf', sprite: 'wolf', m: { hp: 1, str: 1, mag: .5, def: .9, res: .7, spd: 1.15 }, xp: 1, gold: 1,
+  wolf:     { name: 'Grey Wolf', tame: 'wolf', sprite: 'wolf', m: { hp: 1, str: 1, mag: .5, def: .9, res: .7, spd: 1.15 }, xp: 1, gold: 1,
               skills: [{ id: 'bite', w: 3 }, { id: 'savage_bite', w: 1 }], drops: [{ mat: 'pelt', c: .5 }] },
-  briar:    { name: 'Briar Sprite', sprite: 'briar', m: { hp: .8, str: .5, mag: 1, def: .6, res: 1, spd: 1 }, xp: 1, gold: 1, weak: { fire: 1.6 },
+  briar:    { name: 'Briar Sprite', tame: 'briar', sprite: 'briar', m: { hp: .8, str: .5, mag: 1, def: .6, res: 1, spd: 1 }, xp: 1, gold: 1, weak: { fire: 1.6 },
               skills: [{ id: 'thorn_lash', w: 1 }], drops: [{ item: 'potion', c: .15 }] },
-  old_tusk: { name: 'Old Tusk', sprite: 'boar', boss: true, m: { hp: 9, str: 1.35, mag: .5, def: 1.3, res: .9, spd: .85 }, xp: 6, gold: 6,
+  old_tusk: { name: 'Old Tusk', sprite: 'boar', boss: true, m: { hp: 11.7, str: 1.51, mag: .5, def: 1.3, res: .9, spd: .85 }, xp: 6, gold: 6,
               skills: [{ id: 'gore', w: 3 }, { id: 'trample', w: 2 }, { id: 'enrage', w: 0, phase: .5 }],
               drops: [{ mat: 'pelt', c: 1, n: 3 }, { gear: 'tusk_charm', c: 1, once: true }] },
 
@@ -241,41 +307,41 @@ const ENEMIES = {
               skills: [{ id: 'slash', w: 3 }, { id: 'dirty_cut', w: 1 }], drops: [{ mat: 'ore', c: .3 }, { item: 'potion', c: .1 }] },
   archer:   { name: 'Bandit Archer', sprite: 'bandit_archer', m: { hp: .85, str: 1.05, mag: .5, def: .8, res: .8, spd: 1.05 }, xp: 1, gold: 1.3,
               skills: [{ id: 'arrow', w: 3 }, { id: 'volley', w: 1 }], drops: [{ mat: 'ore', c: .2 }] },
-  crows:    { name: 'Crow Swarm', sprite: 'crow', m: { hp: .7, str: .85, mag: .5, def: .5, res: .6, spd: 1.4 }, xp: .9, gold: .5, weak: { fire: 1.3, frost: 1.3 },
+  crows:    { name: 'Crow Swarm', tame: 'crows', sprite: 'crow', m: { hp: .7, str: .85, mag: .5, def: .5, res: .6, spd: 1.4 }, xp: .9, gold: .5, weak: { fire: 1.3, frost: 1.3 },
               skills: [{ id: 'peck', w: 1 }], drops: [{ mat: 'pelt', c: .2 }] },
-  rook:     { name: 'Rook the Red', sprite: 'rook', boss: true, m: { hp: 9, str: 1.3, mag: .6, def: 1.1, res: 1, spd: 1.1 }, xp: 6, gold: 10,
+  rook:     { name: 'Rook the Red', sprite: 'rook', boss: true, m: { hp: 11.7, str: 1.46, mag: .6, def: 1.1, res: 1, spd: 1.1 }, xp: 6, gold: 10,
               skills: [{ id: 'slash', w: 3 }, { id: 'volley', w: 1 }, { id: 'war_cry', w: 1 }, { id: 'whistle', w: 0, phase: .5 }],
               drops: [{ mat: 'ore', c: 1, n: 3 }, { gear: 'redcap_cutlass', c: 1, once: true }] },
 
   skeleton: { name: 'Skeleton', sprite: 'skeleton', tags: ['undead'], m: { hp: 1, str: 1.1, mag: .5, def: 1.2, res: .7, spd: .95 }, xp: 1, gold: 1,
               weak: { light: 2, fire: 1.3, frost: .5 }, skills: [{ id: 'slash', w: 2 }, { id: 'bone_rattle', w: 1 }], drops: [{ mat: 'bone', c: .4 }] },
-  bat:      { name: 'Grave Bat', sprite: 'bat', m: { hp: .7, str: .9, mag: .5, def: .7, res: .7, spd: 1.4 }, xp: .9, gold: .8,
+  bat:      { name: 'Grave Bat', tame: 'bat', sprite: 'bat', m: { hp: .7, str: .9, mag: .5, def: .7, res: .7, spd: 1.4 }, xp: .9, gold: .8,
               weak: { light: 1.5, fire: 1.3 }, skills: [{ id: 'drain', w: 1 }], drops: [{ mat: 'pelt', c: .2 }] },
   wight:    { name: 'Barrow Wight', sprite: 'wight', tags: ['undead'], m: { hp: 1.1, str: .6, mag: 1.15, def: .8, res: 1.2, spd: 1 }, xp: 1.2, gold: 1.2,
               weak: { light: 2, fire: 1.5, frost: .5 }, skills: [{ id: 'frost_touch', w: 2 }, { id: 'shadow_bolt', w: 2 }], drops: [{ mat: 'bone', c: .3 }, { item: 'ether', c: .1 }] },
-  shade:    { name: 'The Barrow King\'s Shade', sprite: 'shade', boss: true, tags: ['undead'], m: { hp: 10, str: .8, mag: 1.35, def: 1, res: 1.3, spd: 1 }, xp: 7, gold: 10,
+  shade:    { name: 'The Barrow King\'s Shade', sprite: 'shade', boss: true, tags: ['undead'], m: { hp: 13.0, str: 0.9, mag: 1.35, def: 1, res: 1.3, spd: 1 }, xp: 7, gold: 10,
               weak: { light: 1.8, fire: 1.2, frost: .5 },
               skills: [{ id: 'shadow_bolt', w: 3 }, { id: 'grave_chill', w: 2 }, { id: 'drain', w: 1 }, { id: 'raise_dead', w: 0, phase: .6 }],
               drops: [{ mat: 'bone', c: 1, n: 3 }, { gear: 'barrow_blade', c: 1, once: true }] },
 
-  lurker:   { name: 'Bog Lurker', sprite: 'lurker', m: { hp: 1.3, str: 1.1, mag: .5, def: 1.1, res: .8, spd: .8 }, xp: 1.1, gold: 1,
+  lurker:   { name: 'Bog Lurker', tame: 'lurker', sprite: 'lurker', m: { hp: 1.3, str: 1.1, mag: .5, def: 1.1, res: .8, spd: .8 }, xp: 1.1, gold: 1,
               weak: { fire: 1.3 }, skills: [{ id: 'spit', w: 1 }, { id: 'drag', w: 2 }], drops: [{ mat: 'moss', c: .4 }] },
   hag:      { name: 'Fen Hag', sprite: 'hag', m: { hp: .9, str: .5, mag: 1.15, def: .8, res: 1.1, spd: 1 }, xp: 1.2, gold: 1.3,
               weak: { fire: 1.4 }, skills: [{ id: 'hex', w: 2 }, { id: 'frost_touch', w: 2 }, { id: 'mend', w: 2, when: 'allyHurt' }], drops: [{ mat: 'moss', c: .3 }, { item: 'ether', c: .15 }] },
-  slime:    { name: 'Mire Slime', sprite: 'slime', m: { hp: 1.2, str: .9, mag: .5, def: 1.7, res: .5, spd: .8 }, xp: 1, gold: .9,
+  slime:    { name: 'Mire Slime', tame: 'slime', sprite: 'slime', m: { hp: 1.2, str: .9, mag: .5, def: 1.7, res: .5, spd: .8 }, xp: 1, gold: .9,
               weak: { fire: 1.6, frost: 1.4 }, skills: [{ id: 'engulf', w: 1 }], drops: [{ mat: 'moss', c: .3 }, { item: 'potion', c: .2 }] },
-  drowned:  { name: 'The Drowned Knight', sprite: 'drowned', boss: true, m: { hp: 14, str: 1.55, mag: .9, def: 1.5, res: .9, spd: .95 }, xp: 8, gold: 12,
+  drowned:  { name: 'The Drowned Knight', sprite: 'drowned', boss: true, m: { hp: 18.2, str: 1.74, mag: .9, def: 1.5, res: .9, spd: .95 }, xp: 8, gold: 12,
               weak: { fire: 1.3, light: 1.3 },
               skills: [{ id: 'slash', w: 3 }, { id: 'tidal_sweep', w: 2 }, { id: 'rust_curse', w: 1 }, { id: 'brace', w: 0, phase: .5 }],
               drops: [{ mat: 'moss', c: 1, n: 3 }, { gear: 'drowned_plate', c: 1, once: true }] },
 
   soldier:  { name: 'Hollow Soldier', sprite: 'soldier', tags: ['hollow'], m: { hp: 1.2, str: 1.15, mag: .5, def: 1.3, res: 1, spd: .95 }, xp: 1.2, gold: 1.2,
               weak: { light: 1.6 }, skills: [{ id: 'slash', w: 3 }, { id: 'brace', w: 1 }], drops: [{ mat: 'shard', c: .3 }] },
-  hound:    { name: 'Shadow Hound', sprite: 'hound', tags: ['hollow'], m: { hp: 1, str: 1.2, mag: .5, def: .9, res: .8, spd: 1.4 }, xp: 1.1, gold: 1,
+  hound:    { name: 'Shadow Hound', tame: 'hound', sprite: 'hound', tags: ['hollow'], m: { hp: 1, str: 1.2, mag: .5, def: .9, res: .8, spd: 1.4 }, xp: 1.1, gold: 1,
               weak: { light: 1.5, fire: 1.2 }, skills: [{ id: 'bite', w: 2 }, { id: 'pounce', w: 1 }], drops: [{ mat: 'shard', c: .2 }, { mat: 'pelt', c: .3 }] },
   acolyte:  { name: 'Hollow Acolyte', sprite: 'acolyte', tags: ['hollow'], m: { hp: .9, str: .5, mag: 1.25, def: .9, res: 1.2, spd: 1 }, xp: 1.3, gold: 1.4,
               weak: { light: 1.6 }, skills: [{ id: 'shadow_bolt', w: 3 }, { id: 'dark_rite', w: 1 }, { id: 'mend', w: 2, when: 'allyHurt' }], drops: [{ mat: 'shard', c: .3 }, { item: 'ether', c: .15 }] },
-  warden:   { name: 'Warden Morvane', sprite: 'warden', boss: true, tags: ['hollow'], m: { hp: 14, str: 1.3, mag: 1.3, def: 1.3, res: 1.3, spd: 1 }, xp: 12, gold: 25,
+  warden:   { name: 'Warden Morvane', sprite: 'warden', boss: true, tags: ['hollow'], m: { hp: 18.2, str: 1.46, mag: 1.3, def: 1.3, res: 1.3, spd: 1 }, xp: 12, gold: 25,
               weak: { light: 1.3 },
               skills: [{ id: 'slash', w: 2 }, { id: 'hollow_cleave', w: 2 }, { id: 'shadow_bolt', w: 2 }, { id: 'soul_drain', w: 1 },
                        { id: 'call_hollow', w: 0, phase: .6 }, { id: 'ember_hunger', w: 0, phase: .3 }],
@@ -397,6 +463,6 @@ const STORY = {
   ],
 };
 
-const DATA = { STATS, HEROES, PARTY, TALENT_REQ, TALENT_COST, TREES, SKILLS, GEAR, ITEMS, MATS, FORGE, ENEMIES, AREAS, STORY };
+const DATA = { STATS, HEROES, PARTY, ROSTER, SURGE, TALENT_REQ, TALENT_COST, TREES, SKILLS, GEAR, ITEMS, MATS, FORGE, ENEMIES, AREAS, STORY };
 if (typeof module !== 'undefined' && module.exports) module.exports = DATA; else root.DATA = DATA;
 })(this);

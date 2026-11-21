@@ -218,6 +218,9 @@ const SPRITES = {
   wren:   { shape: 'ranger', pal: { k: K, G: '#3f6b3a', H: '#b5652a', S: SKIN, E: EYE, T: '#6b4a2b', t: '#8c6640', B: '#3a2616', L: '#4d3b2a', F: '#2a1c10', b: '#a0703a' } },
   isolde: { shape: 'mage',   pal: { k: K, P: '#5b3f8f', R: '#d4a630', O: '#ff9a3d', o: '#fff0b0', s: '#8a5a2b', H: '#d9b56a', S: SKIN, E: EYE } },
 
+  hesk:   { shape: 'ranger', pal: { k: K, G: '#8a7f70', H: '#2e2418', S: '#d9a47a', E: EYE, T: '#5a4a3a', t: '#7a6650', B: '#3a2616', L: '#4a3a2a', F: '#2a1c10', b: '#b89a6a' } },
+  dace:   { shape: 'bandit', pal: { k: K, C: '#2f5f6a', M: '#1a2a30', S: SKIN, E: EYE, T: '#3a4a4a', t: '#5a6a6a', B: '#2a1c10', L: '#2a3030', F: '#1a1410', W: '#e0e6ee' } },
+  boarling: { shape: 'boar', flip: false, scale: 0.85, pal: { k: K, B: '#6a4a30', b: '#8a6448', E: '#ffd23a', P: '#c88a7a', W: '#f2ead8' } },
   rat:    { shape: 'rat',   flip: false, pal: { k: K, R: '#7a5a48', r: '#a3846c', E: '#ff4a3a', P: '#e0a0a0' } },
   wolf:   { shape: 'wolf',  flip: false, pal: { k: K, G: '#8a8f99', g: '#c5c9cf', E: '#ffd23a' } },
   hound:  { shape: 'wolf',  flip: false, pal: { k: '#05030a', G: '#2c2540', g: '#4a3f6b', E: '#ff3a3a' } },
@@ -240,12 +243,27 @@ const SPRITES = {
   warden: { shape: 'knight', flip: true, scale: 1.75, pal: { k: '#05030a', H: '#1a1424', S: '#2a2438', E: '#ffb03a', A: '#2a2438', a: '#4a3f6b', B: '#140e1c', L: '#1a1424', F: '#0a0610', W: '#b0a0e0', g: '#ffb03a', D: '#1a1424', d: '#ffb03a' } },
 };
 
+// Evolved creatures: the base sprite recoloured by the form it took, and a little bigger.
+const TINT = { attack: ['#8a1a1a', 0.4, '#ff3030'], guard: ['#8fa0b8', 0.45, '#a0e0ff'], support: ['#f0e0a0', 0.45, '#7affb0'] };
+function mix(a, b, t) {
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const x = p(a), y = p(b);
+  return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+function variant(id) {
+  const [base, form] = id.split('@');
+  const sp = SPRITES[base] || SPRITES.rat;
+  if (!form || !TINT[form]) return sp;
+  const [col, t, eye] = TINT[form], pal = {};
+  for (const k in sp.pal) pal[k] = k === 'k' ? sp.pal[k] : k === 'E' ? eye : mix(sp.pal[k], col, t);
+  return Object.assign({}, sp, { pal, scale: (sp.scale || 1) * 1.15 });
+}
 const cache = {};
 function spriteURL(id, px) {
   px = px || 4;
   const key = id + '@' + px;
   if (cache[key]) return cache[key];
-  const sp = SPRITES[id] || SPRITES.rat;
+  const sp = variant(id);
   const rows = SHAPES[sp.shape];
   const w = Math.max(...rows.map(r => r.length)), h = rows.length;
   const c = document.createElement('canvas');
@@ -264,5 +282,5 @@ function spriteURL(id, px) {
   return (cache[key] = { url: c.toDataURL(), w: w * px, h: h * px, scale: sp.scale || 1 });
 }
 
-root.SPRITES = { spriteURL, SPRITES };
+root.SPRITES = { spriteURL, SPRITES, variant };
 })(this);

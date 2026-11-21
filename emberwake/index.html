@@ -96,15 +96,36 @@
 
   /* Battle */
   #battle { position:fixed; inset:0; display:flex; flex-direction:column; background:var(--bg); z-index:20; }
-  .field { position:relative; flex:0 0 auto; height:min(46vh, 360px); overflow:hidden; border-bottom:2px solid #000; }
+  .field { position:relative; flex:0 0 auto; height:min(48vh, 400px); overflow:hidden; border-bottom:2px solid #000; }
   .field .sky { position:absolute; inset:0; }
-  .field .ground { position:absolute; left:0; right:0; bottom:0; height:45%; }
-  .foes { position:absolute; left:2%; top:8%; bottom:6%; width:60%; display:grid; grid-template-columns:1fr 1fr; align-content:center; align-items:end; justify-items:center; gap:4px 2px; }
+  .field .ground { position:absolute; left:0; right:0; bottom:0; height:68%; }
+  .foes { position:absolute; left:2%; top:24%; bottom:4%; width:60%; display:grid; grid-template-columns:1fr 1fr; align-content:center; align-items:end; justify-items:center; gap:4px 2px; }
   .foes.one { grid-template-columns:1fr; }
-  .friends { position:absolute; right:3%; top:6%; bottom:4%; width:30%; display:flex; flex-direction:column; justify-content:space-around; align-items:center; }
+  .friends { position:absolute; right:3%; top:22%; bottom:2%; width:32%; display:flex; flex-direction:column; justify-content:space-evenly; align-items:center; }
   .unit { position:relative; display:flex; flex-direction:column; align-items:center; transition:transform .15s, opacity .4s, filter .3s; }
-  .unit img { filter:drop-shadow(0 3px 0 rgba(0,0,0,.35)); }
-  .friends .unit:nth-child(2) { margin-right:22px; }
+  .unit img { filter:drop-shadow(0 2px 0 rgba(0,0,0,.25)); }
+  .spr { position:relative; display:flex; justify-content:center; }
+  .spr::after { content:''; position:absolute; left:12%; right:12%; bottom:-4px; height:9px; background:radial-gradient(ellipse at center, rgba(0,0,0,.45), rgba(0,0,0,0) 70%); z-index:-1; }
+  .unit.pet { margin-right:40px; }
+  .field.surgeflash::after { content:''; position:absolute; inset:0; background:radial-gradient(circle, rgba(255,170,60,.65), rgba(255,90,20,0) 70%); animation:sflash .7s; pointer-events:none; }
+  @keyframes sflash { from { opacity:1; } to { opacity:0; } }
+  .banner.big { font-size:1.3rem; color:var(--ember); border-color:var(--ember); }
+  .surgewrap { display:flex; align-items:center; gap:6px; font-size:.72rem; color:var(--ember); flex:1; margin:0 10px; }
+  .surgewrap .bar { flex:1; }
+  .bar.surge > i { background:linear-gradient(90deg,#ff6a2a,#ffd76a); }
+  .surgewrap.full .bar { box-shadow:0 0 8px #ff9a3d; }
+  .surgebtn { width:100%; margin-bottom:8px; background:linear-gradient(90deg,#ff6a2a,#ffb84a); border-color:#ffd76a; color:#1b0f06; font-weight:800; animation:glow 1s infinite alternate; }
+  @keyframes glow { to { box-shadow:0 0 14px #ff9a3d; } }
+  .prow.pet { grid-template-columns:62px 1fr 1fr 54px; padding:5px 12px; }
+  .mapwrap { background:radial-gradient(ellipse at center, #232638, #171925); border:1px solid var(--line); border-radius:14px; margin:8px 0; padding:4px; }
+  .mapsvg { width:100%; display:block; max-height:52vh; }
+  .strip { display:flex; gap:8px; margin:8px 0; }
+  .strip-cell { flex:1; display:flex; gap:6px; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:5px 6px; min-width:0; }
+  .strip-cell img { width:28px; height:28px; object-fit:contain; flex:0 0 auto; }
+  .strip-cell .small { font-size:.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .strip-cell.ko { opacity:.45; }
+  .evo { display:flex; justify-content:center; align-items:center; gap:16px; font-size:1.6rem; color:var(--gold); margin:10px 0; }
+  .friends .unit:nth-child(2) { margin-right:26px; }
   .unit .uname { font-size:.68rem; background:rgba(0,0,0,.55); padding:1px 5px; border-radius:6px; margin-top:2px; white-space:nowrap; max-width:150px; overflow:hidden; text-overflow:ellipsis; }
   .unit .hpmini { width:60px; height:5px; background:#0b0c12; border-radius:3px; overflow:hidden; margin-top:2px; }
   .unit .hpmini i { display:block; height:100%; background:var(--bad); transition:width .3s; }
@@ -144,6 +165,7 @@
 <body>
 <div id="app"></div>
 <script src="data.js"></script>
+<script src="world.js"></script>
 <script src="engine.js"></script>
 <script src="sprites.js"></script>
 <script src="game.js"></script>

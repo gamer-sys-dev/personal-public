@@ -1,7 +1,7 @@
 // Emberwake: screens, menus and the battle UI. Rules live in engine.js.
 (function () {
 'use strict';
-const D = window.DATA, E = window.ENGINE, SP = window.SPRITES;
+const D = window.DATA, W = window.WORLD, E = window.ENGINE, SP = window.SPRITES;
 const KEY = 'emberwake-save-v1';
 const app = document.getElementById('app');
 let S = null;          // the save
@@ -17,6 +17,8 @@ const STAT_NAMES = { hp: 'HP', mp: 'MP', str: 'Strength', mag: 'Magic', def: 'De
 const SHORT = { hp: 'HP', mp: 'MP', str: 'STR', mag: 'MAG', def: 'DEF', res: 'RES', spd: 'SPD', crit: 'CRIT' };
 const STATUS = { poison: 'Poison', burn: 'Burn', slow: 'Slow', haste: 'Haste', defUp: 'Guard ▲', defDown: 'Armour ▼', resUp: 'Ward ▲', strUp: 'Fury ▲', taunt: 'Taunt', regen: 'Regen' };
 const statLine = st => Object.keys(st || {}).map(k => `${st[k] > 0 ? '+' : ''}${st[k]} ${SHORT[k]}`).join(', ');
+const heroName = id => D.HEROES[id].name;
+const costText = c => [c.gold ? c.gold + ' g' : ''].concat(Object.keys(c.mats || {}).map(m => `<span class="${(S.mats[m] || 0) >= c.mats[m] ? '' : 'down'}">${c.mats[m]} ${D.MATS[m].name} (${S.mats[m] || 0})</span>`)).filter(Boolean).join(', ');
 
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage blocked */ } }
 function load() {
@@ -26,7 +28,7 @@ function toast(msg, ms) {
   const t = document.createElement('div');
   t.className = 'toast'; t.innerHTML = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), ms || 2200);
+  setTimeout(() => t.remove(), ms || 2400);
 }
 function go(name, extra) { view = Object.assign({ name }, extra || {}); render(); window.scrollTo(0, 0); }
 function render() {
@@ -44,33 +46,55 @@ function overlay(html, cls) {
 }
 function closeOverlay() { const o = document.getElementById('ov'); if (o) o.remove(); }
 
-function partyMini(showStatus) {
-  return D.PARTY.map(id => {
-    const h = S.heroes[id], st = E.heroStats(S, id);
-    return `<div class="hero-mini ${h.hp <= 0 ? 'ko' : ''}">${img(D.HEROES[id].sprite, 3)}
-      <div><div class="spread small"><b>${D.HEROES[id].name}</b><span class="muted">Lv ${h.lvl}${h.points ? ` <span class="pill on">${h.points} pt${h.points > 1 ? "s" : ""}</span>` : ''}</span></div>
-      <div class="spread small muted" style="margin-top:3px"><span>HP ${h.hp}/${st.maxHp}</span><span>MP ${h.mp}/${st.maxMp}</span></div>
-      <div class="grid2" style="gap:6px;margin-top:3px"><div class="bar ${h.hp < st.maxHp * .3 ? 'low' : ''}"><i style="width:${pct(h.hp, st.maxHp)}%"></i></div><div class="bar mp"><i style="width:${pct(h.mp, st.maxMp)}%"></i></div></div>
-      ${showStatus && h.hp <= 0 ? '<div class="small" style="color:var(--bad);margin-top:3px">Knocked out</div>' : ''}</div></div>`;
-  }).join('');
+function heroRow(id) {
+  const h = S.heroes[id], st = E.heroStats(S, id);
+  return `<div class="hero-mini ${h.hp <= 0 ? 'ko' : ''}">${img(D.HEROES[id].sprite, 3)}
+    <div><div class="spread small"><b>${heroName(id)}</b><span class="muted">Lv ${h.lvl}${h.points ? ` <span class="pill on">${h.points} pt${h.points > 1 ? 's' : ''}</span>` : ''}</span></div>
+    <div class="spread small muted" style="margin-top:3px"><span>HP ${h.hp}/${st.maxHp}</span><span>MP ${h.mp}/${st.maxMp}</span></div>
+    <div class="grid2" style="gap:6px;margin-top:3px"><div class="bar ${h.hp < st.maxHp * .3 ? 'low' : ''}"><i style="width:${pct(h.hp, st.maxHp)}%"></i></div><div class="bar mp"><i style="width:${pct(h.mp, st.maxMp)}%"></i></div></div>
+    ${h.hp <= 0 ? '<div class="small" style="color:var(--bad);margin-top:3px">Knocked out</div>' : ''}</div></div>`;
+}
+function creatureRow(c, extra) {
+  const st = E.creatureStats(c);
+  return `<div class="hero-mini ${c.hp <= 0 ? 'ko' : ''}">${img(E.creatureSprite(c), 2)}
+    <div><div class="spread small"><b>${E.creatureName(c)}</b><span class="muted">Lv ${c.lvl} · ${W.STANCES[c.stance].name}</span></div>
+    <div class="bar ${c.hp < st.maxHp * .3 ? 'low' : ''}" style="margin-top:5px"><i style="width:${pct(c.hp, st.maxHp)}%"></i></div>${extra || ''}</div></div>`;
+}
+function partyMini() {
+  const c = E.creatureOf(S, S.companion);
+  return S.party.map(heroRow).join('') + (c ? creatureRow(c) : '');
+}
+function partyStrip() {
+  const c = E.creatureOf(S, S.companion);
+  const cell = (sprite, name, hp, max, ko) => `<div class="strip-cell ${ko ? 'ko' : ''}">${img(sprite, 2)}<div class="grow"><div class="small">${name}</div><div class="bar ${hp < max * .3 ? 'low' : ''}"><i style="width:${pct(hp, max)}%"></i></div></div></div>`;
+  return `<div class="strip" data-a="bag">${S.party.map(id => { const st = E.heroStats(S, id), h = S.heroes[id]; return cell(D.HEROES[id].sprite, heroName(id), h.hp, st.maxHp, h.hp <= 0); }).join('')}
+    ${c ? cell(E.creatureSprite(c), E.creatureName(c), c.hp, E.creatureStats(c).maxHp, c.hp <= 0) : ''}</div>`;
 }
 
 function objective() {
+  const f = S.flags, has = id => S.roster.includes(id);
+  const lines = [];
   const next = D.AREAS.find(a => !S.areas[a.id].cleared);
-  if (!next) return 'Chapter One is done. Keep training, forging and mastering skills. Every area is still open.';
-  const lines = {
+  const main = {
     thornwood: 'Find whatever is killing the sheep in Thornwood.',
     millroad: 'Follow the trail to the Old Mill Road and deal with the bandits.',
     barrows: 'Cross the Barrow Hills, where the dead are walking.',
     fenmire: 'Find a way through Fenmire to the tower.',
     tower: 'Climb the Hollow Tower and face the Warden.',
   };
-  return lines[next.id];
+  lines.push(next ? main[next.id] : 'Chapter One is done. Every area is still open for training, taming and treasure.');
+  if (f.hesk_quest && !f.poachers) lines.push('Side quest: free Hesk\'s animals from the poacher camp in Thornwood.');
+  if (f.poachers && !has('hesk')) lines.push('Side quest: take the animals back to Hesk\'s hut.');
+  if (S.areas.thornwood.cleared && !has('dace') && S.unlocked >= 2) lines.push('Rumour: the Mill Road bandits are holding a prisoner in their stockade.');
+  if (has('dace') && !S.flags.got.lucky_coin) lines.push('Dace could open the old hunting lodge in Thornwood.');
+  return lines.map((l, i) => `<div class="${i ? 'small muted' : ''}" style="${i ? 'margin-top:6px' : ''}">${l}</div>`).join('');
 }
+function boardReady() { return W.BOARD.some(b => E.boardStatus(S, b) === 'ready'); }
 
-// ---------- Story scenes ----------
+// ---------- Story ----------
 function scene(key, then) {
-  const lines = D.STORY[key];
+  const lines = D.STORY[key] || W.STORY2[key];
+  if (!lines) { then && then(); return; }
   S.flags.seen[key] = true; save();
   let i = 0;
   const o = overlay('', 'scene');
@@ -90,6 +114,10 @@ function scene(key, then) {
   };
   show();
 }
+function scenes(list, then) {
+  const next = () => { const k = list.shift(); if (!k) { then && then(); return; } scene(k, next); };
+  next();
+}
 
 // ---------- Screens ----------
 const SCREENS = {};
@@ -103,21 +131,26 @@ SCREENS.title = () => {
     <div style="max-width:320px;margin:36px auto 0">
       ${has ? '<button class="primary big" data-a="continue">Continue</button>' : ''}
       <button class="big ${has ? '' : 'primary'}" data-a="newGame">New game</button>
-      <button class="link" style="margin-top:14px" data-a="importOpen">Load a saved game code</button>
+      <button class="link" style="margin-top:14px" data-a="importFile">Load a backup file</button>
     </div></div>`;
 };
 
 SCREENS.keep = () => {
   const shopName = S.shopTier >= 2 ? 'Hob\'s Trading Post' : 'Supplies';
-  const pts = D.PARTY.some(id => S.heroes[id].points > 0);
+  const pts = S.roster.some(id => S.heroes[id].points > 0);
+  const bench = S.roster.filter(id => !S.party.includes(id));
   return `<div class="topbar"><h1>Emberwake Keep</h1><span class="goldtxt">${S.gold} g</span></div>
-    <p class="muted">${S.shopTier >= 3 ? 'The keep is coming back to life. Hob\'s stall, Bram\'s forge and three beds that are almost dry.' : 'A ruined keep on the hill. Half a roof, a cold forge and three bedrolls.'}</p>
-    <div class="card"><div class="small muted">Next</div><div>${objective()}</div></div>
-    <div class="card">${partyMini(true)}</div>
+    <p class="muted">${S.buildings.yard || S.buildings.kennels ? 'The keep is waking up. ' + [S.buildings.yard ? 'A training yard' : '', S.buildings.kennels ? 'kennels' : ''].filter(Boolean).join(' and ') + ' where there was rubble.' : 'A ruined keep on the hill. Half a roof, a cold forge and some bedrolls.'}</p>
+    <div class="card"><div class="small muted">Next</div>${objective()}</div>
+    <div class="card">${partyMini()}${bench.length ? `<div class="small muted" style="margin-top:6px">On the bench: ${bench.map(heroName).join(', ')}${S.buildings.yard ? ' (training)' : ''}</div>` : ''}</div>
+    ${S.surgeTier ? `<div class="card"><div class="spread small"><b style="color:var(--ember)">Ember Surge${S.surgeTier >= 2 ? ' II' : ''}</b><span class="muted">${S.surge}%</span></div><div class="bar surge" style="margin-top:6px"><i style="width:${S.surge}%"></i></div><div class="small muted" style="margin-top:6px">Builds as you fight and carries over. Save it for a boss or spend it when things get rough.</div></div>` : ''}
     <button class="primary big" data-a="map">Set out</button>
     <div class="grid2" style="margin-top:8px">
       <button data-a="rest">Rest (free)</button>
+      <button data-a="board" class="${boardReady() ? 'gold' : ''}">Noticeboard${boardReady() ? ' ●' : ''}</button>
       <button data-a="party">${pts ? 'Party ●' : 'Party'}</button>
+      ${S.roster.includes('hesk') ? `<button data-a="creatures">Creatures (${S.creatures.length}/${E.capacity(S)})</button>` : ''}
+      ${S.buildings.yard ? '<button data-a="yard">Training yard</button>' : ''}
       <button data-a="shop">${shopName}</button>
       <button data-a="forge">Bram's forge</button>
       <button data-a="bag">Bag</button>
@@ -125,42 +158,108 @@ SCREENS.keep = () => {
     </div>`;
 };
 
+SCREENS.board = () => {
+  const icon = { done: '<span class="pill good">Done</span>', ready: '<span class="pill on">Ready</span>', locked: '<span class="pill">Locked</span>', future: '<span class="pill">Coming</span>' };
+  const rows = W.BOARD.map(b => {
+    const st = E.boardStatus(S, b);
+    let action = '';
+    if (b.build) {
+      const lvl = S.buildings[b.build] || 0, bd = W.BUILDINGS[b.build], c = E.buildCost(S, b.build);
+      if (st === 'ready' || (st === 'done' && c)) {
+        action = `<div class="small" style="margin-top:6px">${lvl ? 'Upgrade' : 'Build'}: ${bd.levels[lvl].text}<br><span class="muted">${costText(c)}</span></div>
+          <button class="sm gold" style="margin-top:6px" data-a="build" data-v="${b.build}" ${E.canAfford(S, c) ? '' : 'disabled'}>${lvl ? 'Upgrade' : 'Build'}</button>`;
+      }
+    }
+    return `<div style="${st === 'locked' || st === 'future' ? 'opacity:.7' : ''}"><div class="spread"><b>${b.name}</b>${icon[st]}</div>
+      <div class="small muted">${st === 'done' && b.build ? W.BUILDINGS[b.build].desc : b.how}</div>${action}</div>`;
+  }).join('');
+  return `<div class="topbar"><h1>Noticeboard</h1><button class="sm" data-a="keep">Back</button></div>
+    <p class="muted">What's been done, what's next and what's still out there.</p>
+    <div class="card list">${rows}</div>`;
+};
+
 SCREENS.map = () => {
   const rows = D.AREAS.map((a, i) => {
     const st = S.areas[a.id], open = i < S.unlocked;
     if (!open) return `<div class="card" style="opacity:.5"><div class="spread"><b class="serif">???</b><span class="pill">Locked</span></div><p class="muted">Clear ${D.AREAS[i - 1].name} first.</p></div>`;
+    const ex = E.explored(S, a.id);
     return `<div class="card"><div class="spread"><b class="serif" style="font-size:1.1rem">${a.name}</b>
       <span class="pill ${st.cleared ? 'good' : 'on'}">${st.cleared ? 'Cleared' : 'Lv ' + a.lvl[0] + ' to ' + a.lvl[1]}</span></div>
       <p class="muted">${a.desc}</p>
-      <div class="bar xp"><i style="width:${pct(st.progress, a.steps)}%"></i></div>
-      <div class="spread small muted" style="margin-top:4px"><span>${st.cleared ? 'Roam to train and gather' : `Path ${st.progress}/${a.steps}`}</span><span>${D.MATS[a.mat].name} here</span></div>
-      <button class="big ${st.cleared ? '' : 'primary'}" data-a="enter" data-v="${a.id}">${st.cleared ? 'Roam' : st.progress ? 'Carry on' : 'Explore'}</button></div>`;
+      <div class="bar xp"><i style="width:${ex}%"></i></div>
+      <div class="spread small muted" style="margin-top:4px"><span>${ex}% explored</span><span>${D.MATS[a.mat].name} here</span></div>
+      <button class="big ${st.cleared ? '' : 'primary'}" data-a="enter" data-v="${a.id}">${ex > 10 ? 'Go back' : 'Explore'}</button></div>`;
   }).join('');
   return `<div class="topbar"><h1>Where to?</h1><button class="sm" data-a="keep">Keep</button></div>${rows}`;
 };
 
+// Node icons, drawn small in white.
+const ICON = {
+  start: '<path d="M-2.6 1.6v-2.4l2.6-2 2.6 2v2.4z" fill="#fff"/>',
+  fight: '<path d="M-2.6-2.6l5.2 5.2M2.6-2.6l-5.2 5.2" stroke="#fff" stroke-width="1.1"/>',
+  treasure: '<rect x="-2.6" y="-1.8" width="5.2" height="3.8" rx=".6" fill="#fff"/><rect x="-2.6" y="-.6" width="5.2" height=".7" fill="#00000066"/>',
+  gather: '<path d="M-2.4 2.4C-2.4-1.6 0-2.8 2.6-2.6 2.6 0.4 1 2.4-2.4 2.4z" fill="#fff"/>',
+  camp: '<path d="M-3 2.4L0-2.8 3 2.4z" fill="#fff"/>',
+  event: '<text y="2" text-anchor="middle" font-size="5.5" font-weight="700" fill="#fff">?</text>',
+  den: '<circle cx="-1.6" cy="-1.4" r=".9" fill="#fff"/><circle cx="1.6" cy="-1.4" r=".9" fill="#fff"/><circle cx="0" cy="1.2" r="1.5" fill="#fff"/>',
+  quest: '<text y="2" text-anchor="middle" font-size="5.5" font-weight="700" fill="#fff">!</text>',
+  boss: '<path d="M-3 2V-1.6l1.5 1.4L0-2.6l1.5 2.4L3-1.6V2z" fill="#fff"/>',
+  lock: '<rect x="-2" y="-.4" width="4" height="3" rx=".4" fill="#fff"/><path d="M-1.2-.4v-1a1.2 1.2 0 0 1 2.4 0v1" stroke="#fff" stroke-width=".8" fill="none"/>',
+};
+const NODE_COL = { start: '#5a6a8a', fight: '#b4442f', treasure: '#c8952a', gather: '#4f8a3a', camp: '#2f7d6f', event: '#7a5ab8', den: '#a0642a', quest: '#d4a630', boss: '#8a1a3a' };
+const X = x => 10 + x * 20, Y = y => 8 + y * 13;
+function mapSVG(id) {
+  const m = E.map(id), st = E.mapState(S, id), rev = E.revealed(S, id);
+  let lines = '', nodes = '';
+  for (const [a, b] of m.edges) {
+    if (!rev.has(a) || !rev.has(b)) continue;
+    const na = E.node(id, a), nb = E.node(id, b);
+    const walked = st.visited[a] && st.visited[b];
+    lines += `<line x1="${X(na.x)}" y1="${Y(na.y)}" x2="${X(nb.x)}" y2="${Y(nb.y)}" stroke="${walked ? '#8a8470' : '#4a4a5a'}" stroke-width="${walked ? 1.1 : .8}" ${walked ? '' : 'stroke-dasharray="1.6 1.4"'}/>`;
+  }
+  for (const n of m.nodes) {
+    if (!rev.has(n.id)) continue;
+    const here = st.at === n.id, done = st.done[n.id] || (n.t === 'boss' && S.areas[id].cleared);
+    const blocked = !E.meets(S, n.need) && !st.done[n.id];
+    const visited = st.visited[n.id];
+    const col = blocked ? '#3a3a48' : NODE_COL[n.t];
+    const dim = (done && n.t !== 'den' && n.t !== 'camp' && n.t !== 'gather' && n.t !== 'quest') || (n.t === 'gather' && st.used[n.id]);
+    nodes += `<g transform="translate(${X(n.x)} ${Y(n.y)})" data-a="node" data-v="${n.id}" style="cursor:pointer">
+      ${here ? '<circle r="7.6" fill="none" stroke="#ffd76a" stroke-width="1.2"><animate attributeName="r" values="7;8.2;7" dur="1.6s" repeatCount="indefinite"/></circle>' : ''}
+      <circle r="9" fill="transparent"/>
+      <circle r="5.4" fill="${col}" stroke="${visited ? '#00000088' : '#ffffff55'}" stroke-width=".6" opacity="${dim ? .45 : 1}"/>
+      <g opacity="${dim ? .5 : 1}">${blocked ? ICON.lock : ICON[n.t] || ''}</g>
+      ${!visited && !blocked ? '<circle cx="4" cy="-4" r="1.3" fill="#ffd76a"/>' : ''}</g>`;
+  }
+  return `<svg class="mapsvg" viewBox="0 0 100 ${Y(7) + 8}">${lines}${nodes}</svg>`;
+}
+
 SCREENS.area = () => {
-  const a = D.AREAS[E.areaIndex(view.id)], st = S.areas[a.id];
-  const atBoss = !st.cleared && st.progress >= a.steps;
+  const id = view.id, a = E.area(id), st = E.mapState(S, id), n = E.node(id, st.at);
   const bossName = D.ENEMIES[a.boss[0].t].name;
-  const lvl = Math.round(D.PARTY.reduce((s, id) => s + S.heroes[id].lvl, 0) / 3);
-  const allKo = D.PARTY.every(id => S.heroes[id].hp <= 0);
+  const allKo = S.party.every(h => S.heroes[h].hp <= 0);
+  const acts = [];
+  if (n.t === 'boss' && !S.areas[id].cleared) acts.push(`<button class="primary big" data-a="boss" ${allKo ? 'disabled' : ''}>Face ${bossName}</button>`);
+  if (n.t === 'den' && st.done[n.id]) acts.push(`<button class="big gold" data-a="hunt" ${allKo ? 'disabled' : ''}>Hunt for beasts to tame</button>`);
+  if (n.t === 'quest') acts.push('<button class="big gold" data-a="talk">Talk</button>');
+  if (n.t === 'event' && !st.done[n.id]) acts.push('<button class="big gold" data-a="eventGo">Look closer</button>');
+  acts.push(`<button class="big" data-a="train" ${allKo ? 'disabled' : ''}>Look for a fight</button>`);
   return `<div class="topbar"><h1>${a.name}</h1><span class="goldtxt">${S.gold} g</span></div>
-    <div class="bar xp"><i style="width:${pct(st.progress, a.steps)}%"></i></div>
-    <div class="spread small muted" style="margin:4px 0 8px"><span>${st.cleared ? 'Cleared. Roaming.' : `Path ${st.progress}/${a.steps}`}</span><span>Enemies Lv ${a.lvl[0]} to ${a.lvl[1] + (st.cleared ? 1 : 0)}</span></div>
-    <div class="card"><div class="eventtxt">${view.msg || esc(a.desc)}</div></div>
-    <div class="card">${partyMini(true)}</div>
-    ${atBoss ? `<div class="card" style="border-color:var(--ember)"><b class="serif">${bossName}</b><p class="muted">Waits at the end of the path. Suggested level ${a.boss[0].lvl}. Your party averages ${lvl}. Rest first, it's free at the keep.</p>
-       <button class="primary big" data-a="boss" ${allKo ? 'disabled' : ''}>Face ${bossName}</button></div>`
-      : `<button class="primary big" data-a="explore" ${allKo ? 'disabled' : ''}>${st.cleared ? 'Roam' : 'Press on'}</button>`}
-    ${atBoss ? `<button class="big" data-a="explore" data-v="train" ${allKo ? 'disabled' : ''}>Train here first</button>` : ''}
+    <div class="spread small muted"><span>${E.explored(S, id)}% explored</span><span>Enemies Lv ${a.lvl[0]} to ${a.lvl[1] + (S.areas[id].cleared ? 1 : 0)}</span></div>
+    <div class="mapwrap">${mapSVG(id)}</div>
+    <div class="small muted" style="text-align:center;margin:-2px 0 6px">Tap a spot next to you to move. Gold dots are unexplored.</div>
+    <div class="card"><div class="spread"><b class="serif" style="font-size:1.05rem">${n.name}</b>${n.t === 'boss' && !S.areas[id].cleared ? `<span class="pill bad">Suggested Lv ${a.boss[0].lvl}</span>` : ''}</div>
+      <div class="muted small">${n.desc}</div>
+      ${view.msg ? `<div class="eventtxt" style="margin-top:8px">${view.msg}</div>` : ''}</div>
+    ${partyStrip()}
+    ${acts.join('')}
     <div class="grid3" style="margin-top:8px"><button data-a="party">Party</button><button data-a="bag">Bag</button><button data-a="keep">Keep</button></div>`;
 };
 
 SCREENS.party = () => {
-  const id = view.hero || 'bram', tab = view.tab || 'stats';
+  const id = view.hero || S.party[0], tab = view.tab || 'stats';
+  if (tab === 'lineup') return partyFrame(lineupHTML());
   const h = S.heroes[id], st = E.heroStats(S, id), def = D.HEROES[id];
-  const tabs = ['stats', 'talents', 'gear', 'skills'].map(t => `<button class="${t === tab ? 'on' : ''}" data-a="ptab" data-v="${t}">${t === 'talents' && h.points ? 'Talents ●' : t[0].toUpperCase() + t.slice(1)}</button>`).join('');
   let body = '';
   if (tab === 'stats') {
     body = `<div class="card"><div class="spread"><b class="serif" style="font-size:1.15rem">${def.name}</b><span class="muted">${def.role}</span></div>
@@ -171,6 +270,8 @@ SCREENS.party = () => {
         <div><span>HP</span><b>${h.hp}/${st.maxHp}</b></div><div><span>MP</span><b>${h.mp}/${st.maxMp}</b></div>
         ${['str', 'mag', 'def', 'res', 'spd', 'crit'].map(k => `<div><span>${STAT_NAMES[k]}</span><b>${st[k]}</b></div>`).join('')}
       </div>
+      ${S.surgeTier ? `<p class="small" style="margin-top:10px"><b style="color:var(--ember)">Surge: ${D.SKILLS[D.SURGE[id]].name}</b> <span class="muted">${D.SKILLS[D.SURGE[id]].desc}</span></p>` : ''}
+      ${(def.innate || []).map(s => `<p class="small"><b>${D.SKILLS[s].name}</b> <span class="muted">${D.SKILLS[s].desc}</span></p>`).join('')}
       <p class="muted" style="margin-top:10px">Talent points: <b style="color:var(--gold)">${h.points}</b>. Two per level, plus any Tomes of Insight you find.</p></div>`;
   } else if (tab === 'talents') {
     body = `<div class="card"><div class="spread"><b>Talent points</b><span class="pill on">${h.points}</span></div>
@@ -196,7 +297,7 @@ SCREENS.party = () => {
     }).join('')}</div>
     ${view.slot ? slotPicker(id, view.slot) : ''}`;
   } else {
-    const skills = st.skills.filter(s => s !== 'attack');
+    const skills = st.skills.filter(s => s !== 'attack' && !(def.innate || []).includes(s));
     body = `<div class="card"><p class="muted small">Skills get stronger the more you use them. Each mastery star adds 10% power.</p>
       ${skills.length ? skills.map(s => {
         const sk = D.SKILLS[s], uses = h.mastery[s] || 0, lv = E.masteryLevel(uses), nextAt = E.MASTERY[lv];
@@ -204,10 +305,28 @@ SCREENS.party = () => {
           <div class="small muted">${sk.mp || 0} MP. ${sk.desc || ''} Used ${uses} times${nextAt ? `, next star at ${nextAt}` : ', fully mastered'}.</div></div>`;
       }).join('') : '<p class="muted">No skills yet. Learn some in Talents.</p>'}</div>`;
   }
-  return `<div class="topbar"><h1>Party</h1><button class="sm" data-a="back">Back</button></div>
-    <div class="herotabs">${D.PARTY.map(pid => `<button class="${pid === id ? 'on' : ''}" data-a="phero" data-v="${pid}">${img(D.HEROES[pid].sprite, 3)}<span class="small">${D.HEROES[pid].name}${S.heroes[pid].points ? ' ●' : ''}</span></button>`).join('')}</div>
-    <div class="tabs">${tabs}</div>${body}`;
+  return partyFrame(body, id);
 };
+function partyFrame(body, id) {
+  const tab = view.tab || 'stats';
+  const tabs = ['stats', 'talents', 'gear', 'skills', 'lineup'].map(t => {
+    const dot = t === 'talents' && id && S.heroes[id].points;
+    return `<button class="${t === tab ? 'on' : ''}" data-a="ptab" data-v="${t}">${t === 'lineup' ? 'Line-up' : t[0].toUpperCase() + t.slice(1)}${dot ? ' ●' : ''}</button>`;
+  }).join('');
+  return `<div class="topbar"><h1>Party</h1><button class="sm" data-a="back">Back</button></div>
+    ${tab === 'lineup' ? '' : `<div class="herotabs">${S.roster.map(pid => `<button class="${pid === id ? 'on' : ''}" data-a="phero" data-v="${pid}">${img(D.HEROES[pid].sprite, 2)}<span class="small">${heroName(pid)}${S.heroes[pid].points ? ' ●' : ''}</span></button>`).join('')}</div>`}
+    <div class="tabs">${tabs}</div>${body}`;
+}
+function lineupHTML() {
+  const bench = S.roster.filter(id => !S.party.includes(id));
+  const c = E.creatureOf(S, S.companion);
+  return `<div class="card"><h2>In the party</h2><p class="muted small">Three go out. Who you take decides which locked places you can open: Fire burns through brambles, Dace picks locks, Hesk can get near wild beasts.</p>
+    ${S.party.map(id => `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow">${heroRow(id)}</div>
+      ${bench.length ? `<button class="sm" data-a="swapOut" data-v="${id}">Swap</button>` : ''}</div>`).join('')}</div>
+    ${bench.length ? `<div class="card"><h2>On the bench</h2><p class="muted small">${S.buildings.yard ? `Bench heroes earn ${Math.round(W.YARD_RATE[S.buildings.yard] * 100)}% of fight XP at the training yard.` : 'Build a training yard so bench heroes earn XP while you fight.'} Heroes behind the leader always earn bonus XP to catch up.</p>
+      ${bench.map(id => `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow">${heroRow(id)}</div><button class="sm gold" data-a="swapIn" data-v="${id}">Bring in</button></div>`).join('')}</div>` : '<div class="card muted small">Nobody on the bench yet. Recruits will join as you find them.</div>'}
+    ${S.roster.includes('hesk') ? `<div class="card"><h2>Creature</h2>${c ? creatureRow(c) : '<p class="muted">None chosen.</p>'}<button class="sm" style="margin-top:8px" data-a="creatures">Change creature</button></div>` : ''}`;
+}
 
 function gearDesc(g) {
   const d = D.GEAR[g.id];
@@ -230,13 +349,46 @@ function slotPicker(heroId, slot) {
   return `<div class="card"><h2>Choose ${slot}</h2>
     ${items.length ? items.map(g => {
       const by = E.equippedBy(S, g.uid);
-      return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="spread"><div class="grow"><b>${E.gearName(g)}</b>${by ? ` <span class="pill">${D.HEROES[by].name}</span>` : ''}
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="spread"><div class="grow"><b>${E.gearName(g)}</b>${by ? ` <span class="pill">${heroName(by)}</span>` : ''}
         <div class="small muted">${gearDesc(g)}</div><div class="small">${deltaFor(heroId, slot, g.uid)}</div></div>
         <button class="sm gold" data-a="equip" data-v="${g.uid}">Equip</button></div></div>`;
     }).join('') : '<p class="muted">Nothing else to wear here. Buy more from the shop or find it out there.</p>'}
     ${slot === 'charm' && S.heroes[heroId].equip.charm ? '<button class="sm" data-a="equip" data-v="none">Take off charm</button>' : ''}
     <button class="link" data-a="slot" data-v="">Close</button></div>`;
 }
+
+SCREENS.creatures = () => {
+  const cap = E.capacity(S);
+  const list = S.creatures.map(c => {
+    const st = E.creatureStats(c), t = c.tally, total = t.attack + t.guard + t.support;
+    const lean = ['attack', 'guard', 'support'].sort((a, b) => t[b] - t[a])[0];
+    const evo = c.form ? `<div class="small" style="color:var(--gold)">Evolved: ${W.STANCES[c.form].name} form</div>`
+      : `<div class="small muted">Evolves at level ${W.EVO_LVL}. ${total ? `Leaning ${W.STANCES[lean].name} (${t.attack} attack, ${t.guard} guard, ${t.support} support turns), which would make it a <b>${W.CREATURES[c.sp].evo[lean]}</b>.` : 'Its stance in battle decides what it becomes.'}</div>`;
+    return `<div class="card"><div class="spread"><div class="row">${img(E.creatureSprite(c), 3)}<div><b>${E.creatureName(c)}</b><div class="small muted">Lv ${c.lvl} · HP ${c.hp}/${st.maxHp} · STR ${st.str} · MAG ${st.mag} · DEF ${st.def}</div></div></div>
+      ${S.companion === c.cid ? '<span class="pill good">With you</span>' : `<button class="sm gold" data-a="companion" data-v="${c.cid}">Take along</button>`}</div>
+      <div class="bar xp" style="margin:8px 0 4px"><i style="width:${pct(c.xp, E.xpNext(c.lvl))}%"></i></div>${evo}
+      <div class="row" style="margin-top:8px">${Object.keys(W.STANCES).map(s => `<button class="sm ${c.stance === s ? 'gold' : ''}" data-a="stance" data-v="${c.cid}:${s}">${W.STANCES[s].name}</button>`).join('')}
+      <button class="link small" data-a="release" data-v="${c.cid}">Release</button></div>
+      <div class="small muted" style="margin-top:4px">${W.STANCES[c.stance].desc}</div></div>`;
+  }).join('');
+  return `<div class="topbar"><h1>Creatures</h1><button class="sm" data-a="back">Back</button></div>
+    <p class="muted">${S.creatures.length} of ${cap} places. Hesk can tame a beast in battle once it's badly hurt. One creature fights beside you and earns XP. ${S.buildings.kennels >= 2 ? 'The rest earn half XP in the kennels.' : ''}</p>
+    ${list || '<div class="card muted">No creatures yet.</div>'}
+    ${S.buildings.kennels < 2 ? '<button class="big" data-a="board">More room: build kennels on the noticeboard</button>' : ''}`;
+};
+
+SCREENS.yard = () => {
+  const cost = E.sparCost(S);
+  return `<div class="topbar"><h1>Training yard</h1><span class="goldtxt">${S.gold} g</span></div>
+    <p class="muted">Heroes on the bench earn ${Math.round(W.YARD_RATE[S.buildings.yard] * 100)}% of fight XP here. Anyone behind the leader earns bonus XP in every fight. A sparring session gives a big chunk of XP to one hero, once each per rest.</p>
+    <div class="card list">${S.roster.map(id => {
+      const h = S.heroes[id];
+      return `<div class="spread"><div class="grow"><b>${heroName(id)}</b> <span class="muted small">Lv ${h.lvl}${S.party.includes(id) ? '' : ', bench'}</span>
+        <div class="bar xp" style="margin-top:4px"><i style="width:${pct(h.xp, E.xpNext(h.lvl))}%"></i></div></div>
+        <button class="sm gold" data-a="spar" data-v="${id}" ${S.spar[id] || S.gold < cost ? 'disabled' : ''}>${S.spar[id] ? 'Done' : `Spar ${cost} g (+${E.sparXp(S, id)} XP)`}</button></div>`;
+    }).join('')}</div>
+    <button class="big" data-a="keep">Back</button>`;
+};
 
 SCREENS.shop = () => {
   const tab = view.tab || 'buy';
@@ -270,10 +422,9 @@ SCREENS.forge = () => {
   const list = S.gear.slice().sort((a, b) => (E.equippedBy(S, b.uid) ? 1 : 0) - (E.equippedBy(S, a.uid) ? 1 : 0)).map(g => {
     const c = E.forgeCost(g), by = E.equippedBy(S, g.uid);
     const next = c ? E.gearStats({ id: g.id, plus: g.plus + 1 }) : null;
-    const costTxt = c ? `${c.gold} g, ` + Object.keys(c.mats).map(m => `<span class="${(S.mats[m] || 0) >= c.mats[m] ? '' : 'down'}">${c.mats[m]} ${D.MATS[m].name} (${S.mats[m] || 0})</span>`).join(', ') : '';
-    return `<div><div class="spread"><div class="grow"><b>${E.gearName(g)}</b>${by ? ` <span class="pill">${D.HEROES[by].name}</span>` : ''}
+    return `<div><div class="spread"><div class="grow"><b>${E.gearName(g)}</b>${by ? ` <span class="pill">${heroName(by)}</span>` : ''}
       <div class="small muted">${gearDesc(g)}</div>
-      ${c ? `<div class="small">Next: <span class="up">${statLine(next)}</span></div><div class="small muted">${costTxt}</div>` : '<div class="small" style="color:var(--gold)">Fully forged</div>'}</div>
+      ${c ? `<div class="small">Next: <span class="up">${statLine(next)}</span></div><div class="small muted">${costText(c)}</div>` : '<div class="small" style="color:var(--gold)">Fully forged</div>'}</div>
       ${c && Object.keys(D.GEAR[g.id].stats || {}).length ? `<button class="sm gold" data-a="forgeIt" data-v="${g.uid}" ${E.canForge(S, g) ? '' : 'disabled'}>Forge</button>` : ''}</div></div>`;
   }).join('');
   return `<div class="topbar"><h1>Bram's forge</h1><span class="goldtxt">${S.gold} g</span></div>
@@ -284,12 +435,12 @@ SCREENS.forge = () => {
 SCREENS.bag = () => {
   const items = Object.keys(D.ITEMS).filter(k => S.bag[k] > 0);
   const casters = [];
-  for (const id of D.PARTY) {
+  for (const id of S.roster) {
     const st = E.heroStats(S, id);
     for (const s of st.skills) if (['heal', 'mass_heal', 'raise', 'second_wind', 'sanctuary'].includes(s)) casters.push({ id, s });
   }
   return `<div class="topbar"><h1>Bag</h1><button class="sm" data-a="back">Back</button></div>
-    <div class="card">${partyMini(true)}</div>
+    <div class="card">${partyMini()}</div>
     <div class="card"><h2>Items</h2><div class="list">${items.length ? items.map(k => {
       const it = D.ITEMS[k], field = !it.bomb && !it.flee && !it.cure;
       return `<div class="spread"><div class="grow"><b>${it.name}</b> <span class="muted small">× ${S.bag[k]}</span><div class="small muted">${it.desc}</div></div>
@@ -297,7 +448,7 @@ SCREENS.bag = () => {
     }).join('') : '<p class="muted">Empty.</p>'}</div></div>
     ${casters.length ? `<div class="card"><h2>Healing magic</h2><div class="list">${casters.map(c => {
       const sk = D.SKILLS[c.s];
-      return `<div class="spread"><div class="grow"><b>${sk.name}</b> <span class="muted small">${D.HEROES[c.id].name}, ${sk.mp} MP (has ${S.heroes[c.id].mp})</span></div>
+      return `<div class="spread"><div class="grow"><b>${sk.name}</b> <span class="muted small">${heroName(c.id)}, ${sk.mp} MP (has ${S.heroes[c.id].mp})</span></div>
         <button class="sm gold" data-a="castField" data-v="${c.id}:${c.s}">Cast</button></div>`;
     }).join('')}</div></div>` : ''}
     <div class="card"><h2>Materials</h2>${Object.keys(D.MATS).map(m => `<span class="pill">${D.MATS[m].name} ${S.mats[m] || 0}</span>`).join(' ')}</div>`;
@@ -308,9 +459,10 @@ SCREENS.settings = () => `<div class="topbar"><h1>Settings</h1><button class="sm
     <button class="${S.opts.speed !== 2 ? 'gold' : ''}" data-a="speed" data-v="1">Normal</button>
     <button class="${S.opts.speed === 2 ? 'gold' : ''}" data-a="speed" data-v="2">Fast</button></div>
     <p class="muted small">Auto battle can be switched on and off during any fight. Handy for training.</p></div>
-  <div class="card"><h2>Your save</h2><p class="muted small">The game saves itself on this phone after every step. Browsers can clear saved data, so copy a save code now and then and keep it somewhere safe, like a note or an email to yourself.</p>
-    <button data-a="exportSave">Copy a save code</button> <button data-a="importOpen">Load a save code</button></div>
-  <div class="card"><h2>Record</h2><p class="muted small">${S.stats.wins} fights won of ${S.stats.battles}. ${S.stats.steps} steps explored.</p></div>
+  <div class="card"><h2>Your save</h2><p class="muted small">The game saves itself on this phone after every step. Browsers can clear saved data, so save a backup file now and then. On Android it opens the share sheet: send it to Drive, email or a chat with yourself.</p>
+    <button class="primary" data-a="exportSave">Save a backup file</button> <button data-a="importFile">Load a backup file</button>
+    <div style="margin-top:10px"><button class="link small" data-a="importOpen">Paste a save code instead</button></div></div>
+  <div class="card"><h2>Record</h2><p class="muted small">${S.stats.wins} fights won of ${S.stats.battles}. ${S.stats.steps} moves on the map.</p></div>
   <div class="card"><h2>Start again</h2><p class="muted small">Wipes this save.</p><button data-a="wipe" style="border-color:var(--bad);color:var(--bad)">New game</button></div>`;
 
 // ---------- Actions ----------
@@ -318,32 +470,77 @@ const ACT = {};
 ACT.newGame = () => {
   if (load() && !confirm('Start a new game? Your current save will be replaced.')) return;
   S = E.newGame(); save();
-  scene('intro', () => { go('keep'); toast('Tip: you can rest at the keep for free, any time.', 3000); });
+  scene('intro', () => { go('keep'); toast('Check the Noticeboard to see what you can unlock.', 3200); });
 };
-ACT.continue = () => { S = load(); if (!S.opts) S.opts = { speed: 1 }; E.clampParty(S); go('keep'); };
+function boot(obj) {
+  S = E.migrate(obj);
+  if (!S.opts) S.opts = { speed: 1 };
+  E.clampParty(S); save();
+}
+ACT.continue = () => {
+  const old = load();
+  const wasV1 = old && (!old.v || old.v < 2);
+  boot(old);
+  go('keep');
+  if (wasV1) overlay(`<div class="sheet"><h2>Emberwake has changed</h2><p>Areas are now maps you explore, there are people to recruit, creatures to tame, Ember Surge and a noticeboard of things to unlock.</p>
+    <p class="muted small">Your heroes, levels, gear, gold and cleared areas are kept. Maps start fresh, so there's treasure to find even in places you've cleared.</p>
+    <button class="primary big" data-a="closeOv">Let's see</button></div>`, 'center');
+};
 ACT.keep = () => go('keep');
 ACT.map = () => go('map');
-ACT.rest = () => { E.restParty(S); toast('The party rests. Everyone is back to full.'); render(); };
-ACT.party = () => go('party', { hero: view.hero || 'bram', tab: 'stats', from: view.name === 'party' ? view.from : view.name, fromId: view.id });
+ACT.board = () => go('board');
+ACT.yard = () => go('yard');
+ACT.creatures = () => go('creatures', { from: view.name === 'creatures' ? view.from : view.name, fromId: view.id, fromTab: view.tab });
+ACT.rest = () => { E.restParty(S); toast('The party rests. Everyone is back to full, and foraging spots have grown back.'); render(); };
+ACT.party = () => go('party', { hero: S.party[0], tab: 'stats', from: view.name === 'party' ? view.from : view.name, fromId: view.id });
 ACT.bag = () => go('bag', { from: view.name, fromId: view.id });
-ACT.back = () => { if (view.from === 'area') go('area', { id: view.fromId }); else go(view.from || 'keep'); };
+ACT.back = () => {
+  if (view.from === 'area') go('area', { id: view.fromId });
+  else if (view.from === 'party') go('party', { hero: S.party[0], tab: view.fromTab || 'lineup', from: 'keep' });
+  else go(view.from || 'keep');
+};
 ACT.shop = () => go('shop', { tab: 'buy' });
 ACT.forge = () => go('forge');
 ACT.settings = () => go('settings');
 ACT.phero = v => { view.hero = v; view.slot = null; render(); };
-ACT.ptab = v => { view.tab = v; view.slot = null; render(); };
+ACT.ptab = v => { view.tab = v; view.slot = null; if (!view.hero) view.hero = S.party[0]; render(); };
 ACT.stab = v => { view.tab = v; render(); };
 ACT.learn = v => {
   if (E.learnTalent(S, view.hero, v)) {
     const r = S.heroes[view.hero].talents[v], rk = D.TREES[v].ranks[r - 1];
-    toast(`${D.HEROES[view.hero].name} learned ${rk.skill ? D.SKILLS[rk.skill].name : rk.text}`);
+    toast(`${heroName(view.hero)} learned ${rk.skill ? D.SKILLS[rk.skill].name : rk.text}`);
     view.open = v; render();
   }
 };
 ACT.slot = v => { view.slot = v || null; render(); };
-ACT.equip = v => {
-  E.equip(S, view.hero, view.slot, v === 'none' ? null : +v);
-  view.slot = null; render();
+ACT.equip = v => { E.equip(S, view.hero, view.slot, v === 'none' ? null : +v); view.slot = null; render(); };
+ACT.swapIn = v => {
+  overlay(`<div class="sheet"><h2>Bring in ${heroName(v)} for</h2>${S.party.map(id => `<button class="big" data-a="swapDo" data-v="${v}:${id}">${heroName(id)}</button>`).join('')}<button class="link" data-a="closeOv">Cancel</button></div>`);
+};
+ACT.swapOut = v => {
+  const bench = S.roster.filter(id => !S.party.includes(id));
+  overlay(`<div class="sheet"><h2>Swap ${heroName(v)} for</h2>${bench.map(id => `<button class="big" data-a="swapDo" data-v="${id}:${v}">${heroName(id)}</button>`).join('')}<button class="link" data-a="closeOv">Cancel</button></div>`);
+};
+ACT.swapDo = v => {
+  const [inn, out] = v.split(':');
+  S.party = S.party.map(id => id === out ? inn : id);
+  closeOverlay(); toast(`${heroName(inn)} is in, ${heroName(out)} sits out.`); render();
+};
+ACT.companion = v => { S.companion = +v; toast(E.creatureName(E.creatureOf(S, +v)) + ' comes with you.'); render(); };
+ACT.stance = v => { const [cid, s] = v.split(':'); E.creatureOf(S, +cid).stance = s; render(); };
+ACT.release = v => {
+  const c = E.creatureOf(S, +v);
+  if (!confirm(`Release ${E.creatureName(c)} back into the wild? This can't be undone.`)) return;
+  S.creatures = S.creatures.filter(x => x !== c);
+  if (S.companion === c.cid) S.companion = S.creatures[0] ? S.creatures[0].cid : null;
+  render();
+};
+ACT.build = b => {
+  if (E.build(S, b)) { toast(`${W.BUILDINGS[b].name} built. ${W.BUILDINGS[b].levels[S.buildings[b] - 1].text}`, 3200); render(); }
+};
+ACT.spar = id => {
+  const r = E.spar(S, id);
+  if (r) { toast(`${heroName(id)} spars. +${r.xp} XP${r.levels ? ` · <b style="color:var(--gold)">Level ${S.heroes[id].lvl}!</b>` : ''}`); render(); }
 };
 ACT.buy = k => {
   const it = D.ITEMS[k];
@@ -359,16 +556,17 @@ ACT.buyGear = k => {
   equipPrompt(inst);
 };
 function equipPrompt(inst) {
+  if (!inst) return;
   const slot = D.GEAR[inst.id].slot;
   overlay(`<div class="sheet"><h2>${E.gearName(inst)}</h2><p class="muted small">${gearDesc(inst)}</p><p>Who should use it?</p>
-    ${D.PARTY.map(id => `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow"><b>${D.HEROES[id].name}</b><div class="small">${deltaFor(id, slot, inst.uid)}</div></div>
+    ${S.roster.map(id => `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow"><b>${heroName(id)}</b><div class="small">${deltaFor(id, slot, inst.uid)}</div></div>
       <button class="sm gold" data-a="equipOn" data-v="${id}:${inst.uid}">Equip</button></div>`).join('')}
     <button class="big" data-a="closeOv">Keep it in the bag</button></div>`);
 }
 ACT.equipOn = v => {
   const [id, uid] = v.split(':');
   E.equip(S, id, D.GEAR[E.gearOf(S, +uid).id].slot, +uid);
-  closeOverlay(); toast(`${D.HEROES[id].name} equips it.`); render();
+  closeOverlay(); toast(`${heroName(id)} equips it.`); render();
 };
 ACT.closeOv = () => closeOverlay();
 ACT.sell = v => {
@@ -383,7 +581,7 @@ ACT.useItem = k => {
   const it = D.ITEMS[k];
   if (it.partyHeal) { if (E.fieldItem(S, k)) { toast('Everyone eats. HP and MP restored.'); render(); } return; }
   pickHero(`Use ${it.name} on`, id => {
-    if (E.fieldItem(S, k, id)) { toast(`${it.name} used on ${D.HEROES[id].name}`); render(); }
+    if (E.fieldItem(S, k, id)) { toast(`${it.name} used on ${heroName(id)}`); render(); }
     else toast('That wouldn\'t do anything.');
   }, it.revive);
 };
@@ -394,72 +592,154 @@ ACT.castField = v => {
   else run(caster);
 };
 function pickHero(title, cb, dead) {
-  overlay(`<div class="sheet"><h2>${title}</h2>${D.PARTY.map(id => {
+  overlay(`<div class="sheet"><h2>${title}</h2>${S.roster.map(id => {
     const h = S.heroes[id], st = E.heroStats(S, id);
-    return `<button class="big" data-a="pickHero" data-v="${id}" ${dead ? (h.hp > 0 ? 'disabled' : '') : (h.hp <= 0 ? 'disabled' : '')}>${D.HEROES[id].name} · HP ${h.hp}/${st.maxHp} · MP ${h.mp}/${st.maxMp}</button>`;
+    return `<button class="big" data-a="pickHero" data-v="${id}" ${dead ? (h.hp > 0 ? 'disabled' : '') : (h.hp <= 0 ? 'disabled' : '')}>${heroName(id)} · HP ${h.hp}/${st.maxHp} · MP ${h.mp}/${st.maxMp}</button>`;
   }).join('')}<button class="link" data-a="closeOv">Cancel</button></div>`);
   ACT.pickHero = id => { closeOverlay(); cb(id); };
 }
 ACT.speed = v => { S.opts.speed = +v; render(); };
+
+// Save files
+const saveCode = () => 'EMBER1.' + btoa(unescape(encodeURIComponent(JSON.stringify(S))));
+function parseCode(t) {
+  const m = String(t || '').match(/EMBER1\.([A-Za-z0-9+/=]+)/);
+  if (!m) return null;
+  try { const o = JSON.parse(decodeURIComponent(escape(atob(m[1])))); return o.heroes && o.areas ? o : null; } catch (e) { return null; }
+}
 ACT.exportSave = async () => {
-  const code = 'EMBER1.' + btoa(unescape(encodeURIComponent(JSON.stringify(S))));
-  try { await navigator.clipboard.writeText(code); toast('Save code copied. Paste it somewhere safe.'); }
-  catch (e) { overlay(`<div class="sheet"><h2>Your save code</h2><p class="muted small">Copy all of this.</p><textarea readonly>${code}</textarea><button class="big" data-a="closeOv">Done</button></div>`); }
+  const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const name = `emberwake-save-${stamp}.txt`, text = saveCode();
+  const file = new File([text], name, { type: 'text/plain' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'Emberwake save' }); toast('Backup sent.'); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+  a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast('Backup file saved to your downloads.');
 };
-ACT.importOpen = () => overlay(`<div class="sheet"><h2>Load a save code</h2><p class="muted small">Paste a code that starts EMBER1. This replaces the game on this phone.</p>
+ACT.importFile = () => {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.txt,text/plain';
+  inp.onchange = () => {
+    const f = inp.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      const obj = parseCode(r.result);
+      if (!obj) { toast('That file isn\'t an Emberwake save.'); return; }
+      if (S && !confirm('Replace the game on this phone with this backup?')) return;
+      boot(obj); toast('Save loaded.'); go('keep');
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+};
+ACT.importOpen = () => overlay(`<div class="sheet"><h2>Paste a save code</h2><p class="muted small">Paste a code that starts EMBER1. This replaces the game on this phone.</p>
   <textarea id="imp"></textarea><button class="primary big" data-a="importGo">Load it</button><button class="link" data-a="closeOv">Cancel</button></div>`);
 ACT.importGo = () => {
-  const t = (document.getElementById('imp').value || '').trim();
-  const m = t.match(/EMBER1\.([A-Za-z0-9+/=]+)/);
-  try {
-    const obj = JSON.parse(decodeURIComponent(escape(atob(m[1]))));
-    if (!obj.heroes || !obj.areas) throw new Error('bad');
-    S = obj; if (!S.opts) S.opts = { speed: 1 }; save(); closeOverlay(); toast('Save loaded.'); go('keep');
-  } catch (e) { toast('That code didn\'t work. Check you copied all of it.'); }
+  const obj = parseCode(document.getElementById('imp').value);
+  if (!obj) { toast('That code didn\'t work. Check you copied all of it, or use a backup file.'); return; }
+  boot(obj); closeOverlay(); toast('Save loaded.'); go('keep');
 };
 ACT.wipe = () => {
-  if (!confirm('Wipe this save and start again? This can\'t be undone unless you copied a save code.')) return;
+  if (!confirm('Wipe this save and start again? This can\'t be undone unless you have a backup file.')) return;
   try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
   S = null; go('title');
 };
-ACT.enter = id => {
-  const st = S.areas[id];
-  const msg = st.cleared ? 'Back on familiar ground. Good for training and gathering.' : null;
-  if (!S.flags.seen[id + '_in']) scene(id + '_in', () => go('area', { id, msg }));
-  else go('area', { id, msg });
-};
 
-const FLAVOUR = {
-  thornwood: { gold: 'tucked in a hollow log', camp: 'A sunny clearing with a clear stream.' },
-  millroad: { gold: 'in a bandit\'s stash under a loose milestone', camp: 'An empty waystation with a fire pit still warm.' },
-  barrows: { gold: 'among grave goods nobody will miss', camp: 'A ring of standing stones the dead won\'t cross.' },
-  fenmire: { gold: 'in a sunken boat', camp: 'A dry hummock with a fisher\'s shelter on it.' },
-  tower: { gold: 'on a fallen Hollow captain', camp: 'A guardroom with a door that locks from the inside.' },
+// ---------- Exploring ----------
+ACT.enter = id => {
+  const st = E.mapState(S, id);
+  const open = () => go('area', { id, msg: null });
+  if (!S.flags.seen[id + '_in']) scene(id + '_in', open); else open();
+  void st;
 };
-ACT.explore = v => {
-  const id = view.id, a = D.AREAS[E.areaIndex(id)], st = S.areas[id];
-  if (v === 'train') {
-    const specs = E.encounter(a, { progress: a.steps, cleared: false });
-    return startBattle(specs, { area: id });
+function areaMsg(msg) { view.msg = msg; render(); }
+ACT.node = nid => {
+  const id = view.id, block = E.moveBlock(S, id, nid);
+  if (block) { if (nid !== E.mapState(S, id).at) toast(block); return; }
+  const r = E.move(S, id, nid);
+  view.msg = null; render();
+  if (r.ambush) startBattle(r.ambush, { area: id, ambush: true, after: arrive });
+  else arrive();
+};
+function arrive() {
+  const id = view.id, a = E.arrive(S, id), st = E.mapState(S, id);
+  switch (a.type) {
+    case 'fight': startBattle(a.enemies, { area: id, node: a.node }); return;
+    case 'treasure':
+      areaMsg(`Found <b class="goldtxt">${a.got.join(', ')}</b>.`);
+      if (a.gearUid) setTimeout(() => equipPrompt(E.gearOf(S, a.gearUid)), 50);
+      return;
+    case 'gather': areaMsg(`Gathered <b>${a.got.join(', ')}</b>. It grows back after you rest at the keep.`); return;
+    case 'camp': {
+      const msg = a.healed ? 'You make camp for a while. <span class="up">Everyone recovers 35% HP and MP.</span>' : 'You\'ve already rested here. Rest at the keep and it will help again.';
+      areaMsg(msg);
+      if (a.talk) scene(a.talk, render);
+      return;
+    }
+    case 'event': runEvent(); return;
+    case 'quest': ACT.talk(); return;
+    case 'boss': areaMsg(`${D.ENEMIES[E.area(id).boss[0].t].name} is here. Rest first if you need to. The keep is free.`); return;
+    default: areaMsg(a.note || null); void st;
   }
-  const ev = E.explore(S, id);
-  const f = FLAVOUR[id];
-  let msg = '';
-  switch (ev.type) {
-    case 'boss': render(); return;
-    case 'battle': return startBattle(ev.enemies, { area: id, advance: ev.advance });
-    case 'treasure': msg = ev.gold ? `Found <b class="goldtxt">${ev.gold} gold</b> ${f.gold}.` : `Found a <b>${D.ITEMS[ev.item].name}</b>.`; break;
-    case 'gather': msg = `Gathered <b>${ev.n} ${D.MATS[ev.mat].name}</b>. Good for the forge.`; break;
-    case 'camp': msg = `${f.camp} The party rests a while. <span class="up">Recovered 30% HP and MP.</span>`; break;
-    case 'tome': msg = '<b style="color:var(--gold)">A Tome of Insight!</b> Everyone reads a little of it. <span class="up">+1 talent point each.</span>'; break;
-    case 'unique': msg = `<b style="color:var(--gold)">Found ${D.GEAR[ev.gear].name}!</b> ${gearDesc({ id: ev.gear, plus: 0 })}.`;
-      setTimeout(() => equipPrompt(S.gear[S.gear.length - 1]), 50); break;
-  }
-  if (!st.cleared && st.progress >= a.steps && ev.type !== 'boss') msg += ` <br><br>The path ends ahead. Something big is waiting.`;
-  view.msg = msg; render();
+}
+function runEvent() {
+  const id = view.id, st = E.mapState(S, id), n = E.node(id, st.at), ev = W.EVENTS[n.ev];
+  scenes([], () => {});
+  let i = 0;
+  const o = overlay('', 'scene');
+  const show = () => {
+    if (i < ev.lines.length) {
+      const [who, text] = ev.lines[i], hero = D.HEROES[who];
+      o.innerHTML = `<div class="dialog">${hero ? `<div class="who">${img(hero.sprite, 3)}${hero.name}</div>` : ''}<div class="text ${hero ? '' : 'narr'}">${esc(text)}</div><div class="next">tap</div></div>`;
+      o.onclick = () => { i++; show(); };
+      return;
+    }
+    o.onclick = null;
+    o.innerHTML = `<div class="dialog"><div class="text narr" style="margin-bottom:10px">What do you do?</div>
+      ${ev.choices.map((c, k) => `<button class="big" data-a="choose" data-v="${k}">${c.label}</button>`).join('')}</div>`;
+  };
+  ACT.choose = k => {
+    const text = E.eventChoice(S, id, n.id, +k);
+    closeOverlay();
+    areaMsg(esc(text || ''));
+  };
+  show();
+}
+ACT.eventGo = () => runEvent();
+ACT.talk = () => {
+  const id = view.id, n = E.node(id, E.mapState(S, id).at);
+  const before = S.roster.length;
+  const key = E.quest(S, n.q);
+  save();
+  scene(key, () => {
+    if (S.roster.length > before) {
+      render();
+      overlay(`<div class="sheet" style="text-align:center">${img(D.HEROES.hesk.sprite, 4)}<h2 style="margin-top:8px">Hesk joins!</h2>
+        <p>She brings a wolf cub that fights beside the party. In battle Hesk can <b>Tame</b> wounded beasts.</p>
+        <p class="muted small">New on the noticeboard: kennels. Swap people in and out from Party, Line-up.</p>
+        <button class="primary big" data-a="closeOv">Brilliant</button></div>`, 'center');
+    } else render();
+  });
+};
+ACT.train = () => {
+  const id = view.id, n = E.node(id, E.mapState(S, id).at);
+  startBattle(E.randomFight(S, id, n), { area: id });
+};
+ACT.hunt = () => {
+  const id = view.id, n = E.node(id, E.mapState(S, id).at), lvl = E.nodeLevel(S, id, n);
+  const k = 1 + Math.floor(Math.random() * 2);
+  const specs = [];
+  for (let i = 0; i < k; i++) specs.push({ t: n.hunt[Math.floor(Math.random() * n.hunt.length)], lvl });
+  startBattle(specs, { area: id });
 };
 ACT.boss = () => {
-  const id = view.id, a = D.AREAS[E.areaIndex(id)];
+  const id = view.id, a = E.area(id);
   const fight = () => startBattle(E.bossSpecs(a), { area: id, boss: true });
   if (!S.flags.seen[id + '_boss']) scene(id + '_boss', fight); else fight();
 };
@@ -473,11 +753,11 @@ document.addEventListener('click', e => {
 
 // ---------- Battle UI ----------
 const BG = {
-  thornwood: ['#6fa0c8', '#b8d4e0', '#2f5a2a', '#1f3d1c'],
-  millroad: ['#e08a5a', '#f0c890', '#6a5a3a', '#4a3e28'],
-  barrows: ['#4a5468', '#8a94a8', '#4a5a4a', '#2e3a30'],
-  fenmire: ['#3a5048', '#6a8478', '#2a3a2a', '#1a261c'],
-  tower: ['#2a2040', '#5a4878', '#3a3448', '#22202c'],
+  thornwood: ['#6fa0c8', '#b8d4e0', '#3a6a32', '#1f3d1c'],
+  millroad: ['#e08a5a', '#f0c890', '#7a6a44', '#4a3e28'],
+  barrows: ['#4a5468', '#8a94a8', '#55665a', '#2e3a30'],
+  fenmire: ['#3a5048', '#6a8478', '#34463a', '#1a261c'],
+  tower: ['#2a2040', '#5a4878', '#463e56', '#22202c'],
 };
 let B = null, ctx = null, pending = null;
 
@@ -494,14 +774,20 @@ function startBattle(specs, c) {
   document.body.appendChild(el);
   document.body.style.overflow = 'hidden';
   drawUnits(); drawBars(); drawCmd();
+  if (c.ambush) banner('Ambush!');
   runBattle();
 }
 function unitHTML(a) {
-  const big = a.side === 'e' && (a.isBoss || B.enemies.length <= 2);
-  const sp = SP.SPRITES[a.sprite] || {};
-  const px = a.side === 'h' ? 4 : Math.round((big ? 4 : 3) * (sp.scale || 1));
-  return `<div class="unit ${a.hp <= 0 ? 'ko' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
-    ${img(a.sprite, px)}
+  let px;
+  if (a.side === 'h') px = a.isCreature ? 3 : 4;
+  else {
+    const big = a.isBoss || B.enemies.filter(e => e.hp > 0).length <= 2;
+    const sp = SP.variant(a.sprite);
+    px = Math.round((big ? 4 : 3) * (sp.scale || 1));
+  }
+  if (a.isCreature) px = Math.round(3 * (SP.variant(a.sprite).scale || 1));
+  return `<div class="unit ${a.hp <= 0 ? 'ko' : ''} ${a.isCreature ? 'pet' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
+    <div class="spr">${img(a.sprite, px)}</div>
     ${a.side === 'e' ? `<div class="uname">${esc(a.name)}</div><div class="hpmini"><i style="width:${pct(a.hp, a.maxHp)}%"></i></div>` : ''}
     <div class="sts"></div></div>`;
 }
@@ -521,9 +807,16 @@ function refreshUnits() {
     const bar = u.querySelector('.hpmini i'); if (bar) bar.style.width = pct(a.hp, a.maxHp) + '%';
     u.querySelector('.sts').textContent = Object.keys(a.statuses).map(s => STATUS[s]).join(' ');
   }
+  const sg = document.getElementById('surgebar');
+  if (sg) { sg.style.width = B.surge + '%'; sg.parentNode.classList.toggle('full', B.surgeReady()); }
 }
 function drawBars(active) {
-  document.getElementById('pbars').innerHTML = B.heroes.map(h => `<div class="prow ${h.hp <= 0 ? 'ko' : ''} ${active === h ? 'active' : ''}" id="r-${h.key}" data-a="tgt" data-v="${h.key}">
+  document.getElementById('pbars').innerHTML = B.heroes.map(h => h.isCreature
+    ? `<div class="prow pet ${h.hp <= 0 ? 'ko' : ''}" id="r-${h.key}" data-a="tgt" data-v="${h.key}">
+        <div><div class="nm">${esc(h.name)}</div><div class="sts">${Object.keys(h.statuses).map(s => STATUS[s]).join(' ')}</div></div>
+        <div style="grid-column:span 2"><div class="num"><span>HP</span><span>${h.hp}/${h.maxHp}</span></div><div class="bar ${h.hp < h.maxHp * .3 ? 'low' : ''}"><i style="width:${pct(h.hp, h.maxHp)}%"></i></div></div>
+        <div class="small muted" style="text-align:right">${W.STANCES[h.stance].name}</div></div>`
+    : `<div class="prow ${h.hp <= 0 ? 'ko' : ''} ${active === h ? 'active' : ''}" id="r-${h.key}" data-a="tgt" data-v="${h.key}">
     <div><div class="nm">${h.name}</div><div class="sts">${Object.keys(h.statuses).map(s => STATUS[s]).join(' ')}</div></div>
     <div><div class="num"><span>HP</span><span>${h.hp}/${h.maxHp}</span></div><div class="bar ${h.hp < h.maxHp * .3 ? 'low' : ''}"><i style="width:${pct(h.hp, h.maxHp)}%"></i></div></div>
     <div><div class="num"><span>MP</span><span>${h.mp}/${h.maxMp}</span></div><div class="bar mp"><i style="width:${pct(h.mp, h.maxMp)}%"></i></div></div>
@@ -532,14 +825,15 @@ function drawBars(active) {
 function updateGauges() {
   for (const h of B.heroes) {
     const r = document.getElementById('r-' + h.key);
-    if (r) r.querySelector('.atb i').style.width = (h.hp > 0 ? h.gauge : 0) + '%';
+    const i = r && r.querySelector('.atb i');
+    if (i) i.style.width = (h.hp > 0 ? h.gauge : 0) + '%';
   }
 }
-function banner(text) {
+function banner(text, big) {
   const b = document.getElementById('banner');
   if (!b) return;
-  b.textContent = text; b.classList.add('show');
-  clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.remove('show'), 900 * (S.opts.speed === 2 ? 0.6 : 1));
+  b.textContent = text; b.classList.add('show'); b.classList.toggle('big', !!big);
+  clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.remove('show'), (big ? 1300 : 900) * (S.opts.speed === 2 ? 0.6 : 1));
 }
 function floatText(a, text, cls) {
   const u = document.getElementById('u-' + a.key);
@@ -559,24 +853,32 @@ async function play(evs) {
   for (const ev of evs) {
     switch (ev.t) {
       case 'say': banner(ev.text); await T(ev.who ? 380 : 650); break;
+      case 'surge': {
+        banner(ev.text, true);
+        const f = document.querySelector('.field'); f.classList.add('surgeflash'); setTimeout(() => f.classList.remove('surgeflash'), 700);
+        refreshUnits(); await T(700); break;
+      }
       case 'dmg':
         floatText(ev.who, ev.n + (ev.crit ? '!' : ''), ev.crit ? 'crit' : '');
         if (ev.weak) floatText(ev.who, 'WEAK', 'label');
         if (ev.resist) floatText(ev.who, 'RESIST', 'label');
         if (ev.dot) floatText(ev.who, STATUS[ev.dot], 'label');
         pulse(ev.who, 'hit'); pulse(ev.who, 'flash');
-        refreshUnits(); drawBars(); await T(330); break;
-      case 'heal': floatText(ev.who, '+' + ev.n, 'heal'); refreshUnits(); drawBars(); await T(300); break;
-      case 'mp': floatText(ev.who, '+' + ev.n + ' MP', 'mp'); drawBars(); await T(300); break;
+        refreshUnits(); drawBars(); await T(300); break;
+      case 'heal': floatText(ev.who, '+' + ev.n, 'heal'); refreshUnits(); drawBars(); await T(280); break;
+      case 'mp': floatText(ev.who, '+' + ev.n + ' MP', 'mp'); drawBars(); await T(280); break;
       case 'revive': floatText(ev.who, 'Back up!', 'heal'); refreshUnits(); drawBars(); await T(400); break;
-      case 'status': floatText(ev.who, STATUS[ev.s], 'label'); refreshUnits(); drawBars(); await T(250); break;
-      case 'immune': floatText(ev.who, 'Immune', 'label'); await T(250); break;
+      case 'status': floatText(ev.who, STATUS[ev.s], 'label'); refreshUnits(); drawBars(); await T(230); break;
+      case 'immune': floatText(ev.who, 'Immune', 'label'); await T(230); break;
       case 'off': refreshUnits(); drawBars(); break;
-      case 'ko': refreshUnits(); drawBars(); await T(350); break;
+      case 'ko': refreshUnits(); drawBars(); await T(330); break;
+      case 'tamed': floatText(ev.who, 'Tamed!', 'heal'); banner(ev.who.name + ' is tamed!', true); await T(900); break;
+      case 'stole': floatText(ev.who, ev.text, 'label'); await T(300); break;
       case 'summon': drawUnits(); pulse(ev.who, 'flash'); banner(ev.who.name + ' joins the fight'); await T(500); break;
       case 'mastery': toast(`${D.SKILLS[ev.skill].name} mastery ${'★'.repeat(ev.lvl)}`); break;
     }
   }
+  refreshUnits();
 }
 async function runBattle() {
   await T(350);
@@ -584,23 +886,22 @@ async function runBattle() {
     const a = B.advance();
     if (!a) break;
     updateGauges();
-    await T(a.side === 'h' ? 180 : 140);
+    await T(a.side === 'h' ? 170 : 130);
     const pre = B.startTurn(a);
     if (pre.length) await play(pre);
     if (B.over) break;
     if (a.hp <= 0) continue;
     let c;
-    if (a.side === 'h') {
+    if (a.isCreature) c = B.creatureChoice(a);
+    else if (a.side === 'h') {
       drawBars(a);
-      document.getElementById('u-' + a.key).classList.add('active');
+      const u0 = document.getElementById('u-' + a.key); if (u0) u0.classList.add('active');
       c = S.opts.auto ? B.autoChoice(a) : await choose(a);
-      const u = document.getElementById('u-' + a.key); if (u) u.classList.remove('active');
-    } else {
-      c = B.enemyChoice(a);
-    }
+      if (u0) u0.classList.remove('active');
+    } else c = B.enemyChoice(a);
     const u = document.getElementById('u-' + a.key);
-    if (u) { u.classList.add('step'); }
-    await T(160);
+    if (u) u.classList.add('step');
+    await T(150);
     const ev = B.act(a, c);
     await play(ev);
     if (u) u.classList.remove('step');
@@ -611,24 +912,26 @@ async function runBattle() {
   endBattle();
 }
 
-// Command menu
-function choose(a) {
-  return new Promise(res => { pending = { a, res, mode: 'main' }; drawCmd(); });
-}
+function choose(a) { return new Promise(res => { pending = { a, res, mode: 'main' }; drawCmd(); }); }
 function resolve(c) {
   const p = pending; pending = null;
   clearTargets(); drawCmd();
   p.res(c);
 }
 function clearTargets() { document.querySelectorAll('.targetable').forEach(x => x.classList.remove('targetable')); }
+function surgeHTML() {
+  if (!S.surgeTier) return '';
+  return `<div class="surgewrap ${B.surgeReady() ? 'full' : ''}"><span>Surge</span><div class="bar surge"><i id="surgebar" style="width:${B.surge}%"></i></div></div>`;
+}
 function drawCmd() {
   const el = document.getElementById('cmd');
   if (!el) return;
   const autoBtn = `<button class="sm autobtn ${S.opts.auto ? 'on' : ''}" data-a="bAuto">Auto ${S.opts.auto ? 'on' : 'off'}</button>`;
-  if (!pending) { el.innerHTML = `<div class="cmdtop"><span class="muted small">${B && B.boss ? 'Boss fight' : ''}</span>${autoBtn}</div>`; return; }
+  if (!pending) { el.innerHTML = `<div class="cmdtop"><span class="muted small">${B && B.boss ? 'Boss fight' : ''}</span>${surgeHTML()}${autoBtn}</div>`; return; }
   const a = pending.a;
   if (pending.mode === 'main') {
-    el.innerHTML = `<div class="cmdtop"><b class="serif">${a.name}'s turn</b>${autoBtn}</div>
+    const surge = B.surgeReady() ? `<button class="surgebtn" data-a="bSurge">EMBER SURGE · ${D.SKILLS[D.SURGE[a.id]].name}</button>` : '';
+    el.innerHTML = `<div class="cmdtop"><b class="serif">${a.name}'s turn</b>${surgeHTML()}${autoBtn}</div>${surge}
       <div class="grid2"><button class="primary" data-a="bAttack">Attack</button><button data-a="bSkills">Skills</button>
       <button data-a="bItems">Items</button><button data-a="bDefend">Defend</button></div>
       ${B.boss ? '' : '<button class="link" style="width:100%;margin-top:6px" data-a="bFlee">Try to run</button>'}`;
@@ -637,19 +940,19 @@ function drawCmd() {
     el.innerHTML = `<div class="cmdtop"><b class="serif">${a.name} · MP ${a.mp}</b><button class="sm" data-a="bBack">Back</button></div>
       ${list.length ? list.map(s => {
         const sk = D.SKILLS[s], cost = B.mpCost(a, sk), lv = E.masteryLevel(S.heroes[a.id].mastery[s]);
-        return `<button class="skill" data-a="bSkill" data-v="${s}" ${a.mp < cost ? 'disabled' : ''}><span>${sk.name} <span style="color:var(--gold);font-size:.75rem">${'★'.repeat(lv)}</span></span><span class="c">${cost} MP</span></button>`;
-      }).join('') : '<p class="muted">No skills yet. Learn talents at the keep or from the Party menu.</p>'}`;
+        return `<button class="skill" data-a="bSkill" data-v="${s}" ${a.mp < cost ? 'disabled' : ''}><span>${sk.name} <span style="color:var(--gold);font-size:.75rem">${'★'.repeat(lv)}</span></span><span class="c">${cost ? cost + ' MP' : ''}</span></button>`;
+      }).join('') : '<p class="muted">No skills yet. Learn talents from the Party menu.</p>'}`;
   } else if (pending.mode === 'items') {
     const list = Object.keys(D.ITEMS).filter(k => S.bag[k] > 0 && !D.ITEMS[k].field);
     el.innerHTML = `<div class="cmdtop"><b class="serif">Items</b><button class="sm" data-a="bBack">Back</button></div>
       ${list.length ? list.map(k => `<button class="skill" data-a="bItem" data-v="${k}"><span>${D.ITEMS[k].name}</span><span class="c">× ${S.bag[k]}</span></button>`).join('') : '<p class="muted">Nothing usable.</p>'}`;
   } else if (pending.mode === 'target') {
     el.innerHTML = `<div class="cmdtop"><b class="serif">${pending.label}: choose a target</b><button class="sm" data-a="bBack">Back</button></div>
-      <p class="muted small">Tap ${pending.kind === 'enemy' ? 'an enemy' : 'a party member'} above.</p>`;
+      <p class="muted small">Tap ${pending.kind === 'enemy' ? 'an enemy' : 'a party member'} above.${pending.hint ? ' ' + pending.hint : ''}</p>`;
   }
 }
-function startTargeting(kind, choice, label) {
-  pending.mode = 'target'; pending.kind = kind; pending.choice = choice; pending.label = label;
+function startTargeting(kind, choice, label, hint) {
+  pending.mode = 'target'; pending.kind = kind; pending.choice = choice; pending.label = label; pending.hint = hint;
   clearTargets();
   const list = kind === 'enemy' ? B.enemies.filter(e => e.hp > 0) : kind === 'deadAlly' ? B.heroes.filter(h => h.hp <= 0) : B.heroes.filter(h => h.hp > 0);
   if (!list.length) { toast('No one to target.'); pending.mode = 'main'; drawCmd(); return; }
@@ -671,8 +974,20 @@ ACT.bItems = () => { pending.mode = 'items'; drawCmd(); };
 ACT.bBack = () => { pending.mode = 'main'; clearTargets(); drawCmd(); };
 ACT.bDefend = () => resolve({ kind: 'defend' });
 ACT.bFlee = () => resolve({ kind: 'flee' });
+ACT.bSurge = () => {
+  const sk = D.SKILLS[D.SURGE[pending.a.id]];
+  if (sk.target === 'enemy') startTargeting('enemy', { kind: 'surge' }, sk.name);
+  else resolve({ kind: 'surge' });
+};
 ACT.bSkill = s => {
   const sk = D.SKILLS[s], c = { kind: 'skill', id: s };
+  if (sk.type === 'tame') {
+    const beasts = B.enemies.filter(e => e.hp > 0 && e.tpl.tame && !e.isBoss);
+    if (!beasts.length) { toast('Nothing here can be tamed.'); return; }
+    const odds = beasts.map(e => `${e.name} ${Math.round(Math.min(90, (0.08 + 0.85 * Math.pow(1 - e.hp / e.maxHp, 1.3)) * 100))}%`).join(', ');
+    startTargeting('enemy', c, 'Tame', `Odds now: ${odds}. Wear them down first.`);
+    return;
+  }
   if (sk.target === 'enemy' || sk.target === 'ally' || sk.target === 'deadAlly') startTargeting(sk.target, c, sk.name);
   else resolve(c);
 };
@@ -689,9 +1004,10 @@ ACT.bAuto = () => {
 
 function endBattle() {
   const res = E.finishBattle(S, B);
-  const wasBoss = ctx.boss, area = ctx.area;
-  if (res.won && ctx.advance) S.areas[area].progress = Math.min(S.areas[area].progress + 1, D.AREAS[E.areaIndex(area)].steps);
-  if (res.won && wasBoss) E.clearArea(S, area);
+  const c = ctx, area = c.area;
+  let nodeOut = null, bossScenes = null;
+  if (res.won && c.node) nodeOut = E.winNode(S, area, c.node);
+  if (res.won && c.boss) bossScenes = E.clearArea(S, area);
   save();
   const close = () => { const b = document.getElementById('battle'); if (b) b.remove(); document.body.style.overflow = ''; B = null; };
   if (res.fled) { close(); go('area', { id: area, msg: 'You got away. Nobody\'s proud of it.' }); return; }
@@ -704,30 +1020,60 @@ function endBattle() {
     return;
   }
   const lines = [];
-  for (const id of D.PARTY) {
-    const xp = res.heroXp[id];
-    const lv = res.levels[id];
-    lines.push(`<div class="spread"><span>${D.HEROES[id].name}</span><span>${xp ? '+' + xp + ' XP' : '<span class="muted">Knocked out, no XP</span>'}${lv ? ` <b style="color:var(--gold)">Level ${S.heroes[id].lvl}!</b>` : ''}</span></div>`);
+  for (const id of S.roster) {
+    const xp = res.heroXp[id], bx = res.bench[id], lv = res.levels[id];
+    if (!xp && !bx && !S.party.includes(id)) continue;
+    lines.push(`<div class="spread"><span>${heroName(id)}${bx ? ' <span class="muted small">(bench)</span>' : ''}</span><span>${xp || bx ? '+' + (xp || bx) + ' XP' : '<span class="muted">Knocked out, no XP</span>'}${lv ? ` <b style="color:var(--gold)">Level ${S.heroes[id].lvl}!</b>` : ''}</span></div>`);
   }
+  if (res.creature) lines.push(`<div class="spread"><span>${res.creature.name}</span><span>+${res.creature.xp} XP${res.creature.ups ? ` <b style="color:var(--gold)">Level ${res.creature.lvl}!</b>` : ''}</span></div>`);
   const loot = [];
   for (const m in res.mats) loot.push(`${res.mats[m]} ${D.MATS[m].name}`);
   for (const i in res.items) loot.push(`${res.items[i]} ${D.ITEMS[i].name}`);
   for (const g of res.gear) loot.push(`<b style="color:var(--gold)">${D.GEAR[g].name}</b>`);
+  if (nodeOut && nodeOut.got && nodeOut.got.length) loot.push(...nodeOut.got.map(x => `<b style="color:var(--gold)">${x}</b>`));
   const anyLevel = Object.keys(res.levels).length;
   overlay(`<div class="sheet"><h2>Victory</h2><div class="list">${lines.join('')}</div>
     <p><span class="goldtxt">+${res.gold} gold</span>${loot.length ? ' · ' + loot.join(', ') : ''}</p>
+    ${res.tamed.length ? `<p style="color:var(--good)"><b>Tamed: ${res.tamed.join(', ')}.</b> Manage creatures from the keep.</p>` : ''}
     ${anyLevel ? '<p class="muted small">New talent points to spend in Party.</p>' : ''}
     <button class="primary big" data-a="afterWin">Continue</button></div>`, 'center');
   ACT.afterWin = () => {
     closeOverlay(); close();
-    const prompts = () => { for (const g of res.gear) { const inst = S.gear.slice().reverse().find(x => x.id === g); if (inst) setTimeout(() => equipPrompt(inst), 60); } };
-    if (wasBoss) { scene(area + '_out', () => { go('keep'); prompts(); if (area !== 'tower') toast('A new area is open on the map.', 3000); }); return; }
-    const st = S.areas[area], a = D.AREAS[E.areaIndex(area)];
-    let msg = 'The fight is won.';
-    if (!st.cleared && st.progress >= a.steps) msg += ' The path ends ahead. Something big is waiting.';
-    go('area', { id: area, msg });
-    prompts();
+    const queue = [];
+    for (const ev of (res.evolved || [])) queue.push(() => evolveScreen(ev, next));
+    for (const g of res.gear) { const inst = S.gear.slice().reverse().find(x => x.id === g); if (inst) queue.push(() => { equipPrompt(inst); ACT.closeOv = () => { closeOverlay(); ACT.closeOv = () => closeOverlay(); next(); }; }); }
+    if (nodeOut && nodeOut.gearUid) queue.push(() => { equipPrompt(E.gearOf(S, nodeOut.gearUid)); ACT.closeOv = () => { closeOverlay(); ACT.closeOv = () => closeOverlay(); next(); }; });
+    function next() {
+      ACT.closeOv = () => closeOverlay();
+      const f = queue.shift();
+      if (f) { f(); return; }
+      if (bossScenes) {
+        scenes(bossScenes.slice(), () => { go('keep'); if (area !== 'tower') toast('A new area is open on the map. Check the noticeboard too.', 3500); });
+        return;
+      }
+      if (nodeOut && nodeOut.scene) {
+        scene(nodeOut.scene, () => {
+          go('area', { id: area, msg: null });
+          if (S.roster.includes('dace') && nodeOut.scene === 'dace_join') overlay(`<div class="sheet" style="text-align:center">${img(D.HEROES.dace.sprite, 4)}<h2 style="margin-top:8px">Dace joins!</h2>
+            <p>He can <b>Steal</b> in battle and pick locks. Take him back to the locked lodge in Thornwood and the toll house on this road.</p>
+            <p class="muted small">Swap him in from Party, Line-up.</p><button class="primary big" data-a="closeOv">Brilliant</button></div>`, 'center');
+        });
+        return;
+      }
+      if (c.after) { go('area', { id: area, msg: null }); c.after(); return; }
+      go('area', { id: area, msg: 'The fight is won.' });
+    }
+    next();
   };
+}
+function evolveScreen(ev, then) {
+  const c = S.creatures.find(x => E.creatureName(x) === ev.to);
+  const sprite = c ? E.creatureSprite(c) : null;
+  overlay(`<div class="sheet" style="text-align:center"><p class="muted">Something is happening to ${esc(ev.from)}...</p>
+    ${sprite ? `<div class="evo">${img(sprite.split('@')[0], 4)}<span>→</span>${img(sprite, 4)}</div>` : ''}
+    <h2>${esc(ev.from)} became a ${esc(ev.to)}!</h2><p class="muted small">${W.STANCES[ev.form].name} form, shaped by how it fought. It's stronger in every way and learned new moves.</p>
+    <button class="primary big" data-a="evoOk">Brilliant</button></div>`, 'center');
+  ACT.evoOk = () => { closeOverlay(); then(); };
 }
 
 // ---------- Boot ----------

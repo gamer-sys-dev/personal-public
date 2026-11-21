@@ -2,8 +2,9 @@
 
 A fantasy party RPG for one player on a phone. Underdog party, turn based fights with ATB gauges, deep character building, training always pays off. Built in layers.
 
-- data.js holds all content (heroes, talent trees, skills, gear, items, enemies, areas, story). engine.js holds the rules with no DOM so it runs in node for balance tests. sprites.js draws pixel art from text maps. game.js is the screens and battle UI.
-- Saves are localStorage on the phone (key emberwake-save-v1), plus a copyable EMBER1. save code in Settings.
+- data.js holds core content (heroes, talent trees, skills, gear, items, enemies, areas, story). world.js holds maps, creatures, events, buildings and the noticeboard. engine.js holds the rules with no DOM so it runs in node for balance tests. sprites.js draws pixel art from text maps. game.js is the screens and battle UI.
+- Saves are localStorage on the phone (key emberwake-save-v1, save version in S.v). Settings saves a backup .txt file (share sheet on Android, download elsewhere) holding an EMBER1. code, and loads it back. Android's clipboard truncates long text, so the file is the main route. E.migrate upgrades older saves.
+- Player feedback after layer one: graphics basic but fine for now, exploring was one button, nothing to aim for, too little story, knocked out heroes fell behind. Wants to keep unlocking new people, creatures, systems and places, not just grind levels.
 - Design rule from the player: no filler. Every side system must feed main progress (gear, talent points, materials, XP).
 - Bump VERSION in sw.js whenever a file changes.
 
@@ -16,9 +17,21 @@ A fantasy party RPG for one player on a phone. Underdog party, turn based fights
 - Battles: ATB with time stopped while choosing (wait mode), weaknesses, statuses, summons and boss phases. Auto battle toggle. Losing sends you to the keep and costs 10% gold, nothing else.
 - Balance target from simulation: about 60 fights for a straight run, bosses won most of the time at arrival level, the final boss needs some training.
 
+## Layer two (21 November 2026)
+
+- Areas are maps of connected spots. Tap a spot next to you to move, or any visited spot to go back. Moving can trigger an ambush. Spot types: fight, treasure, gather (regrows after resting at the keep), camp (heals 35% once per rest, plays party conversations), event with a choice, den (tame beasts, needs Hesk), quest, boss. Some spots need the right party member: Fire for brambles, Dace for locks, Hesk for dens. Thornwood and Mill Road are hand built; the later three are generated from world.js until they get hand built.
+- Recruits: Hesk (beast tamer, Wild tree, innate Tame) via the hermit's hut quest in Thornwood. Dace (cutpurse, Shadow tree, innate Steal) from the bandit stockade on the Mill Road. Roster of five, three in the party, swap from Party, Line-up. Recruits join at the party's level with matching talent points.
+- Creatures: Hesk tames beasts below about half health (odds shown when targeting). One creature fights beside the party under AI with a stance (Attack, Guard, Support). At level 8 it evolves into one of three forms by the stance it used most. Kennel space 2, 4 or 8.
+- Ember Surge: a shared gauge that fills as you deal and take hits and carries between battles. Unlocked by beating Old Tusk; Surge II (1.5x) by beating Rook. Each hero has their own surge move.
+- Keep: noticeboard of goals and unlocks, training yard (bench heroes earn 50% then 80% of fight XP, sparring once per hero per rest), kennels. Heroes behind the leader always earn up to double XP to catch up.
+- Battle field: horizon raised and shadows added so everyone stands on the ground.
+- Balance: bosses toughened (30% more HP, 12% more strength) because the creature and surge made things easier. A bot that plays well now loses one or two fights in a full run.
+
 ## Next layers
 
-- Creature companions that level and evolve by how they're used.
-- Arena ladder with prizes that feed the story.
+- Arena in the market town past Rook's camp, with prize tiers.
+- Defend the keep waves, leading into the war mode.
+- Hand built maps for Barrow Hills, Fenmire and the Tower, with more recruits and side quests.
+- Better art: bigger shaded sprites, idle and attack animations, spell effects.
 - Rebuilding Emberwake (Stronghold style): buildings that unlock shops, training and recruits.
 - War campaigns with archers, swordsmen and cavalry on a grid, taking territory for resources.
