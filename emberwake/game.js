@@ -263,7 +263,7 @@ SCREENS.area = () => {
     const why = !S.party.includes('hesk') ? 'Hesk has to be in the party to tame anything. Swap her in from Party, Line-up.'
       : S.creatures.length >= E.capacity(S) ? `Your kennels are full (${S.creatures.length}/${E.capacity(S)}). Build or expand them on the noticeboard, or release a creature.` : '';
     acts.push(`<div class="card"><b>Beast hunt</b><div class="small muted" style="margin-top:4px">Lives here: ${kinds.map(k => D.ENEMIES[k].name + (S.dex && S.dex[D.ENEMIES[k].tame] ? ' (tamed before)' : ' <b style="color:var(--gold)">(new!)</b>')).join(', ')}.</div>
-      <div class="small" style="margin-top:4px">Wear a beast down, then use Hesk's <b>Tame</b> button. The more hurt it is, the better the odds, and hunting here adds 15%.</div>
+      <div class="small" style="margin-top:4px">Wear a beast down, then use Hesk's <b>Tame</b> button. The more hurt it is and the higher Hesk's level above it, the better the odds. Hunting here adds 15%.</div>
       ${why ? `<div class="small" style="color:var(--bad);margin-top:4px">${why}</div>` : ''}
       <button class="big gold" data-a="hunt" ${allKo || why ? 'disabled' : ''}>Hunt for a beast to tame</button></div>`);
   }
@@ -388,8 +388,8 @@ SCREENS.creatures = () => {
   const list = S.creatures.map(c => {
     const st = E.creatureStats(c), t = c.tally, total = t.attack + t.guard + t.support;
     const lean = ['attack', 'guard', 'support'].sort((a, b) => t[b] - t[a])[0];
-    const evo = c.form ? `<div class="small" style="color:var(--gold)">Evolved: ${W.STANCES[c.form].name} form</div>`
-      : `<div class="small muted">Evolves at level ${W.EVO_LVL}. ${total ? `Leaning ${W.STANCES[lean].name} (${t.attack} attack, ${t.guard} guard, ${t.support} support turns), which would make it a <b>${W.CREATURES[c.sp].evo[lean]}</b>.` : 'Its stance in battle decides what it becomes.'}</div>`;
+    const evo = c.final ? `<div class="small" style="color:var(--gold)">Final form reached.</div>` : c.form ? `<div class="small" style="color:var(--gold)">Evolved: ${W.STANCES[c.form].name} form. Evolves once more at level ${W.EVO2_LVL} into a <b>${W.EVO2[c.sp][c.form]}</b>.</div>`
+      : `<div class="small muted">Evolves twice: at level ${W.EVO_LVL}, then again at ${W.EVO2_LVL}. ${total ? `Leaning ${W.STANCES[lean].name} (${t.attack} attack, ${t.guard} guard, ${t.support} support turns), which would make it a <b>${W.CREATURES[c.sp].evo[lean]}</b>.` : 'Its stance in battle decides what it becomes.'}</div>`;
     return `<div class="card"><div class="spread"><div class="row">${img(E.creatureSprite(c), 3)}<div><b>${E.creatureName(c)}</b><div class="small muted">Lv ${c.lvl} · HP ${c.hp}/${st.maxHp} · STR ${st.str} · MAG ${st.mag} · DEF ${st.def}</div></div></div>
       ${S.companion === c.cid ? '<span class="pill good">With you</span>' : `<button class="sm gold" data-a="companion" data-v="${c.cid}">Take along</button>`}</div>
       <div class="bar xp" style="margin:8px 0 4px"><i style="width:${pct(c.xp, E.xpNext(c.lvl))}%"></i></div>${evo}
@@ -1080,8 +1080,8 @@ function drawCmd() {
   if (pending.mode === 'main') {
     const surge = B.surgeReady() ? `<button class="surgebtn" data-a="bSurge">EMBER SURGE · ${D.SKILLS[D.SURGE[a.id]].name}</button>` : '';
     const beasts = a.skills.includes('tame') ? B.enemies.filter(e => e.hp > 0 && e.tpl.tame && !e.isBoss) : [];
-    const best = beasts.sort((x, y) => B.tameOdds(y) - B.tameOdds(x))[0];
-    const tameBtn = best ? `<button class="gold" style="width:100%;margin-bottom:8px" data-a="bSkill" data-v="tame">Tame · best odds ${Math.round(B.tameOdds(best) * 100)}% (${esc(best.name)})</button>` : '';
+    const best = beasts.sort((x, y) => B.tameOdds(y, a) - B.tameOdds(x, a))[0];
+    const tameBtn = best ? `<button class="gold" style="width:100%;margin-bottom:8px" data-a="bSkill" data-v="tame">Tame · best odds ${Math.round(B.tameOdds(best, a) * 100)}% (${esc(best.name)})</button>` : '';
     el.innerHTML = `<div class="cmdtop"><b class="serif">${a.name}'s turn</b>${surgeHTML()}${autoBtn}</div>${surge}${tameBtn}
       <div class="grid2"><button class="primary" data-a="bAttack">Attack</button><button data-a="bSkills">Skills</button>
       <button data-a="bItems">Items</button><button data-a="bDefend">Defend</button></div>
@@ -1135,7 +1135,7 @@ ACT.bSkill = s => {
   if (sk.type === 'tame') {
     const beasts = B.enemies.filter(e => e.hp > 0 && e.tpl.tame && !e.isBoss);
     if (!beasts.length) { toast('Nothing here can be tamed.'); return; }
-    const odds = beasts.map(e => `${e.name} ${Math.round(B.tameOdds(e) * 100)}%`).join(', ');
+    const odds = beasts.map(e => `${e.name} ${Math.round(B.tameOdds(e, pending.a) * 100)}%`).join(', ');
     startTargeting('enemy', c, 'Tame', `Odds now: ${odds}. Wear them down first.`);
     return;
   }

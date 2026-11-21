@@ -748,13 +748,18 @@ class Battle {
     }
     if (sk.after) for (const t of this.alive(this.friends(a))) for (const s in sk.after) this.addStatus(t, s, sk.after[s], ev);
   }
-  tameOdds(t) { return clamp(0.08 + 0.85 * Math.pow(1 - t.hp / t.maxHp, 1.3) + (this.opts.tameBonus || 0), 0.08, 0.95); }
+  // Wounds help, and so does the tamer being a higher level than the beast.
+  tameOdds(t, a) {
+    const tamer = a || this.heroes.find(h => h.skills && h.skills.includes('tame'));
+    const gap = tamer ? tamer.lvl - t.lvl : 0;
+    return clamp(0.08 + 0.85 * Math.pow(1 - t.hp / t.maxHp, 1.3) + (this.opts.tameBonus || 0) + clamp(gap * 0.07, -0.2, 0.5), 0.05, 0.95);
+  }
   tame(a, t, ev) {
     if (!t || t.hp <= 0) t = this.alive(this.enemies)[0];
     if (!t) return;
     if (!t.tpl.tame || t.isBoss) { ev.push({ t: 'say', text: t.name + ' can\'t be tamed' }); return; }
     if (this.S.creatures.length + this.tamed.length >= E.capacity(this.S)) { ev.push({ t: 'say', text: 'No room. Build or expand the kennels' }); return; }
-    const p = this.tameOdds(t);
+    const p = this.tameOdds(t, a);
     if (this.rng() < p) {
       t.tamed = true;
       this.tamed.push({ sp: t.tpl.tame, lvl: t.lvl });
