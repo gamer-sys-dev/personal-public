@@ -51,7 +51,15 @@ A fantasy party RPG for one player on a phone. Underdog party, turn based fights
 
 - Player feedback: hunting at dens seemed to do nothing. Taming was hidden in Hesk's skill list. Now: the den shows a Beast hunt card (what lives there, new or tamed before, how taming works, and why you can't if Hesk isn't in the party or the kennels are full). Hunts open with a banner and give +15% tame odds. Hesk's turn shows a Tame button with the best odds on the field.
 - Beast book on the Creatures screen: every kind, silhouettes for ones not yet tamed, where to find each. Rewards for 3, 5, 8 and 10 kinds (feathers, two tomes, Crown of the Wild). S.dex tracks kinds tamed.
-- Player feedback: siege is okay but should feel more like Stronghold. Asked what that means to him before rebuilding it.
+- Player feedback: siege is okay but should feel more like Stronghold. He wants: build your own castle, command troops, bigger battles. Adventure stays the main game, the castle is a deep side mode.
+
+## Siege, Stronghold style (22 November 2026)
+
+- Fortify screen (after night 1, from Defend Emberwake): a 4 unit grid. Field pieces in front of the wall (rows 11 to 24): stone wall, tower (2x2, holds two archers or a ballista, +20% range, extra armour), moat (slow), stakes (slow and cut), killing pit (hidden, one big hit per night), pitch ditch (tap to light, joined ditches catch together, Ember Nova lights them too). Yard pieces: brazier (fire arrows for archers nearby), mangonel (2x2, needs stone walls, lobs rocks at the thickest crowd). Paid in gold and iron; demolish refunds half gold. Stored in S.castle.pieces. Broken pieces are rebuilt free each night.
+- Enemies route with a flow field (Dijkstra on the grid) to the gate, or to the wall for ladder crews, around blocks and paying extra to wade moats. Fully walled in, they smash the nearest wall or tower. Catapults (from night 4) stay back and smash walls, towers and the gate. Stragglers who hang back 75 seconds charge.
+- Commanding: tap one of your soldiers to select, then All of that type, Everyone, or clear. Tap the ground to send them; archers and ballistas take free wall or tower spots. Troops cross through your own gate.
+- Bigger battles: roughly 1.7x the enemies at a bit less health each, army cap 30 (archers count), more levy.
+- Balance (bot): with no castle nights 1 to 5 hold, 8 and up fall. With a good castle all nights to 12 hold. Building matters.
 
 ## Next layers
 

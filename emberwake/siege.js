@@ -1,5 +1,7 @@
 // Emberwake siege: real time defence of the keep. Pure rules, no DOM, so it runs in node for balance tests.
 // World is 100 wide by 150 tall. Enemies come from the top, the wall runs across, the keep sits at the bottom.
+// The player builds a castle on a grid in front of the wall (walls, towers, moats, traps) and in the yard
+// (mangonels, braziers). Enemies route around what's built using a flow field, or smash through it.
 (function (root) {
 'use strict';
 const D = root.DATA || require('./data.js');
@@ -7,31 +9,46 @@ const E = root.ENGINE || require('./engine.js');
 const SG = {};
 
 const WALL_Y = 102, WALL_H = 6, YARD_Y = WALL_Y + WALL_H;
+const CELL = 4, COLS = 25, ROWS = 26; // field grid rows 0..25 cover y 0..104
 const GEO = {
-  W: 100, H: 150, WALL_Y, WALL_H, YARD_Y, GATE_X0: 44, GATE_X1: 56,
+  W: 100, H: 150, WALL_Y, WALL_H, YARD_Y, GATE_X0: 44, GATE_X1: 56, CELL, COLS,
   KEEP: { x: 50, y: 138 },
   SLOTS: [8, 19, 30, 70, 81, 92], TOWERS: [38, 62],
-  FIELD: { y0: 54, y1: WALL_Y - 3 }, YARD: { y0: YARD_Y + 3, y1: 129 },
+  FIELD: { y0: 40, y1: WALL_Y - 3 }, YARD: { y0: YARD_Y + 3, y1: 129 },
+  BUILD: { r0: 11, r1: 24 }, // field rows you can build on (y 44 to 100)
+  YBUILD: { r0: 28, r1: 31 }, // yard rows for mangonels and braziers (y 112 to 128)
 };
 SG.GEO = GEO;
 
 SG.UNITS = {
-  archer:   { name: 'Archer', cost: 6, hp: 45, dmg: 6, rate: 1.3, range: 46, armour: 0, zone: 'wall', sprite: 'm_archer', proj: 'arrow', desc: 'Shoots from the wall. Place on a gold wall spot.' },
-  sword:    { name: 'Swordsman', cost: 8, hp: 130, dmg: 10, rate: 1.0, range: 3.5, speed: 10, armour: 3, sprite: 'm_sword', desc: 'Holds a spot outside the gate or in the yard.' },
-  spear:    { name: 'Spearman', cost: 10, hp: 115, dmg: 9, rate: 1.1, range: 5, speed: 9, armour: 2, vsLarge: 3, sprite: 'm_spear', req: ['barracks', 1], desc: 'Triple damage to rams and brutes.' },
+  archer:   { name: 'Archer', cost: 6, hp: 45, dmg: 6, rate: 1.3, range: 46, armour: 0, zone: 'wall', sprite: 'm_archer', proj: 'arrow', desc: 'Shoots from the wall or a tower. Place on a gold spot.' },
+  sword:    { name: 'Swordsman', cost: 8, hp: 130, dmg: 10, rate: 1.0, range: 3.5, speed: 10, armour: 3, sprite: 'm_sword', desc: 'Holds ground in front of the gate or in the yard.' },
+  spear:    { name: 'Spearman', cost: 10, hp: 115, dmg: 9, rate: 1.1, range: 5, speed: 9, armour: 2, vsLarge: 3, sprite: 'm_spear', req: ['barracks', 1], desc: 'Triple damage to rams, brutes and catapults.' },
   priest:   { name: 'Priest', cost: 10, hp: 60, heal: 14, rate: 1.6, range: 24, speed: 8, armour: 0, sprite: 'm_priest', req: ['barracks', 1], desc: 'Heals the most hurt defender nearby.' },
   knight:   { name: 'Knight', cost: 16, hp: 250, dmg: 17, rate: 1.0, range: 4, speed: 15, armour: 5, sprite: 'm_knight', req: ['barracks', 2], desc: 'Heavy and fast. Rides down anything near its post.' },
-  ballista: { name: 'Ballista', cost: 14, hp: 140, dmg: 48, rate: 3.2, range: 90, armour: 4, zone: 'tower', sprite: 'ballista', proj: 'bolt', splash: 4, pierce: true, req: ['walls', 1], desc: 'Gate towers only. Huge bolts that ignore armour.' },
+  ballista: { name: 'Ballista', cost: 14, hp: 140, dmg: 48, rate: 3.2, range: 90, armour: 4, zone: 'tower', sprite: 'ballista', proj: 'bolt', splash: 4, pierce: true, req: ['walls', 1], desc: 'Towers only. Huge bolts that ignore armour.' },
 };
 SG.FOES = {
-  grunt:   { name: 'Hollow Soldier', hp: 85, dmg: 8, rate: 1.1, range: 3.5, speed: 6, armour: 2, sprite: 'soldier', cost: 1 },
-  hound:   { name: 'Shadow Hound', hp: 45, dmg: 6, rate: 0.7, range: 3, speed: 15, armour: 0, sprite: 'hound', cost: 0.8 },
-  bowman:  { name: 'Hollow Bowman', hp: 50, dmg: 6, rate: 1.5, range: 40, speed: 6, armour: 1, sprite: 'h_bowman', ranged: true, proj: 'arrow', cost: 1.5 },
-  acolyte: { name: 'Hollow Acolyte', hp: 65, heal: 12, rate: 2.0, range: 20, speed: 5, armour: 1, sprite: 'acolyte', healer: true, cost: 2 },
-  ladder:  { name: 'Ladder crew', hp: 80, dmg: 5, rate: 1.2, range: 3, speed: 5.5, armour: 1, sprite: 'h_ladder', ladder: true, cost: 2 },
-  ram:     { name: 'Battering Ram', hp: 420, dmg: 50, rate: 2.2, range: 3, speed: 3.2, armour: 7, large: true, sprite: 'ram', gateOnly: true, cost: 6 },
-  brute:   { name: 'Hollow Brute', hp: 330, dmg: 22, rate: 1.4, range: 4.5, speed: 4.5, armour: 4, large: true, sprite: 'h_brute', cost: 5 },
-  captain: { name: 'Hollow Captain', hp: 1500, dmg: 28, rate: 1.2, range: 5, speed: 4, armour: 6, large: true, boss: true, aura: true, sprite: 'warden', cost: 0 },
+  grunt:    { name: 'Hollow Soldier', hp: 70, dmg: 8, rate: 1.1, range: 3.5, speed: 6, armour: 2, sprite: 'soldier', cost: 1 },
+  hound:    { name: 'Shadow Hound', hp: 38, dmg: 6, rate: 0.7, range: 3, speed: 15, armour: 0, sprite: 'hound', cost: 0.8 },
+  bowman:   { name: 'Hollow Bowman', hp: 42, dmg: 6, rate: 1.5, range: 40, speed: 6, armour: 1, sprite: 'h_bowman', ranged: true, proj: 'arrow', cost: 1.5 },
+  acolyte:  { name: 'Hollow Acolyte', hp: 55, heal: 12, rate: 2.0, range: 20, speed: 5, armour: 1, sprite: 'acolyte', healer: true, cost: 2 },
+  ladder:   { name: 'Ladder crew', hp: 70, dmg: 5, rate: 1.2, range: 3, speed: 5.5, armour: 1, sprite: 'h_ladder', ladder: true, cost: 2 },
+  ram:      { name: 'Battering Ram', hp: 380, dmg: 50, rate: 2.2, range: 3, speed: 3.2, armour: 7, large: true, sprite: 'ram', gateOnly: true, cost: 6 },
+  brute:    { name: 'Hollow Brute', hp: 290, dmg: 22, rate: 1.4, range: 4.5, speed: 4.5, armour: 4, large: true, sprite: 'h_brute', cost: 5 },
+  catapult: { name: 'Hollow Catapult', hp: 260, dmg: 55, rate: 6, range: 62, speed: 3, armour: 5, large: true, sprite: 'h_catapult', siege: true, proj: 'rock', splash: 6, cost: 6 },
+  captain:  { name: 'Hollow Captain', hp: 1400, dmg: 28, rate: 1.2, range: 5, speed: 4, armour: 6, large: true, boss: true, aura: true, sprite: 'warden', cost: 0 },
+};
+// Castle pieces. Field pieces sit in front of the wall, yard pieces behind it.
+SG.PIECES = {
+  wall:     { name: 'Stone wall', zone: 'field', size: 1, hp: 320, block: true, cost: { gold: 20 }, desc: 'Blocks the way. The Hollow must go round or break through.' },
+  tower:    { name: 'Tower', zone: 'field', size: 2, hp: 750, block: true, slots: 2, cost: { gold: 120, mats: { ore: 2 } }, desc: 'Holds two archers or a ballista. Longer range and hard to hit.' },
+  moat:     { name: 'Moat', zone: 'field', size: 1, slow: 0.3, cost: { gold: 12 }, desc: 'Anything wading through slows to a crawl.' },
+  stakes:   { name: 'Stakes', zone: 'field', size: 1, slow: 0.6, dps: 9, cost: { gold: 15 }, desc: 'Slows and cuts anything that walks through.' },
+  pit:      { name: 'Killing pit', zone: 'field', size: 1, trap: 200, cost: { gold: 25 }, desc: 'Hidden. The first enemy to step on it takes a huge hit. Resets each night.' },
+  pitch:    { name: 'Pitch ditch', zone: 'field', size: 1, fire: 45, cost: { gold: 20 }, desc: 'Tap it during the fight to set it alight. Burns anything in it. Joined ditches catch together.' },
+  brazier:  { name: 'Brazier', zone: 'yard', size: 1, cost: { gold: 50 }, desc: 'Archers within reach shoot fire arrows: harder hitting, and they burn.' },
+  mangonel: { name: 'Mangonel', zone: 'yard', size: 2, hp: 300, cost: { gold: 200, mats: { ore: 3 } }, req: ['walls', 1], desc: 'Hurls rocks at the thickest crowd of Hollow. Needs stone walls.' },
 };
 SG.POWERS = {
   bram:   { name: 'Rally', cd: 35, aim: false, desc: 'Every defender heals 35% and hits 40% harder for 8 seconds.' },
@@ -40,7 +57,7 @@ SG.POWERS = {
   hesk:   { name: 'Wild Hunt', cd: 40, aim: true, r: 6, desc: 'Three wolves charge in where you tap.' },
   aldric: { name: 'Oath of Iron', cd: 38, aim: false, desc: 'Every defender takes half damage for 7 seconds.' },
   morwen: { name: 'Mire', cd: 30, aim: true, r: 14, desc: 'The ground turns to bog. Everything there slows right down and rots.' },
-  dace:   { name: 'Powder Keg', cd: 30, aim: true, r: 10, desc: 'A keg goes off after a moment. Wrecks rams and brutes.' },
+  dace:   { name: 'Powder Keg', cd: 30, aim: true, r: 10, desc: 'A keg goes off after a moment. Wrecks rams and catapults.' },
 };
 SG.BUILDINGS = {
   barracks: { name: 'Barracks', desc: 'Drills the militia and trains new kinds of soldier.',
@@ -50,13 +67,12 @@ SG.BUILDINGS = {
     ] },
   walls: { name: 'Stone walls', desc: 'A stronger gate and towers beside it.',
     levels: [
-      { gold: 350, mats: { ore: 6 }, text: 'Gate half as strong again. Two gate towers for ballistas.' },
-      { gold: 800, mats: { ore: 8, moss: 4 }, text: 'Gate twice as strong. Burning oil scalds anything hitting the gate.' },
+      { gold: 350, mats: { ore: 6 }, text: 'Gate half as strong again. Two gate towers for ballistas. Mangonels can be built.' },
+      { gold: 800, mats: { ore: 8, moss: 4 }, text: 'Gate twice as strong. Burning oil scalds anything hitting it. Your castle walls and towers are half as strong again.' },
     ] },
 };
-// First time rewards for each night. Repeats pay gold and materials.
 SG.MILESTONES = {
-  1: { text: 'The survivors swear themselves to Emberwake. The barracks can be built.', gold: 150 },
+  1: { text: 'The survivors swear themselves to Emberwake. The barracks can be built, and you can fortify the castle between nights.', gold: 150 },
   2: { tome: true },
   3: { gear: 'ashby_banner' },
   4: { gold: 400, mats: { shard: 3 } },
@@ -66,6 +82,43 @@ SG.MILESTONES = {
   10: { gear: 'keepers_mantle' },
 };
 SG.MAX_NIGHT = 12;
+SG.ARMY_CAP = 30;
+
+// ---------- Castle building (between nights) ----------
+SG.castle = S => (S.castle = S.castle || { pieces: [] });
+const cellOf = (x, y) => ({ c: Math.floor(x / CELL), r: Math.floor(y / CELL) });
+SG.cellOf = cellOf;
+SG.pieceCells = p => { const n = SG.PIECES[p.k].size, out = []; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) out.push([p.c + i, p.r + j]); return out; };
+SG.pieceAt = (S, c, r) => SG.castle(S).pieces.find(p => SG.pieceCells(p).some(([a, b]) => a === c && b === r));
+SG.canBuild = function (S, k, c, r) {
+  const d = SG.PIECES[k];
+  if (!d) return 'Unknown piece.';
+  if (d.req && (S.buildings[d.req[0]] || 0) < d.req[1]) return d.name + ' needs stone walls first.';
+  const z = d.zone === 'yard' ? GEO.YBUILD : GEO.BUILD;
+  for (let i = 0; i < d.size; i++) for (let j = 0; j < d.size; j++) {
+    const cc = c + i, rr = r + j;
+    if (cc < 0 || cc >= COLS || rr < z.r0 || rr > z.r1) return d.zone === 'yard' ? 'Build that in the yard.' : 'Build that in front of the wall.';
+    if (d.zone === 'yard' && cc >= 8 && cc <= 16 && rr >= 29) return 'Keep the path to the hall clear.';
+    if (SG.pieceAt(S, cc, rr)) return 'Something is already there.';
+  }
+  if (!E.canAfford(S, d.cost)) return 'Not enough gold or iron.';
+  return null;
+};
+SG.build = function (S, k, c, r) {
+  const err = SG.canBuild(S, k, c, r);
+  if (err) return err;
+  E.pay(S, SG.PIECES[k].cost);
+  SG.castle(S).pieces.push({ k, c, r });
+  return null;
+};
+SG.demolish = function (S, c, r) {
+  const p = SG.pieceAt(S, c, r);
+  if (!p) return false;
+  const d = SG.PIECES[p.k];
+  S.gold += Math.floor((d.cost.gold || 0) * 0.5);
+  SG.castle(S).pieces = SG.castle(S).pieces.filter(x => x !== p);
+  return true;
+};
 
 // ---------- Nights ----------
 function seeded(n) {
@@ -81,27 +134,29 @@ SG.night = function (n) {
     const list = [];
     const add = (t, at) => list.push({ t, at, x: pickX() });
     if (n === 1) {
-      const g = [5, 6, 6][w], h = [1, 3, 3][w];
-      for (let i = 0; i < g; i++) add('grunt', i * 1.6 + rng());
-      for (let i = 0; i < h; i++) add('hound', 3 + i * 2 + rng());
+      const g = [8, 10, 11][w], h = [2, 4, 5][w];
+      for (let i = 0; i < g; i++) add('grunt', i * 1.1 + rng());
+      for (let i = 0; i < h; i++) add('hound', 3 + i * 1.5 + rng());
       if (w === 2) { add('ladder', 2); add('ladder', 6); }
     } else {
-      let budget = 12 + n * 2.6 + w * 3.5;
+      let budget = (12 + n * 2.2 + w * 3) * 1.7;
       const pool = ['grunt', 'grunt', 'hound'];
       if (w >= 1) pool.push('ladder');
       if (n >= 2) pool.push('bowman');
       if (n >= 4) pool.push('acolyte');
       if (n >= 5) pool.push('brute');
-      let ram = n >= 3 && w >= 1 && rng() < 0.7, t = 0;
-      if (ram) { add('ram', 4 + rng() * 3); budget -= SG.FOES.ram.cost; }
-      const cap = { brute: 1 + Math.floor(n / 4), acolyte: 1 + Math.floor(n / 5), ladder: 2 + Math.floor(n / 4), bowman: 2 + Math.floor(n / 3) };
+      let t = 0;
+      if (n >= 3 && w >= 1 && rng() < 0.8) { add('ram', 4 + rng() * 3); budget -= SG.FOES.ram.cost; }
+      if (n >= 4 && w >= 1 && rng() < 0.6) { add('catapult', 1 + rng() * 2); budget -= SG.FOES.catapult.cost; }
+      if (n >= 8 && w >= 2) { add('catapult', 3 + rng() * 3); budget -= SG.FOES.catapult.cost; }
+      const cap = { brute: Math.ceil((1 + Math.floor(n / 4)) * 1.8), acolyte: Math.ceil((1 + Math.floor(n / 5)) * 1.8), ladder: Math.ceil((2 + Math.floor(n / 4)) * 1.6), bowman: Math.ceil((2 + Math.floor(n / 3)) * 1.8) };
       const have = {};
       let guard = 0;
-      while (budget > 0 && guard++ < 200) {
+      while (budget > 0 && guard++ < 400) {
         const k = pool[Math.floor(rng() * pool.length)];
         if (cap[k] != null && (have[k] || 0) >= cap[k]) continue;
         have[k] = (have[k] || 0) + 1;
-        add(k, t); t += 0.45 + rng() * 0.9;
+        add(k, t); t += 0.3 + rng() * 0.6;
         budget -= SG.FOES[k].cost;
       }
       if (w === count - 1 && n % 5 === 0) add('captain', t + 2);
@@ -115,6 +170,7 @@ SG.night = function (n) {
 let UID = 1;
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const NB = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.41], [-1, 1, 1.41], [1, -1, 1.41], [-1, -1, 1.41]];
 
 class Siege {
   constructor(S, n, opts) {
@@ -122,51 +178,142 @@ class Siege {
     this.S = S; this.n = n; this.rng = opts.rng || Math.random;
     this.t = 0; this.phase = 'deploy';
     const b = S.buildings.barracks || 0, wl = S.buildings.walls || 0;
-    this.levy = 30 + 8 * b + (S.flags && S.flags.penn_freed ? 5 : 0); this.regen = 0.7 + 0.2 * b; this.drill = 1 + 0.15 * b;
+    this.levy = 40 + 10 * b + (S.flags && S.flags.penn_freed ? 5 : 0); this.regen = 1.05 + 0.3 * b; this.drill = 1 + 0.15 * b;
     const gateHp = 700 * [1, 1.5, 2.1][wl];
     this.gate = { hp: gateHp, max: gateHp, oil: wl >= 2 };
     this.keep = { hp: 900, max: 900 };
     this.waves = SG.night(n);
     this.wave = -1; this.waveT = 0; this.queue = []; this.breakT = 0;
     this.units = []; this.proj = []; this.ladders = []; this.delayed = []; this.fx = [];
-    this.scale = { hp: 1.6 * (1 + 0.13 * (n - 1)), dmg: 1.3 * (1 + 0.085 * (n - 1)) };
-    this.powers = {}; this.rally = 0;
+    this.scale = { hp: 1.6 * (1 + 0.1 * (n - 1)), dmg: 1.3 * (1 + 0.07 * (n - 1)) };
+    this.powers = {}; this.rally = 0; this.oath = 0;
     for (const id of S.party) this.powers[id] = { cd: 0 };
     this.placedHeroes = {};
     this.kills = 0; this.lost = 0;
+    // The castle for tonight: fresh copies of every piece, at full strength.
+    const hpk = wl >= 2 ? 1.5 : 1;
+    this.pieces = SG.castle(S).pieces.map((p, i) => {
+      const d = SG.PIECES[p.k];
+      return { id: i, k: p.k, c: p.c, r: p.r, size: d.size, hp: (d.hp || 0) * hpk, max: (d.hp || 0) * hpk, used: false, lit: 0,
+        x: (p.c + d.size / 2) * CELL, y: (p.r + d.size / 2) * CELL, cd: 0 };
+    });
+    this.flowDirty = true;
+    this.selected = [];
   }
+  // ----- the castle grid -----
+  blockedCell(c, r) { const p = this.pieceIn(c, r); return !!(p && SG.PIECES[p.k].block && p.hp > 0); }
+  pieceIn(c, r) {
+    for (const p of this.pieces) if (c >= p.c && c < p.c + p.size && r >= p.r && r < p.r + p.size && (p.hp > 0 || !SG.PIECES[p.k].block)) return p;
+    return null;
+  }
+  // Dijkstra over the field grid from a set of goal cells. Returns distances.
+  flowFrom(goals) {
+    const N = COLS * ROWS, d = new Float32Array(N).fill(Infinity), open = [];
+    for (const [c, r] of goals) { if (this.blockedCell(c, r)) continue; d[r * COLS + c] = 0; open.push(r * COLS + c); }
+    while (open.length) {
+      let bi = 0;
+      for (let i = 1; i < open.length; i++) if (d[open[i]] < d[open[bi]]) bi = i;
+      const cur = open.splice(bi, 1)[0], c = cur % COLS, r = (cur / COLS) | 0;
+      for (const [dc, dr, w] of NB) {
+        const nc = c + dc, nr = r + dr;
+        if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+        if (this.blockedCell(nc, nr)) continue;
+        if (dc && dr && (this.blockedCell(c + dc, r) || this.blockedCell(c, r + dr))) continue;
+        const p = this.pieceIn(nc, nr), k = p ? SG.PIECES[p.k] : null;
+        const cost = w * (k && k.slow ? 1 / k.slow : 1);
+        const nd = d[cur] + cost, ni = nr * COLS + nc;
+        if (nd < d[ni]) { if (d[ni] === Infinity) open.push(ni); d[ni] = nd; }
+      }
+    }
+    return d;
+  }
+  flows() {
+    if (!this.flowDirty) return;
+    this.flowDirty = false;
+    const gate = [], wall = [];
+    for (let c = 0; c < COLS; c++) {
+      const x = c * CELL + 2, atGate = x > GEO.GATE_X0 && x < GEO.GATE_X1;
+      (atGate ? gate : wall).push([c, ROWS - 1]);
+    }
+    this.flowGate = this.flowFrom(gate);
+    this.flowWall = this.flowFrom(wall);
+  }
+  // Steers along a flow field. Returns false if there's no way through.
+  steer(u, field, dt) {
+    this.flows();
+    const { c, r } = cellOf(clamp(u.x, 0, 99.9), clamp(u.y, 0, ROWS * CELL - 0.1));
+    const here = field[r * COLS + c];
+    if (here === Infinity && !this.blockedCell(c, r)) return false;
+    let best = null, bd = here;
+    for (const [dc, dr] of NB) {
+      const nc = c + dc, nr = r + dr;
+      if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+      const v = field[nr * COLS + nc];
+      if (v < bd) { bd = v; best = [nc, nr]; }
+    }
+    if (!best) return here !== Infinity;
+    this.moveTo(u, best[0] * CELL + CELL / 2, best[1] * CELL + CELL / 2, dt);
+    return true;
+  }
+  // The nearest standing wall or tower, for enemies with no way round.
+  nearestBlock(u) {
+    let best = null, bd = Infinity;
+    for (const p of this.pieces) if (SG.PIECES[p.k].block && p.hp > 0) { const d = Math.hypot(p.x - u.x, p.y - u.y); if (d < bd) { bd = d; best = p; } }
+    return best;
+  }
+  hitPiece(src, p, amount) {
+    if (p.hp <= 0) return;
+    p.hp -= amount;
+    this.fx.push({ k: 'piecehit', x: p.x, y: p.y, big: src && src.large });
+    if (p.hp <= 0) {
+      p.hp = 0; this.flowDirty = true;
+      this.fx.push({ k: 'piecedown', x: p.x, y: p.y, size: p.size });
+      for (const u of this.units) if (u.towerRef === p && u.hp > 0) { u.towerRef = null; u.zone = 'field'; u.post = { x: u.x, y: u.y + 3 }; this.damage(null, u, u.max * 0.3, {}); }
+    }
+  }
+  pieceSlots(p) { return p.size === 2 ? [{ x: p.x - 1.6, y: p.y }, { x: p.x + 1.6, y: p.y }] : []; }
   // ----- placing -----
   unlocked(type) {
     const d = SG.UNITS[type];
     return !d.req || (this.S.buildings[d.req[0]] || 0) >= d.req[1];
   }
-  meleeCount() { return this.units.filter(u => u.side === 'p' && !u.hero && !u.temp && (u.zone === 'field' || u.zone === 'yard') && u.hp > 0).length; }
+  meleeCount() { return this.units.filter(u => u.side === 'p' && !u.hero && !u.temp && u.type !== 'pet' && u.hp > 0).length; }
   zoneAt(x, y) {
-    if (y >= GEO.FIELD.y0 && y <= GEO.FIELD.y1 && x >= 4 && x <= 96) return 'field';
+    if (y >= GEO.FIELD.y0 && y <= GEO.FIELD.y1 && x >= 3 && x <= 97) { const { c, r } = cellOf(x, y); if (this.blockedCell(c, r)) return null; return 'field'; }
     if (y >= GEO.YARD.y0 && y <= GEO.YARD.y1 && x >= 6 && x <= 94) return 'yard';
     return null;
   }
-  slotAt(x, y, tower) {
-    if (Math.abs(y - (WALL_Y + 2)) > 9) return null;
-    const list = tower ? (this.S.buildings.walls >= 1 ? GEO.TOWERS : []) : GEO.SLOTS;
-    let best = null;
-    for (const sx of list) {
-      if (Math.abs(sx - x) > 6) continue;
-      const taken = this.units.some(u => u.hp > 0 && u.side === 'p' && (u.zone === 'wall' || u.zone === 'tower') && u.x === sx);
-      if (!taken && (!best || Math.abs(sx - x) < Math.abs(best - x))) best = sx;
+  occupied(x, y) { return this.units.some(u => u.hp > 0 && u.side === 'p' && (u.zone === 'wall' || u.zone === 'tower') && Math.abs(u.x - x) < 0.5 && Math.abs(u.y - y) < 0.5); }
+  // Finds a free wall spot or tower spot near (x, y). Ballistas only use towers.
+  slotAt(x, y, towerOnly) {
+    const spots = [];
+    if (!towerOnly) for (const sx of GEO.SLOTS) spots.push({ x: sx, y: WALL_Y + 2, zone: 'wall' });
+    if (this.S.buildings.walls >= 1) for (const tx of GEO.TOWERS) spots.push({ x: tx, y: WALL_Y + 1, zone: 'tower' });
+    for (const p of this.pieces) if (p.k === 'tower' && p.hp > 0) for (const s of this.pieceSlots(p)) spots.push({ x: s.x, y: s.y, zone: 'tower', ref: p });
+    let best = null, bd = 7;
+    for (const s of spots) {
+      if (this.occupied(s.x, s.y) || this.units.some(u => u.side === 'p' && u.hp > 0 && u.dest && Math.abs(u.dest.x - s.x) < 0.5 && Math.abs(u.dest.y - s.y) < 0.5)) continue;
+      const d = Math.hypot(s.x - x, s.y - y);
+      if (d < bd) { bd = d; best = s; }
     }
     return best;
+  }
+  freeSpots(towerOnly) {
+    const out = [];
+    for (let x = 0; x <= 100; x += 2) { const s = this.slotAt(x, WALL_Y + 2, towerOnly); if (s && !out.some(o => o.x === s.x && o.y === s.y)) out.push(s); }
+    for (const p of this.pieces) if (p.k === 'tower' && p.hp > 0) for (const sp of this.pieceSlots(p)) { const s = this.slotAt(sp.x, sp.y, towerOnly); if (s && !out.some(o => o.x === s.x && o.y === s.y)) out.push(s); }
+    return out;
   }
   canPlace(type, x, y) {
     const d = SG.UNITS[type];
     if (!d || !this.unlocked(type)) return 'Not trained yet.';
     if (this.levy < d.cost) return 'Not enough levy yet.';
+    if (this.meleeCount() >= SG.ARMY_CAP) return 'That\'s as many soldiers as Emberwake can field.';
     if (d.zone === 'wall' || d.zone === 'tower') {
-      if (this.slotAt(x, y, d.zone === 'tower') == null) return d.zone === 'tower' ? 'Ballistas go on the gate towers.' : 'Archers need a free gold spot on the wall.';
+      if (!this.slotAt(x, y, d.zone === 'tower')) return d.zone === 'tower' ? 'Ballistas go on a free tower spot.' : 'Archers need a free gold spot on the wall or a tower.';
       return null;
     }
     if (!this.zoneAt(x, y)) return 'Place soldiers in front of the wall or in the yard.';
-    if (this.meleeCount() >= 16) return 'That\'s as many soldiers as you can field.';
     return null;
   }
   place(type, x, y) {
@@ -174,11 +321,13 @@ class Siege {
     if (err) return err;
     const d = SG.UNITS[type];
     this.levy -= d.cost;
-    let zone = d.zone, px = x, py = y;
-    if (zone === 'wall' || zone === 'tower') { px = this.slotAt(x, y, zone === 'tower'); py = WALL_Y + 2; }
+    let zone = d.zone, px = x, py = y, ref = null;
+    if (zone === 'wall' || zone === 'tower') { const s = this.slotAt(x, y, zone === 'tower'); px = s.x; py = s.y; zone = s.zone; ref = s.ref || null; }
     else zone = this.zoneAt(x, y);
     const k = type === 'ballista' ? 1 : this.drill;
-    this.units.push(this.makeUnit('p', type, d, px, py, zone, { hp: d.hp * k, dmg: (d.dmg || 0) * k, heal: (d.heal || 0) * k }));
+    const u = this.makeUnit('p', type, d, px, py, zone, { hp: d.hp * k, dmg: (d.dmg || 0) * k, heal: (d.heal || 0) * k });
+    u.towerRef = ref;
+    this.units.push(u);
     this.fx.push({ k: 'place', x: px, y: py });
     return null;
   }
@@ -192,8 +341,8 @@ class Siege {
       post: { x, y }, zone, target: null, state: 'move', timer: 0, burn: 0, burnDps: 0, face: side === 'p' ? -1 : 1,
       large: !!d.large, vsLarge: d.vsLarge || 1, proj: d.proj, splash: d.splash || 0, pierce: !!d.pierce,
       ranged: !!d.ranged || (d.range || 0) > 10, healer: !!d.healer || (!!d.heal && !d.dmg), ladder: !!d.ladder,
-      gateOnly: !!d.gateOnly, boss: !!d.boss, aura: !!d.aura, atk: 0, hurt: 0,
-      hero: over.hero || null, temp: over.temp || 0, respawn: 0,
+      gateOnly: !!d.gateOnly, siege: !!d.siege, boss: !!d.boss, aura: !!d.aura, atk: 0, hurt: 0,
+      hero: over.hero || null, temp: over.temp || 0, respawn: 0, path: null,
     };
   }
   heroUnitDef(id) {
@@ -220,8 +369,7 @@ class Siege {
       const c = E.creatureOf(this.S, this.S.companion);
       if (c) {
         const cs = E.creatureStats(c);
-        const pet = this.makeUnit('p', 'pet', { name: E.creatureName(c), sprite: E.creatureSprite(c), hp: cs.maxHp * 2, dmg: cs.str * 0.8, rate: 1.0, range: 3.5, speed: 14, armour: cs.def / 4 }, x + 4, y + 1, zone, {});
-        this.units.push(pet);
+        this.units.push(this.makeUnit('p', 'pet', { name: E.creatureName(c), sprite: E.creatureSprite(c), hp: cs.maxHp * 2, dmg: cs.str * 0.8, rate: 1.0, range: 3.5, speed: 14, armour: cs.def / 4 }, x + 4, y + 1, zone, {}));
       }
     }
     return null;
@@ -229,7 +377,11 @@ class Siege {
   start() {
     const spots = [[50, 94], [41, 92], [59, 92], [35, 96], [65, 96]];
     let i = 0;
-    for (const id of this.S.party) if (!this.placedHeroes[id] && this.S.heroes[id]) { const [x, y] = spots[i++ % spots.length]; this.placeHero(id, x, y); }
+    for (const id of this.S.party) if (!this.placedHeroes[id] && this.S.heroes[id]) {
+      let [x, y] = spots[i++ % spots.length];
+      if (!this.zoneAt(x, y)) y = GEO.YARD.y0 + 4;
+      this.placeHero(id, x, y);
+    }
     this.phase = 'fight';
     this.nextWave();
   }
@@ -238,6 +390,48 @@ class Siege {
     this.waveT = 0;
     this.queue = this.waves[this.wave].slice();
     this.fx.push({ k: 'wave', n: this.wave + 1, of: this.waves.length });
+  }
+  // ----- orders -----
+  // Which side of the wall a point is on: 'out' (field), 'in' (yard) or 'wall'.
+  sideOf(x, y) { return y < WALL_Y - 0.5 ? 'out' : y > YARD_Y - 0.5 ? 'in' : 'wall'; }
+  order(uids, x, y) {
+    const us = this.units.filter(u => uids.includes(u.uid) && u.side === 'p' && u.hp > 0);
+    if (!us.length) return 'Nobody selected.';
+    let sent = 0;
+    const ringAt = i => { if (!i) return [0, 0]; const a = i * 2.4, r = 2.6 * Math.sqrt(i); return [Math.cos(a) * r, Math.sin(a) * r]; };
+    let k = 0;
+    for (const u of us) {
+      const ranged = u.ranged && u.type !== 'hero' ? true : u.ranged;
+      let dest = null;
+      if (ranged || u.type === 'ballista') {
+        const s = this.slotAt(x, y, u.type === 'ballista');
+        if (s) dest = { x: s.x, y: s.y, zone: s.zone, ref: s.ref || null };
+      }
+      if (!dest) {
+        if (u.type === 'ballista') continue;
+        const [ox, oy] = ringAt(k++);
+        const tx = clamp(x + ox, 4, 96), ty = y + oy;
+        const z = this.zoneAt(tx, ty) || this.zoneAt(x, y);
+        if (!z) continue;
+        dest = { x: this.zoneAt(tx, ty) ? tx : x, y: this.zoneAt(tx, ty) ? ty : y, zone: z };
+      }
+      this.route(u, dest);
+      sent++;
+    }
+    return sent ? null : 'They can\'t go there.';
+  }
+  route(u, dest) {
+    const from = this.sideOf(u.x, u.y), to = dest.zone === 'field' ? 'out' : dest.zone === 'yard' ? 'in' : dest.zone === 'tower' && dest.ref ? 'out' : 'wall';
+    const path = [];
+    const inGate = { x: 50, y: YARD_Y + 3 }, outGate = { x: 50, y: WALL_Y - 4 };
+    if (from === 'wall' && to !== 'wall') path.push({ x: u.x, y: YARD_Y + 3 });
+    const fromSide = from === 'wall' ? 'in' : from;
+    if (fromSide === 'in' && to === 'out') path.push(inGate, outGate);
+    if (fromSide === 'out' && (to === 'in' || to === 'wall')) path.push(outGate, inGate);
+    path.push({ x: dest.x, y: dest.y });
+    u.path = path; u.dest = dest;
+    u.zone = 'march'; u.towerRef = null;
+    u.speed = u.speed || 10;
   }
   // ----- powers -----
   usePower(id, x, y) {
@@ -261,13 +455,11 @@ class Siege {
     } else if (id === 'isolde') {
       this.fx.push({ k: 'boom', x, y, r: d.r, fire: true });
       for (const u of foesNear(x, y, d.r)) { this.damage(null, u, st.mag * 3.2, { power: true, fire: true }); u.burn = 5; u.burnDps = st.mag * 0.4; }
+      for (const pc of this.pieces) if (pc.k === 'pitch' && !pc.used && Math.hypot(pc.x - x, pc.y - y) <= d.r) this.ignite(pc);
     } else if (id === 'hesk') {
       const zone = y < WALL_Y ? 'field' : 'yard';
       const py = zone === 'field' ? clamp(y, GEO.FIELD.y0, GEO.FIELD.y1) : clamp(y, GEO.YARD.y0, GEO.YARD.y1);
-      for (let i = 0; i < 3; i++) {
-        const w = this.makeUnit('p', 'wolf', { name: 'Wolf', sprite: 'wolf', hp: 110 + st.str * 2, dmg: st.str * 0.5, rate: 0.8, range: 3, speed: 16, armour: 2 }, x + (i - 1) * 4, py, zone, { temp: 18 });
-        this.units.push(w);
-      }
+      for (let i = 0; i < 3; i++) this.units.push(this.makeUnit('p', 'wolf', { name: 'Wolf', sprite: 'wolf', hp: 110 + st.str * 2, dmg: st.str * 0.5, rate: 0.8, range: 3, speed: 16, armour: 2 }, x + (i - 1) * 4, py, zone, { temp: 18 }));
     } else if (id === 'aldric') {
       this.oath = 7;
       for (const u of this.units) if (u.side === 'p' && u.hp > 0) this.fx.push({ k: 'heal', x: u.x, y: u.y });
@@ -284,6 +476,24 @@ class Siege {
     }
     return null;
   }
+  // Pitch ditches: lighting one lights every ditch joined to it.
+  ignite(p) {
+    if (!p || p.k !== 'pitch' || p.used) return false;
+    const todo = [p];
+    while (todo.length) {
+      const q = todo.pop();
+      if (q.used) continue;
+      q.used = true; q.lit = 9;
+      this.fx.push({ k: 'boom', x: q.x, y: q.y, r: 3, fire: true, small: true });
+      for (const o of this.pieces) if (o.k === 'pitch' && !o.used && Math.abs(o.c - q.c) <= 1 && Math.abs(o.r - q.r) <= 1) todo.push(o);
+    }
+    return true;
+  }
+  lightPitchAt(x, y) {
+    const { c, r } = cellOf(x, y);
+    for (const p of this.pieces) if (p.k === 'pitch' && !p.used && Math.abs(p.c - c) <= 1 && Math.abs(p.r - r) <= 1) return this.ignite(p);
+    return false;
+  }
   // ----- combat -----
   damage(src, t, amount, o) {
     o = o || {};
@@ -296,7 +506,7 @@ class Siege {
       if (cap) n *= 1.3;
     }
     if (src && t.large) n *= src.vsLarge || 1;
-    if (!o.pierce && !(src && src.pierce)) n = n * 10 / (10 + t.armour + (t.zone === 'wall' || t.zone === 'tower' ? 4 : 0));
+    if (!o.pierce && !(src && src.pierce)) n = n * 10 / (10 + t.armour + (t.zone === 'wall' || t.zone === 'tower' ? (t.towerRef ? 11 : 4) : 0));
     n *= 0.9 + this.rng() * 0.2;
     t.hp -= n; t.hurt = 0.15;
     this.fx.push({ k: 'hit', x: t.x, y: t.y - 2, side: t.side, power: !!o.power, n: Math.round(n), fire: !!o.fire });
@@ -305,9 +515,10 @@ class Siege {
   kill(u) {
     u.hp = 0;
     this.fx.push({ k: 'die', x: u.x, y: u.y, side: u.side, large: u.large });
-    if (u.side === 'e') { this.kills++; this.levy = Math.min(99, this.levy + (u.large ? 3 : 0.6)); }
+    if (u.side === 'e') { this.kills++; this.levy = Math.min(99, this.levy + (u.large ? 3 : 0.5)); }
     else if (u.hero) { u.respawn = 20; this.fx.push({ k: 'herodown', id: u.hero }); }
     else if (!u.temp) this.lost++;
+    this.selected = this.selected.filter(id => id !== u.uid || u.hero);
   }
   breakLadder(l) {
     if (l.hp <= 0) return;
@@ -316,20 +527,25 @@ class Siege {
     for (const u of this.units) if (u.side === 'e' && u.state === 'climb' && u.ladderRef === l) { u.state = 'move'; u.y = WALL_Y - 2; this.damage(null, u, 30, {}); }
   }
   hitGate(src) {
-    let n = src.dmg * this.scaleDmg(src);
-    this.gate.hp = Math.max(0, this.gate.hp - n);
+    this.gate.hp = Math.max(0, this.gate.hp - src.dmg);
     this.fx.push({ k: 'gatehit', big: src.large, x: src.x, y: WALL_Y });
     if (this.gate.oil) this.damage(null, src, 8 * src.rate, { pierce: true });
     if (this.gate.hp <= 0 && !this.gate.broken) { this.gate.broken = true; this.fx.push({ k: 'gatebroken' }); }
   }
-  scaleDmg(u) { return u.side === 'e' ? 1 : 1; }
-  shoot(src, t) {
-    this.proj.push({ x: src.x, y: src.y - 3, t, kind: src.proj || 'arrow', src, dmg: src.dmg, splash: src.splash, speed: src.proj === 'bolt' ? 110 : src.proj === 'fire' ? 60 : 85 });
+  shoot(src, t, extra) {
+    const fire = src.side === 'p' && src.type === 'archer' && this.pieces.some(p => p.k === 'brazier' && Math.hypot(p.x - src.x, p.y - src.y) < 26);
+    this.proj.push(Object.assign({ x: src.x, y: src.y - 3, t, tx: t.x, ty: t.y, kind: fire ? 'firearrow' : src.proj || 'arrow', src, dmg: src.dmg * (fire ? 1.3 : 1) * (src.towerRef ? 1.15 : 1), splash: src.splash,
+      speed: src.proj === 'bolt' ? 110 : src.proj === 'fire' ? 60 : src.proj === 'rock' ? 32 : 85, sx: src.x, sy: src.y - 3, burn: fire }, extra || {}));
   }
   moveTo(u, x, y, dt) {
     const dx = x - u.x, dy = y - u.y, d = Math.hypot(dx, dy);
     if (d < 0.3) return true;
-    let sp = u.speed * (u.slow > 0 ? 0.5 : 1) * dt;
+    let mult = u.slow > 0 ? 0.5 : 1;
+    if (u.side === 'e' && u.y < WALL_Y) {
+      const p = this.pieceIn(...Object.values(cellOf(clamp(u.x, 0, 99.9), clamp(u.y, 0, 103))));
+      if (p && SG.PIECES[p.k].slow) mult *= SG.PIECES[p.k].slow;
+    }
+    const sp = u.speed * mult * dt;
     if (sp >= d) { u.x = x; u.y = y; return true; }
     u.x += dx / d * sp; u.y += dy / d * sp;
     if (Math.abs(dx) > 0.2) u.face = dx > 0 ? 1 : -1;
@@ -339,11 +555,7 @@ class Siege {
   spawn(s) {
     const d = SG.FOES[s.t];
     const u = this.makeUnit('e', s.t, d, s.x, -2, 'field', { hp: d.hp * this.scale.hp, dmg: (d.dmg || 0) * this.scale.dmg, heal: (d.heal || 0) * this.scale.dmg });
-    if (u.ladder) {
-      let lx = s.x;
-      if (Math.abs(lx - 50) < 12) lx = lx < 50 ? 50 - 13 - this.rng() * 20 : 50 + 13 + this.rng() * 20;
-      u.goalX = clamp(lx, 6, 94);
-    }
+    u.holdY = 26 + this.rng() * 10;
     this.units.push(u);
   }
 
@@ -353,23 +565,26 @@ class Siege {
     this.levy = Math.min(99, this.levy + this.regen * dt);
     for (const id in this.powers) this.powers[id].cd = Math.max(0, this.powers[id].cd - dt);
     this.rally = Math.max(0, this.rally - dt);
-    this.oath = Math.max(0, (this.oath || 0) - dt);
+    this.oath = Math.max(0, this.oath - dt);
     if (this.phase === 'break') {
       this.breakT -= dt;
       if (this.breakT <= 0) { this.phase = 'fight'; this.nextWave(); }
     } else {
       this.waveT += dt;
-      while (this.queue.length && this.queue[0].at <= this.waveT) this.spawn(this.queue.shift());
+      while (this.queue.length && this.queue[0].at <= this.waveT) { this.spawn(this.queue.shift()); this.lastSpawn = this.waveT; }
+      // Stragglers who hang back too long lose their nerve and charge.
+      if (!this.queue.length && this.waveT - (this.lastSpawn || 0) > 75) for (const u of this.units) if (u.side === 'e' && u.hp > 0) { u.ranged = false; u.siege = false; u.healer = false; }
     }
     for (let i = this.delayed.length - 1; i >= 0; i--) {
       const d = this.delayed[i]; d.t -= dt;
       if (d.t <= 0) { this.delayed.splice(i, 1); d.fn(); }
     }
+    this.stepPieces(dt);
     for (const u of this.units) {
       if (u.hp <= 0) {
         if (u.hero && u.respawn > 0) {
           u.respawn -= dt;
-          if (u.respawn <= 0) { u.hp = u.max * 0.6; u.x = GEO.KEEP.x; u.y = GEO.YARD.y1; u.state = 'move'; this.fx.push({ k: 'heroback', id: u.hero }); }
+          if (u.respawn <= 0) { u.hp = u.max * 0.6; u.x = GEO.KEEP.x; u.y = GEO.YARD.y1; u.state = 'move'; u.zone = 'yard'; u.post = { x: u.x, y: u.y }; u.path = null; this.fx.push({ k: 'heroback', id: u.hero }); }
         }
         continue;
       }
@@ -380,7 +595,6 @@ class Siege {
     }
     this.separate();
     this.stepProj(dt);
-    // tidy
     this.units = this.units.filter(u => u.hp > 0 || (u.hero && u.respawn > 0));
     this.ladders = this.ladders.filter(l => l.hp > 0);
     if (this.keep.hp <= 0) { this.phase = 'lost'; this.fx.push({ k: 'lost' }); return; }
@@ -388,6 +602,34 @@ class Siege {
       if (this.wave >= this.waves.length - 1) { this.phase = 'won'; this.fx.push({ k: 'won' }); }
       else { this.phase = 'break'; this.breakT = 7; this.fx.push({ k: 'break', t: 7 }); }
     }
+  }
+  stepPieces(dt) {
+    for (const p of this.pieces) {
+      const d = SG.PIECES[p.k];
+      if (p.k === 'pitch' && p.lit > 0) {
+        p.lit -= dt;
+        if (this.rng() < dt * 10) this.fx.push({ k: 'ember', x: p.c * CELL + this.rng() * CELL, y: p.r * CELL + this.rng() * CELL });
+        for (const u of this.units) if (u.side === 'e' && u.hp > 0 && this.inPiece(u, p, 1)) { u.hp -= d.fire * this.scale.dmg * 0.6 * dt; if (u.hp <= 0) this.kill(u); }
+      }
+      if (p.k === 'stakes') for (const u of this.units) if (u.side === 'e' && u.hp > 0 && this.inPiece(u, p, 0)) { u.hp -= d.dps * dt; if (u.hp <= 0) this.kill(u); }
+      if (p.k === 'pit' && !p.used) {
+        const v = this.units.find(u => u.side === 'e' && u.hp > 0 && this.inPiece(u, p, -0.5));
+        if (v) { p.used = true; this.fx.push({ k: 'pit', x: p.x, y: p.y }); this.damage(null, v, v.large ? v.max * 0.45 : d.trap * this.scale.hp * 0.6, { pierce: true, power: true }); if (v.hp > 0) v.slow = 4; }
+      }
+      if (p.k === 'mangonel' && p.hp > 0) {
+        p.cd -= dt;
+        if (p.cd <= 0) {
+          const foes = this.units.filter(u => u.side === 'e' && u.hp > 0 && u.y < WALL_Y - 6 && u.state !== 'climb' && Math.hypot(u.x - p.x, u.y - p.y) < 90 && Math.hypot(u.x - p.x, u.y - p.y) > 20);
+          let best = null, bs = 0;
+          for (const f of foes) { const s = foes.filter(o => Math.hypot(o.x - f.x, o.y - f.y) < 6).length + (f.large ? 2 : 0); if (s > bs) { bs = s; best = f; } }
+          if (best) { p.cd = 5; this.proj.push({ x: p.x, y: p.y - 3, t: best, tx: best.x, ty: best.y, kind: 'rock', src: { side: 'p', x: p.x, y: p.y }, dmg: 70, splash: 6, speed: 34, sx: p.x, sy: p.y - 3, mangonel: true }); }
+        }
+      }
+    }
+  }
+  inPiece(u, p, pad) {
+    const x0 = p.c * CELL - pad, y0 = p.r * CELL - pad, s = p.size * CELL + pad * 2;
+    return u.x >= x0 && u.x <= x0 + s && u.y >= y0 && u.y <= y0 + s;
   }
   inside(u) { return u.y > YARD_Y - 1; }
   enemyStep(u, dt) {
@@ -408,7 +650,6 @@ class Siege {
       return;
     }
     const inside = this.inside(u);
-    // Healers mend the most hurt ally in reach.
     if (u.healer) {
       const hurt = this.units.filter(o => o.side === 'e' && o.hp > 0 && o !== u && o.hp < o.max * 0.85 && dist(o, u) <= u.range).sort((a, b) => a.hp / a.max - b.hp / b.max)[0];
       if (hurt && u.cd <= 0) { hurt.hp = Math.min(hurt.max, hurt.hp + u.heal); u.cd = u.rate; this.fx.push({ k: 'heal', x: hurt.x, y: hurt.y, dark: true }); }
@@ -417,17 +658,28 @@ class Siege {
       this.moveTo(u, front ? front.x : 50, Math.min(gy, WALL_Y - 12), dt);
       return;
     }
-    // Ranged: hold back and shoot.
-    if (u.ranged) {
-      const t = this.nearest(u, o => o.side === 'p' && o.hp > 0, u.range);
-      if (t) { if (u.cd <= 0) { this.shoot(u, t); u.cd = u.rate; u.atk = 0.2; } u.face = t.x > u.x ? 1 : -1; return; }
-      this.moveTo(u, u.x, Math.min(WALL_Y - 34, u.y + 20), dt);
+    // Catapults stop well back and smash walls, towers and anything on the wall.
+    if (u.siege) {
+      if (u.y < u.holdY) { this.moveTo(u, u.x, u.holdY, dt); return; }
+      if (u.cd > 0) return;
+      const pc = this.pieces.filter(p => SG.PIECES[p.k].block && p.hp > 0 && Math.hypot(p.x - u.x, p.y - u.y) <= u.range).sort((a, b) => b.y - a.y)[0];
+      const un = this.nearest(u, o => o.side === 'p' && o.hp > 0, u.range);
+      const tgt = pc ? { x: pc.x, y: pc.y, hp: 1, piece: pc } : un || (Math.hypot(50 - u.x, WALL_Y - u.y) <= u.range + 30 ? { x: 50, y: WALL_Y, hp: 1, gate: true } : null);
+      if (tgt) {
+        u.cd = u.rate; u.atk = 0.4;
+        this.proj.push({ x: u.x, y: u.y - 3, t: tgt.piece || tgt.gate ? null : tgt, tx: tgt.x, ty: tgt.y, piece: tgt.piece || null, gate: !!tgt.gate, kind: 'rock', src: u, dmg: u.dmg, splash: u.splash, speed: 32, sx: u.x, sy: u.y - 3 });
+      } else this.moveTo(u, u.x, u.y + 10, dt);
       return;
     }
-    // Melee: fight anything close on the same side of the wall.
+    if (u.ranged) {
+      const t = u.y >= WALL_Y - 40 ? this.nearest(u, o => o.side === 'p' && o.hp > 0, u.range) : null;
+      if (t) { if (u.cd <= 0) { this.shoot(u, t); u.cd = u.rate; u.atk = 0.2; } u.face = t.x > u.x ? 1 : -1; return; }
+      if (u.y < WALL_Y - 30) { this.flows(); if (!this.steer(u, this.flowGate, dt)) this.moveTo(u, u.x, u.y + 5, dt); }
+      return;
+    }
     if (!u.gateOnly) {
       const aggro = u.type === 'hound' ? 10 : 7;
-      const t = this.nearest(u, o => o.side === 'p' && o.hp > 0 && o.zone !== 'wall' && o.zone !== 'tower' && this.inside(o) === inside, aggro)
+      const t = this.nearest(u, o => o.side === 'p' && o.hp > 0 && o.zone !== 'wall' && o.zone !== 'tower' && o.zone !== 'march' && this.inside(o) === inside, aggro)
         || (inside ? this.nearest(u, o => o.side === 'p' && o.hp > 0 && (o.zone === 'wall'), 6) : null);
       if (t) { this.melee(u, t, dt); return; }
     }
@@ -438,40 +690,61 @@ class Siege {
       }
       return;
     }
-    // Outside the wall.
-    if (this.gate.broken && !u.ladder) {
+    // Outside: smashing through a wall in the way, if there's no way round.
+    if (u.bash) {
+      if (u.bash.hp <= 0) { u.bash = null; return; }
+      if (Math.hypot(u.bash.x - u.x, u.bash.y - u.y) > u.range + u.bash.size * 2.2) { this.moveTo(u, u.bash.x, u.bash.y, dt); return; }
+      if (u.cd <= 0) { this.hitPiece(u, u.bash, u.dmg * (u.large ? 2 : 1)); u.cd = u.rate; u.atk = 0.25; u.face = u.bash.x > u.x ? 1 : -1; }
+      return;
+    }
+    const nearWall = u.y >= WALL_Y - 7;
+    if (this.gate.broken && !u.ladder && nearWall) {
       if (Math.abs(u.x - 50) > 3.5 && u.y < WALL_Y - 4) this.moveTo(u, 50, WALL_Y - 4, dt);
       else this.moveTo(u, 50 + clamp(u.x - 50, -3, 3), YARD_Y + 3, dt);
       return;
     }
-    if (u.ladder) {
-      const near = this.ladders.find(l => Math.abs(l.x - u.goalX) < 8);
-      if (near) u.goalX = near.x;
-      if (this.moveTo(u, u.goalX, WALL_Y - 1.5, dt)) {
-        if (near) { u.state = 'climb'; u.timer = 2.5; u.ladderRef = near; u.x = near.x; }
-        else { u.state = 'plant'; u.timer = 3; }
-      }
+    if (u.ladder && nearWall) {
+      if (Math.abs(u.x - 50) < 9) { this.moveTo(u, u.x < 50 ? 38 : 62, WALL_Y - 2, dt); return; }
+      const near = this.ladders.find(l => Math.abs(l.x - u.x) < 8);
+      if (near) { if (this.moveTo(u, near.x, WALL_Y - 1.5, dt)) { u.state = 'climb'; u.timer = 2.5; u.ladderRef = near; u.x = near.x; } }
+      else if (this.moveTo(u, u.x, WALL_Y - 1.5, dt)) { u.state = 'plant'; u.timer = 3; }
       return;
     }
-    // Use a ladder if one is closer than the gate.
-    if (!u.large) {
-      const gateD = Math.hypot(u.x - 50, u.y - WALL_Y);
+    if (!u.large && !u.ladder && nearWall) {
       const l = this.ladders.slice().sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
-      if (l && Math.hypot(u.x - l.x, u.y - WALL_Y) < gateD - 4) {
+      if (l && Math.abs(u.x - l.x) < Math.abs(u.x - 50) - 4) {
         if (this.moveTo(u, l.x, WALL_Y - 1.5, dt)) { u.state = 'climb'; u.timer = 2.5; u.ladderRef = l; u.x = l.x; }
         return;
       }
     }
-    const gx = 50 + clamp(u.x - 50, -5, 5), gy = WALL_Y - 2;
-    if (this.moveTo(u, gx, gy, dt) || (u.y >= WALL_Y - 3.5 && Math.abs(u.x - 50) < 7)) {
-      if (u.cd <= 0) { this.hitGate(u); u.cd = u.rate; u.atk = 0.25; }
+    if (nearWall && !u.ladder && Math.abs(u.x - 50) < 9) {
+      const gx = 50 + clamp(u.x - 50, -5, 5), gy = WALL_Y - 2;
+      if (this.moveTo(u, gx, gy, dt) || (u.y >= WALL_Y - 3.5 && Math.abs(u.x - 50) < 7)) {
+        if (u.cd <= 0) { this.hitGate(u); u.cd = u.rate; u.atk = 0.25; }
+      }
+      return;
+    }
+    // Far from the wall: follow the flow field, or bash through if walled in.
+    this.flows();
+    if (!this.steer(u, u.ladder ? this.flowWall : this.flowGate, dt)) {
+      u.bash = this.nearestBlock(u);
+      if (!u.bash) this.moveTo(u, 50, WALL_Y - 2, dt);
     }
   }
   playerStep(u, dt) {
+    if (u.zone === 'march') {
+      const wp = u.path && u.path[0];
+      if (!wp) { this.arrive(u); return; }
+      const sp = u.speed; u.speed = Math.max(sp, 9);
+      if (this.moveTo(u, wp.x, wp.y, dt)) u.path.shift();
+      u.speed = sp;
+      if (!u.path.length) this.arrive(u);
+      return;
+    }
     if (u.zone === 'wall' || u.zone === 'tower') {
       const t = u.type === 'ballista'
         ? this.units.filter(o => o.side === 'e' && o.hp > 0 && o.state !== 'climb' && dist(o, u) <= u.range).sort((a, b) => b.hp - a.hp)[0]
-        : this.nearest(u, o => o.side === 'e' && o.hp > 0, u.range);
+        : this.nearest(u, o => o.side === 'e' && o.hp > 0, u.range * (u.towerRef ? 1.2 : 1));
       if (t && u.cd <= 0) { this.shoot(u, t); u.cd = u.rate; u.atk = 0.2; u.face = t.x > u.x ? 1 : -1; }
       return;
     }
@@ -504,6 +777,13 @@ class Siege {
     }
     this.moveTo(u, u.post.x, u.post.y, dt);
   }
+  arrive(u) {
+    const d = u.dest || { x: u.x, y: u.y, zone: this.zoneAt(u.x, u.y) || 'yard' };
+    u.path = null; u.dest = null;
+    u.x = d.x; u.y = d.y; u.post = { x: d.x, y: d.y };
+    u.zone = d.zone; u.towerRef = d.ref || null;
+    if (u.zone === 'tower' && !u.towerRef && !GEO.TOWERS.includes(Math.round(u.x))) u.zone = 'wall';
+  }
   melee(u, t, dt) {
     const d = dist(u, t);
     if (d > u.range) { this.moveTo(u, t.x, t.y, dt); if (u.side === 'e' && !this.inside(u)) u.y = Math.min(u.y, WALL_Y - 1.5); return; }
@@ -516,10 +796,12 @@ class Siege {
     return best;
   }
   separate() {
-    const g = this.units.filter(u => u.hp > 0 && u.zone !== 'wall' && u.zone !== 'tower' && u.state !== 'climb' && u.state !== 'plant');
+    const g = this.units.filter(u => u.hp > 0 && u.zone !== 'wall' && u.zone !== 'tower' && u.zone !== 'march' && u.state !== 'climb' && u.state !== 'plant');
     for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) {
-      const a = g[i], b = g[j], r = (a.large || b.large) ? 4.2 : 2.6;
-      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+      const a = g[i], b = g[j], r = (a.large || b.large) ? 4.2 : 2.4;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      if (Math.abs(dx) > r || Math.abs(dy) > r) continue;
+      const d = Math.hypot(dx, dy);
       if (d > 0.01 && d < r) {
         const push = (r - d) / 2, nx = dx / d, ny = dy / d;
         const wa = a.large && !b.large ? 0.2 : 1, wb = b.large && !a.large ? 0.2 : 1;
@@ -532,20 +814,43 @@ class Siege {
       if (u.side === 'p' && u.zone === 'field') u.y = Math.min(u.y, WALL_Y - 1.5);
       if (u.side === 'p' && u.zone === 'yard') u.y = clamp(u.y, YARD_Y + 1, GEO.KEEP.y - 4);
       if (u.side === 'e' && this.inside(u)) u.y = Math.min(u.y, GEO.KEEP.y - 4);
+      // Nobody stands inside a wall or tower: push out to the nearest edge.
+      if (u.y < WALL_Y) {
+        const { c, r } = cellOf(clamp(u.x, 0, 99.9), clamp(u.y, 0, 103.9));
+        const p = this.pieceIn(c, r);
+        if (p && SG.PIECES[p.k].block && p.hp > 0) {
+          const x0 = p.c * CELL, y0 = p.r * CELL, x1 = x0 + p.size * CELL, y1 = y0 + p.size * CELL;
+          const opts = [[x0 - 0.6, u.y, u.x - x0], [x1 + 0.6, u.y, x1 - u.x], [u.x, y0 - 0.6, u.y - y0], [u.x, y1 + 0.6, y1 - u.y]].sort((a, b) => a[2] - b[2]);
+          u.x = opts[0][0]; u.y = opts[0][1];
+        }
+      }
     }
   }
   stepProj(dt) {
     for (const p of this.proj) {
-      const tx = p.t.x, ty = p.t.y - 2;
-      const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy), sp = p.speed * dt;
+      if (p.t && p.t.hp > 0) { p.tx = p.t.x; p.ty = p.t.y - 2; }
+      const dx = p.tx - p.x, dy = p.ty - p.y, d = Math.hypot(dx, dy), sp = p.speed * dt;
       p.ang = Math.atan2(dy, dx);
-      if (d <= sp || p.t.hp <= 0) {
+      if (p.kind === 'rock') { const tot = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1; p.arc = Math.sin(Math.PI * clamp(1 - d / tot, 0, 1)) * Math.min(14, tot * 0.25); }
+      if (d <= sp || (p.t && p.t.hp <= 0 && !p.splash)) {
         p.done = true;
-        if (p.t.hp > 0 || p.splash) {
+        const tx = p.tx, ty = p.ty;
+        if (p.kind === 'rock') {
+          this.fx.push({ k: 'boom', x: tx, y: ty, r: p.splash, rock: true, small: !p.src.large && !p.mangonel });
+          if (p.piece) this.hitPiece(p.src, p.piece, p.dmg * 2.2);
+          if (p.gate) this.hitGate({ dmg: p.dmg, large: true, x: tx, rate: 0 });
+          const foeSide = p.src.side === 'p' ? 'e' : 'p';
+          for (const u of this.units) if (u.side === foeSide && u.hp > 0 && u.state !== 'climb' && Math.hypot(u.x - tx, u.y - ty) <= p.splash) this.damage(p.src.uid ? p.src : null, u, p.dmg * (p.mangonel ? 1 : 0.7), { pierce: !!p.mangonel });
+          continue;
+        }
+        if (p.t && (p.t.hp > 0 || p.splash)) {
           if (p.splash) {
             this.fx.push({ k: p.kind === 'fire' ? 'boom' : 'spark', x: tx, y: ty, r: p.splash, fire: p.kind === 'fire', small: true });
             for (const u of this.units) if (u.side !== p.src.side && u.hp > 0 && Math.hypot(u.x - tx, u.y - ty) <= p.splash) this.damage(p.src, u, u === p.t ? p.dmg : p.dmg * 0.6, { fire: p.kind === 'fire' });
-          } else this.damage(p.src, p.t, p.dmg, {});
+          } else {
+            this.damage(p.src, p.t, p.dmg, { fire: p.burn });
+            if (p.burn && p.t.hp > 0 && this.rng() < 0.3) { p.t.burn = 3; p.t.burnDps = 4; }
+          }
         }
       } else { p.x += dx / d * sp; p.y += dy / d * sp; }
     }
@@ -559,7 +864,6 @@ class Siege {
 }
 SG.Siege = Siege;
 
-// Applies rewards after a won night. Returns what was given.
 SG.reward = function (S, n, stars) {
   S.siege = S.siege || { best: 0, stars: {} };
   const first = n > S.siege.best;
@@ -569,15 +873,13 @@ SG.reward = function (S, n, stars) {
     S.siege.best = n;
     const m = SG.MILESTONES[n];
     if (m) {
-      if (m.gear) {
-        if (!D.GEAR[m.gear]) throw new Error('missing gear ' + m.gear);
-      }
-      out.got = out.got.concat(E.applyReward(S, m));
-      out.gearUid = m._uid; delete m._uid;
+      const r = Object.assign({}, m);
+      out.got = out.got.concat(E.applyReward(S, r));
+      out.gearUid = r._uid;
       if (m.text) out.text = m.text;
     }
   }
-  const gold = 60 + 35 * n, mats = { ore: 1 + Math.floor(n / 3), shard: n >= 3 ? Math.ceil(n / 3) : 0 };
+  const gold = 80 + 45 * n, mats = { ore: 2 + Math.floor(n / 2), shard: n >= 3 ? Math.ceil(n / 3) : 0 };
   if (!mats.shard) delete mats.shard;
   out.got = out.got.concat(E.applyReward(S, { gold: first ? gold : Math.round(gold * 0.6), mats }));
   return out;

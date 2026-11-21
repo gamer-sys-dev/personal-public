@@ -511,11 +511,14 @@ SCREENS.defend = () => {
   const past = [];
   for (let n = best; n >= 1; n--) past.push(`<div class="spread"><span>Night ${n} <span style="color:var(--gold)">${stars(n)}</span></span><button class="sm" data-a="night" data-v="${n}">Replay</button></div>`);
   return `<div class="topbar"><h1>Defend Emberwake</h1><button class="sm" data-a="keep">Back</button></div>
-    <p class="muted">The Hollow come at night. Spend levy on soldiers, place your heroes and use their powers. Hold until dawn. The keep falls if its hall is broken.</p>
+    <p class="muted">The Hollow come at night. Spend levy on soldiers, place your heroes and use their powers. Tap your soldiers to select them and tap the ground to send them where they're needed. Hold until dawn. The keep falls if its hall is broken.</p>
     ${best < SG.MAX_NIGHT ? `<div class="card defend alert"><div class="spread"><b class="serif" style="font-size:1.15rem">Night ${next}</b><span class="pill bad">${SG.night(next).length} waves</span></div>
       <div class="small muted" style="margin-top:4px">Expect: ${types(next).map(FOE_SHORT).join(', ')}.</div>
       <div class="small" style="margin-top:4px;color:var(--gold)">${ms(next) || 'Gold, iron and shadow shards.'}</div>
       <button class="primary big" data-a="night" data-v="${next}">Man the walls</button></div>` : '<div class="card">Every night held. Emberwake stands. Replay any night for more stars and materials.</div>'}
+    ${best >= 1 ? `<div class="card defend"><div class="spread"><b class="serif" style="font-size:1.1rem">Your castle</b><span class="pill">${SG.castle(S).pieces.length} pieces</span></div>
+      <div class="small muted" style="margin-top:4px">Lay out walls, towers, moats, stakes, killing pits and pitch ditches in front of the gate, and braziers and mangonels in the yard. The Hollow have to go round what you build, or smash through it. Anything broken is rebuilt for the next night.</div>
+      <button class="big gold" data-a="fortify">Fortify the castle</button></div>` : ''}
     <div class="card"><h2>Your defences</h2>
       <div class="small">Gate ${Math.round(700 * [1, 1.5, 2.1][S.buildings.walls || 0])} · ${S.buildings.walls ? 'Stone walls' : 'Wooden palisade'}${S.buildings.walls >= 2 ? ' with burning oil' : ''} · Barracks ${S.buildings.barracks ? 'level ' + S.buildings.barracks : 'not built'}</div>
       <div class="list" style="margin-top:6px">${troops}</div>
@@ -568,6 +571,10 @@ ACT.continue = () => {
 };
 ACT.keep = () => go('keep');
 ACT.defend = () => go('defend');
+ACT.fortify = () => {
+  if (stopScene) { stopScene(); stopScene = null; }
+  SUI.runFortify(S, () => { save(); go('defend'); });
+};
 ACT.night = v => {
   const n = +v;
   if (stopScene) { stopScene(); stopScene = null; }
