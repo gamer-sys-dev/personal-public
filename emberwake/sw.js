@@ -1,5 +1,5 @@
 // Caches the game so it opens without signal. Bump VERSION when files change.
-const VERSION = 'emberwake-v5';
+const VERSION = 'emberwake-v6';
 const FILES = ['./', 'index.html', 'data.js', 'world.js', 'engine.js', 'sprites.js', 'siege.js', 'siegeui.js', 'battlefx.js', 'game.js', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', e => e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES))));

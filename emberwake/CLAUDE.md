@@ -47,6 +47,12 @@ A fantasy party RPG for one player on a phone. Underdog party, turn based fights
 - Final creature evolutions at level 16, following the first form (Bloodfang, Wallfang, Moonhowler and so on), 25% stronger again with a top move (Ravage or Greater Mend).
 - New uniques: King's Signet, Witch's Lantern, Hollow Crown (reserved for later).
 
+## Layer four, part two (22 November 2026)
+
+- Player feedback: hunting at dens seemed to do nothing. Taming was hidden in Hesk's skill list. Now: the den shows a Beast hunt card (what lives there, new or tamed before, how taming works, and why you can't if Hesk isn't in the party or the kennels are full). Hunts open with a banner and give +15% tame odds. Hesk's turn shows a Tame button with the best odds on the field.
+- Beast book on the Creatures screen: every kind, silhouettes for ones not yet tamed, where to find each. Rewards for 3, 5, 8 and 10 kinds (feathers, two tomes, Crown of the Wild). S.dex tracks kinds tamed.
+- Player feedback: siege is okay but should feel more like Stronghold. Asked what that means to him before rebuilding it.
+
 ## Next layers
 
 - War campaigns (agreed as the next big piece): a territory map, Hollow held villages and forts, battles with the soldiers trained for the siege plus heroes, captured ground paying out daily.

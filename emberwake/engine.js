@@ -33,6 +33,7 @@ E.ensure = function (S) {
   S.buildings = Object.assign({ yard: 0, kennels: 0, barracks: 0, walls: 0 }, S.buildings || {});
   S.siege = S.siege || { best: 0, stars: {} };
   S.arena = S.arena || { won: {} };
+  if (!S.dex) { S.dex = {}; for (const c of (S.creatures || [])) S.dex[c.sp] = true; }
   S.flags = S.flags || { seen: {}, got: {} };
   if (S.areas && S.areas.millroad && S.areas.millroad.cleared) { S.flags.raid = true; S.flags.market = true; }
   // Saves from before the last three areas were hand built: move them onto the new maps.
@@ -142,6 +143,12 @@ E.addCreature = function (S, sp, lvl) {
   c.hp = E.creatureStats(c).maxHp;
   S.creatures.push(c);
   if (S.companion == null) S.companion = c.cid;
+  S.dex = S.dex || {};
+  if (!S.dex[sp]) {
+    S.dex[sp] = true;
+    const n = Object.keys(S.dex).length, r = W.DEX_REWARDS[n];
+    if (r) { const got = E.applyReward(S, Object.assign({}, r)); S.dexNews = (S.dexNews || []).concat([`${n} kinds of beast tamed: ${got.join(', ')}`]); }
+  }
   return c;
 };
 E.creatureOf = (S, cid) => S.creatures.find(c => c.cid === cid) || null;
@@ -741,12 +748,13 @@ class Battle {
     }
     if (sk.after) for (const t of this.alive(this.friends(a))) for (const s in sk.after) this.addStatus(t, s, sk.after[s], ev);
   }
+  tameOdds(t) { return clamp(0.08 + 0.85 * Math.pow(1 - t.hp / t.maxHp, 1.3) + (this.opts.tameBonus || 0), 0.08, 0.95); }
   tame(a, t, ev) {
     if (!t || t.hp <= 0) t = this.alive(this.enemies)[0];
     if (!t) return;
     if (!t.tpl.tame || t.isBoss) { ev.push({ t: 'say', text: t.name + ' can\'t be tamed' }); return; }
     if (this.S.creatures.length + this.tamed.length >= E.capacity(this.S)) { ev.push({ t: 'say', text: 'No room. Build or expand the kennels' }); return; }
-    const p = clamp(0.08 + 0.85 * Math.pow(1 - t.hp / t.maxHp, 1.3), 0.08, 0.9);
+    const p = this.tameOdds(t);
     if (this.rng() < p) {
       t.tamed = true;
       this.tamed.push({ sp: t.tpl.tame, lvl: t.lvl });
@@ -1015,6 +1023,7 @@ E.boardStatus = function (S, b) {
     case 'kennels': return S.buildings.kennels ? 'done' : has('hesk') ? 'ready' : 'locked';
     case 'aldric': case 'sealed': return has('aldric') ? 'done' : S.unlocked >= 3 ? 'ready' : 'locked';
     case 'morwen': case 'hidden': return has('morwen') ? 'done' : S.unlocked >= 4 ? 'ready' : 'locked';
+    case 'bestiary': return Object.keys(S.dex || {}).length >= 10 ? 'done' : S.roster.includes('hesk') ? 'ready' : 'locked';
     case 'evolve2': return S.creatures.some(c => c.final) ? 'done' : S.creatures.some(c => c.form) ? 'ready' : 'locked';
     case 'siege': return S.siege.best >= 1 ? 'done' : S.flags.raid ? 'ready' : 'locked';
     case 'barracks': return S.buildings.barracks ? 'done' : S.siege.best >= 1 ? 'ready' : 'locked';

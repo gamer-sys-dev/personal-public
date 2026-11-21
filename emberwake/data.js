@@ -312,6 +312,7 @@ const GEAR = {
   prayer_beads:   { name: 'Prayer Beads', slot: 'charm', flags: { boost_light: 0.2, healBoost: 0.2 }, price: 600, tier: 3, desc: 'Light damage and healing +20%' },
   kings_signet:   { name: 'King\'s Signet', slot: 'charm', stats: { mag: 4, res: 4, mp: 15, hp: 20 }, price: 900, unique: true },
   witch_lantern:  { name: 'Witch\'s Lantern', slot: 'charm', flags: { boost_dark: 0.2, boost_light: 0.2 }, stats: { mag: 3 }, price: 900, unique: true, desc: 'Light and dark damage +20%' },
+  wild_crown:     { name: 'Crown of the Wild', slot: 'charm', stats: { hp: 30, str: 3, mag: 3, spd: 3 }, flags: { beastBond: 0.4 }, price: 2000, unique: true, desc: 'Creature damage +40% while the wearer is in the party' },
   hollow_crown:   { name: 'Hollow Crown', slot: 'charm', stats: { hp: 30, str: 5, mag: 5, spd: 3 }, price: 2400, unique: true },
   // Layer three: siege and arena prizes
   ashby_banner:   { name: 'Ashby Banner', slot: 'charm', stats: { hp: 20, str: 2, mag: 2, def: 2, res: 2 }, price: 500, unique: true },

@@ -29,6 +29,21 @@ const CREATURES = {
               evo: { attack: 'Nightmare Hound', guard: 'Ward Hound', support: 'Shade Hound' } },
 };
 const EVO_LVL = 8, EVO2_LVL = 16;
+// Where each kind of beast can be found. Shown in the bestiary.
+const HABITAT = {
+  rat: 'Thornwood, all over. The rat warren is thick with them.',
+  wolf: 'Thornwood and the Mill Road. Hunt at the boar wallow too.',
+  boarling: 'Thornwood, at the boar wallow.',
+  briar: 'Thornwood, in the briar thicket.',
+  crows: 'The Mill Road. Hunt at the crow roost.',
+  bat: 'The Barrow Hills. Hunt at the bat roost.',
+  slime: 'Fenmire. Hunt at the slime pools.',
+  lurker: 'Fenmire, in the reed beds and slime pools.',
+  hound: 'The Hollow Tower. Hunt at the hound pens.',
+  emberfox: 'Only one exists. It\'s the prize for winning the Silver rank at the Brightwater arena.',
+};
+// Rewards for taming different kinds of beast.
+const DEX_REWARDS = { 3: { items: { feather: 2 } }, 5: { tome: true }, 8: { tome: true }, 10: { gear: 'wild_crown' } };
 // Final forms at level 16 follow the first form.
 const EVO2 = {
   rat: { attack: 'Plague Lord', guard: 'Warren King', support: 'Hedge Mother' },
@@ -402,6 +417,7 @@ const BOARD = [
   { id: 'morwen', name: 'Recruit: the witch of Fenmire', how: 'A hut on stilts in Fenmire, lit by green lanterns. Its owner wants something.' },
   { id: 'sealed', name: 'Oathbound doors', how: 'Recruit Aldric. He can open doors sealed by the old knights in the barrows and the tower.' },
   { id: 'hidden', name: 'Hidden paths', how: 'Recruit Morwen. She can see paths hidden by magic in Fenmire and the tower.' },
+  { id: 'bestiary', name: 'Beast book', how: 'Tame different kinds of beast. Rewards at 3, 5, 8 and all 10 kinds: ember feathers, two tomes and the Crown of the Wild.' },
   { id: 'evolve', name: 'First evolution', how: 'Raise a creature to level ' + EVO_LVL + '. How you use it decides what it becomes.' },
   { id: 'evolve2', name: 'Final evolution', how: 'Raise an evolved creature to level 16. It becomes the final version of what it became.' },
   { id: 'siege', name: 'Defend Emberwake', how: 'Defeat Rook the Red. He\'ll tell the Hollow where you are.' },
@@ -523,6 +539,6 @@ const STORY4 = {
   ],
 };
 
-const WORLD = { EVO2_LVL, EVO2, STORY4, ARENA, STORY3, CREATURES, EVO_LVL, EVO_MULT, STANCES, BUILDINGS, YARD_RATE, KENNEL_CAP, MAPS, genMap, EVENTS, STORY2, BOARD };
+const WORLD = { HABITAT, DEX_REWARDS, EVO2_LVL, EVO2, STORY4, ARENA, STORY3, CREATURES, EVO_LVL, EVO_MULT, STANCES, BUILDINGS, YARD_RATE, KENNEL_CAP, MAPS, genMap, EVENTS, STORY2, BOARD };
 if (typeof module !== 'undefined' && module.exports) module.exports = WORLD; else root.WORLD = WORLD;
 })(this);

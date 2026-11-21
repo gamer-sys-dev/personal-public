@@ -258,7 +258,15 @@ SCREENS.area = () => {
   const allKo = S.party.every(h => S.heroes[h].hp <= 0);
   const acts = [];
   if (n.t === 'boss' && !S.areas[id].cleared) acts.push(`<button class="primary big" data-a="boss" ${allKo ? 'disabled' : ''}>Face ${bossName}</button>`);
-  if (n.t === 'den' && st.done[n.id]) acts.push(`<button class="big gold" data-a="hunt" ${allKo ? 'disabled' : ''}>Hunt for beasts to tame</button>`);
+  if (n.t === 'den' && st.done[n.id]) {
+    const kinds = [...new Set(n.hunt)].filter(k => D.ENEMIES[k].tame);
+    const why = !S.party.includes('hesk') ? 'Hesk has to be in the party to tame anything. Swap her in from Party, Line-up.'
+      : S.creatures.length >= E.capacity(S) ? `Your kennels are full (${S.creatures.length}/${E.capacity(S)}). Build or expand them on the noticeboard, or release a creature.` : '';
+    acts.push(`<div class="card"><b>Beast hunt</b><div class="small muted" style="margin-top:4px">Lives here: ${kinds.map(k => D.ENEMIES[k].name + (S.dex && S.dex[D.ENEMIES[k].tame] ? ' (tamed before)' : ' <b style="color:var(--gold)">(new!)</b>')).join(', ')}.</div>
+      <div class="small" style="margin-top:4px">Wear a beast down, then use Hesk's <b>Tame</b> button. The more hurt it is, the better the odds, and hunting here adds 15%.</div>
+      ${why ? `<div class="small" style="color:var(--bad);margin-top:4px">${why}</div>` : ''}
+      <button class="big gold" data-a="hunt" ${allKo || why ? 'disabled' : ''}>Hunt for a beast to tame</button></div>`);
+  }
   if (n.t === 'quest') acts.push('<button class="big gold" data-a="talk">Talk</button>');
   if (n.t === 'event' && !st.done[n.id]) acts.push('<button class="big gold" data-a="eventGo">Look closer</button>');
   acts.push(`<button class="big" data-a="train" ${allKo ? 'disabled' : ''}>Look for a fight</button>`);
@@ -392,7 +400,9 @@ SCREENS.creatures = () => {
   return `<div class="topbar"><h1>Creatures</h1><button class="sm" data-a="back">Back</button></div>
     <p class="muted">${S.creatures.length} of ${cap} places. Hesk can tame a beast in battle once it's badly hurt. One creature fights beside you and earns XP. ${S.buildings.kennels >= 2 ? 'The rest earn half XP in the kennels.' : ''}</p>
     ${list || '<div class="card muted">No creatures yet.</div>'}
-    ${S.buildings.kennels < 2 ? '<button class="big" data-a="board">More room: build kennels on the noticeboard</button>' : ''}`;
+    ${S.buildings.kennels < 2 ? '<button class="big" data-a="board">More room: build kennels on the noticeboard</button>' : ''}
+    <div class="card"><h2>Beast book</h2><p class="muted small">${Object.keys(S.dex || {}).length} of ${Object.keys(W.CREATURES).length} kinds tamed. Rewards at 3, 5, 8 and 10.</p>
+      <div class="list">${Object.keys(W.CREATURES).map(k => { const has = S.dex && S.dex[k]; return `<div class="row">${has ? img(W.CREATURES[k].sprite, 2) : `<span style="opacity:.25;filter:brightness(0)">${img(W.CREATURES[k].sprite, 2)}</span>`}<div class="grow"><b>${has ? W.CREATURES[k].name : '???'}</b><div class="small muted">${W.HABITAT[k]}</div></div></div>`; }).join('')}</div></div>`;
 };
 
 SCREENS.yard = () => {
@@ -851,7 +861,7 @@ ACT.hunt = () => {
   const k = 1 + Math.floor(Math.random() * 2);
   const specs = [];
   for (let i = 0; i < k; i++) specs.push({ t: n.hunt[Math.floor(Math.random() * n.hunt.length)], lvl });
-  startBattle(specs, { area: id });
+  startBattle(specs, { area: id, hunt: true });
 };
 ACT.boss = () => {
   const id = view.id, a = E.area(id);
@@ -886,7 +896,7 @@ function shakeField() { const f = document.querySelector('#battle .field'); if (
 
 function startBattle(specs, c) {
   ctx = c;
-  B = new E.Battle(S, specs, { boss: !!c.boss, autoItems: false });
+  B = new E.Battle(S, specs, { boss: !!c.boss, autoItems: false, tameBonus: c.hunt ? 0.15 : 0 });
   const bg = BG[c.area] || BG.thornwood;
   const el = document.createElement('div');
   el.id = 'battle';
@@ -902,6 +912,7 @@ function startBattle(specs, c) {
   }
   drawUnits(); drawBars(); drawCmd();
   if (c.ambush) banner('Ambush!');
+  if (c.hunt) banner('Beast hunt: weaken one, then Tame it', true);
   runBattle();
 }
 function unitHTML(a) {
@@ -1061,7 +1072,10 @@ function drawCmd() {
   const a = pending.a;
   if (pending.mode === 'main') {
     const surge = B.surgeReady() ? `<button class="surgebtn" data-a="bSurge">EMBER SURGE · ${D.SKILLS[D.SURGE[a.id]].name}</button>` : '';
-    el.innerHTML = `<div class="cmdtop"><b class="serif">${a.name}'s turn</b>${surgeHTML()}${autoBtn}</div>${surge}
+    const beasts = a.skills.includes('tame') ? B.enemies.filter(e => e.hp > 0 && e.tpl.tame && !e.isBoss) : [];
+    const best = beasts.sort((x, y) => B.tameOdds(y) - B.tameOdds(x))[0];
+    const tameBtn = best ? `<button class="gold" style="width:100%;margin-bottom:8px" data-a="bSkill" data-v="tame">Tame · best odds ${Math.round(B.tameOdds(best) * 100)}% (${esc(best.name)})</button>` : '';
+    el.innerHTML = `<div class="cmdtop"><b class="serif">${a.name}'s turn</b>${surgeHTML()}${autoBtn}</div>${surge}${tameBtn}
       <div class="grid2"><button class="primary" data-a="bAttack">Attack</button><button data-a="bSkills">Skills</button>
       <button data-a="bItems">Items</button><button data-a="bDefend">Defend</button></div>
       ${B.boss ? '' : '<button class="link" style="width:100%;margin-top:6px" data-a="bFlee">Try to run</button>'}`;
@@ -1114,7 +1128,7 @@ ACT.bSkill = s => {
   if (sk.type === 'tame') {
     const beasts = B.enemies.filter(e => e.hp > 0 && e.tpl.tame && !e.isBoss);
     if (!beasts.length) { toast('Nothing here can be tamed.'); return; }
-    const odds = beasts.map(e => `${e.name} ${Math.round(Math.min(90, (0.08 + 0.85 * Math.pow(1 - e.hp / e.maxHp, 1.3)) * 100))}%`).join(', ');
+    const odds = beasts.map(e => `${e.name} ${Math.round(B.tameOdds(e) * 100)}%`).join(', ');
     startTargeting('enemy', c, 'Tame', `Odds now: ${odds}. Wear them down first.`);
     return;
   }
@@ -1187,9 +1201,11 @@ function endBattle() {
   const anyLevel = Object.keys(res.levels).length;
   overlay(`<div class="sheet"><h2>Victory</h2><div class="list">${lines.join('')}</div>
     <p><span class="goldtxt">+${res.gold} gold</span>${loot.length ? ' · ' + loot.join(', ') : ''}</p>
-    ${res.tamed.length ? `<p style="color:var(--good)"><b>Tamed: ${res.tamed.join(', ')}.</b> Manage creatures from the keep.</p>` : ''}
+    ${res.tamed.length ? `<p style="color:var(--good)"><b>Tamed: ${res.tamed.join(', ')}!</b> It's in your kennels. Set it as your companion from Creatures at the keep.</p>` : ''}
+    ${(S.dexNews || []).map(t => `<p style="color:var(--gold)"><b>Beast book: ${t}</b></p>`).join('')}
     ${anyLevel ? '<p class="muted small">New talent points to spend in Party.</p>' : ''}
     <button class="primary big" data-a="afterWin">Continue</button></div>`, 'center');
+  S.dexNews = []; save();
   ACT.afterWin = () => {
     closeOverlay(); close();
     const queue = [];
