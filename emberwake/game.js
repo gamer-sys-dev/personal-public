@@ -5,6 +5,7 @@ const D = window.DATA, W = window.WORLD, E = window.ENGINE, SP = window.SPRITES,
 let stopScene = null;
 const AU = window.AUDIO || { unlock() {}, play() {}, sfx() {}, set() {} };
 const MOOD = { thornwood: 'wood', millroad: 'wood', barrows: 'dark', fenmire: 'dark', tower: 'dark' };
+const DREAD = ['the_raid', 'wren_hollow', 'tower_boss', 'millroad_boss', 'fenmire_out', 'dream_1', 'dream_2', 'tower_in', 'aldric_stair'];
 const SAD = ['raid_after', 'wren_dies', 'aldric_holds', 'hale_redeemed', 'hale_ended', 'warden_end_dark', 'wren_banished'];
 document.addEventListener('pointerdown', () => AU.unlock(), { capture: true });
 const KEY = 'emberwake-save-v1';
@@ -124,6 +125,7 @@ function sceneLines(key) { return (dynScenes[key] || STX.STORY5[key] || D.STORY[
 function scene(key, then) {
   if (STX.CHOICES[key]) { choiceScene(key, then); return; }
   if (SAD.includes(key)) AU.play('sad');
+  else if (DREAD.includes(key)) AU.play('dread');
   const lines = sceneLines(key);
   if (!lines.length) { then && then(); return; }
   S.flags.seen[key] = true; save();
@@ -235,7 +237,7 @@ SCREENS.title = () => {
 
 SCREENS.keep = () => {
   const shopName = S.flags.raid_done ? 'Tilly\'s stall' : S.shopTier >= 2 ? 'Hob\'s Trading Post' : 'Supplies';
-  const pts = S.roster.some(id => S.heroes[id].points > 0);
+  const pts = S.roster.some(id => S.heroes[id].points > 0 || E.readyToEvolve(S, id).length);
   const bench = S.roster.filter(id => !S.party.includes(id));
   const raid = S.flags.raid ? `<div class="card defend ${S.siege.best ? '' : 'alert'}"><div class="spread"><b class="serif" style="font-size:1.1rem">${S.siege.best ? 'Defend Emberwake' : 'The Hollow are coming!'}</b>
       <span class="pill on">${S.siege.best >= SG.MAX_NIGHT ? 'All nights held' : 'Night ' + (S.siege.best + 1)}</span></div>
@@ -415,11 +417,14 @@ SCREENS.party = () => {
     ${view.slot ? slotPicker(id, view.slot) : ''}`;
   } else {
     const skills = st.skills.filter(s => s !== 'attack' && !(def.innate || []).includes(s));
-    body = `<div class="card"><p class="muted small">Skills get stronger the more you use them. Each mastery star adds 10% power.</p>
+    body = `<div class="card"><p class="muted small">Skills get stronger the more you use them. Each mastery star adds 10% power. At four stars a skill can <b>evolve</b> into one of two stronger forms, and starts earning stars again.</p>
       ${skills.length ? skills.map(s => {
         const sk = D.SKILLS[s], uses = h.mastery[s] || 0, lv = E.masteryLevel(uses), nextAt = E.MASTERY[lv];
+        const evo = E.canEvolve(S, id, s) ? `<div class="evochoice"><div class="small" style="color:var(--gold);margin:6px 0 4px">Mastered. Choose what it becomes:</div>
+          ${D.SKILL_EVO[s].map((o, k) => `<button class="sm gold evobtn" data-a="evolveSkill" data-v="${s}:${k}"><b>${o.name}</b><span class="small">${o.desc} ${D.SKILLS[o.id].mp || 0} MP</span></button>`).join('')}</div>`
+          : D.SKILL_EVO[s] ? `<div class="small muted">Evolves at four stars into ${D.SKILL_EVO[s].map(o => o.name).join(' or ')}.</div>` : sk.evolvedFrom ? `<div class="small" style="color:var(--gold)">Evolved from ${D.SKILLS[sk.evolvedFrom].name}.</div>` : '';
         return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="spread"><b>${sk.name}</b><span style="color:var(--gold)">${'★'.repeat(lv)}${'☆'.repeat(4 - lv)}</span></div>
-          <div class="small muted">${sk.mp || 0} MP. ${sk.desc || ''} Used ${uses} times${nextAt ? `, next star at ${nextAt}` : ', fully mastered'}.</div></div>`;
+          <div class="small muted">${sk.mp || 0} MP. ${sk.desc || ''} Used ${uses} times${nextAt ? `, next star at ${nextAt}` : ', fully mastered'}.</div>${evo}</div>`;
       }).join('') : '<p class="muted">No skills yet. Learn some in Talents.</p>'}</div>`;
   }
   return partyFrame(body, id);
@@ -427,7 +432,7 @@ SCREENS.party = () => {
 function partyFrame(body, id) {
   const tab = view.tab || 'stats';
   const tabs = ['stats', 'talents', 'gear', 'skills', 'lineup'].map(t => {
-    const dot = t === 'talents' && id && S.heroes[id].points;
+    const dot = (t === 'talents' && id && S.heroes[id].points) || (t === 'skills' && id && E.readyToEvolve(S, id).length);
     return `<button class="${t === tab ? 'on' : ''}" data-a="ptab" data-v="${t}">${t === 'lineup' ? 'Line-up' : t[0].toUpperCase() + t.slice(1)}${dot ? ' ●' : ''}</button>`;
   }).join('');
   return `<div class="topbar"><h1>Party</h1><button class="sm" data-a="back">Back</button></div>
@@ -556,7 +561,7 @@ SCREENS.bag = () => {
   const casters = [];
   for (const id of S.roster) {
     const st = E.heroStats(S, id);
-    for (const s of st.skills) if (['heal', 'mass_heal', 'raise', 'second_wind', 'sanctuary'].includes(s)) casters.push({ id, s });
+    for (const s of st.skills) if (['heal', 'revive'].includes(D.SKILLS[s].type)) casters.push({ id, s });
   }
   return `<div class="topbar"><h1>Bag</h1><button class="sm" data-a="back">Back</button></div>
     <div class="card">${partyMini()}</div>
@@ -820,6 +825,18 @@ function pickHero(title, cb, dead) {
   }).join('')}<button class="link" data-a="closeOv">Cancel</button></div>`);
   ACT.pickHero = id => { closeOverlay(); cb(id); };
 }
+ACT.evolveSkill = v => {
+  const [skill, k] = v.split(':'), id = view.hero, opt = D.SKILL_EVO[skill][+k];
+  overlay(`<div class="sheet" style="text-align:center"><h2>Evolve ${D.SKILLS[skill].name}?</h2><p><b style="color:var(--gold)">${opt.name}</b>: ${opt.desc}</p>
+    <p class="muted small">This can't be undone. The other choice will be gone for ${heroName(id)}.</p>
+    <button class="primary big" data-a="evolveGo" data-v="${v}">Evolve</button><button class="big" data-a="closeOv">Not yet</button></div>`, 'center');
+};
+ACT.evolveGo = v => {
+  const [skill, k] = v.split(':'), opt = E.evolveSkill(S, view.hero, skill, +k);
+  closeOverlay();
+  if (opt) { AU.sfx('level'); toast(`${D.SKILLS[skill].name} evolved into <b>${opt.name}</b>!`, 3000); }
+  render();
+};
 ACT.music = () => { S.opts.music = S.opts.music === false; AU.set({ music: S.opts.music }); render(); };
 ACT.sfx = () => { S.opts.sfx = S.opts.sfx === false; AU.set({ sfx: S.opts.sfx }); render(); };
 ACT.speed = v => { S.opts.speed = +v; render(); };
@@ -1136,7 +1153,7 @@ async function play(evs) {
       case 'tamed': AU.sfx('tame'); floatText(ev.who, 'Tamed!', 'heal'); banner(ev.who.name + ' is tamed!', true); await T(900); break;
       case 'stole': floatText(ev.who, ev.text, 'label'); await T(300); break;
       case 'summon': drawUnits(); pulse(ev.who, 'flash'); banner(ev.who.name + ' joins the fight'); await T(500); break;
-      case 'mastery': toast(`${D.SKILLS[ev.skill].name} mastery ${'★'.repeat(ev.lvl)}`); break;
+      case 'mastery': toast(ev.lvl >= 4 && D.SKILL_EVO[ev.skill] ? `<b>${D.SKILLS[ev.skill].name} mastered!</b> Evolve it from Party, Skills.` : `${D.SKILLS[ev.skill].name} mastery ${'★'.repeat(ev.lvl)}`, ev.lvl >= 4 ? 3500 : 2200); break;
     }
   }
   refreshUnits();

@@ -540,6 +540,51 @@ const STORY = {
   ],
 };
 
-const DATA = { STATS, HEROES, PARTY, ROSTER, SURGE, TALENT_REQ, TALENT_COST, TREES, SKILLS, GEAR, ITEMS, MATS, FORGE, ENEMIES, AREAS, STORY };
+// Skill evolutions: when a skill is mastered (four stars) the hero chooses one of two evolved forms.
+// [name, description, changes to the base skill]
+const SKILL_EVO = {
+  power_strike: [['Crushing Blow', '2.2x damage, may break armour.', { power: 2.2, status: { defDown: 2 }, chance: 0.5 }], ['Twin Strike', 'Two strikes at 1.1x each.', { power: 1.1, hits: 2 }]],
+  cleave:       [['Whirlwind', 'Hits every enemy harder.', { power: 1.1, mp: 10 }], ['Reaping Cleave', 'Hits every enemy, may slow them.', { power: 0.95, status: { slow: 2 }, chance: 0.5 }]],
+  sunder:       [['Shatter', '2.6x damage and armour broken for longer.', { power: 2.6, status: { defDown: 4 } }], ['Executioner', 'Double damage on anyone below 40% health.', { power: 2.0, execute: 0.4, status: null }]],
+  shield_wall:  [['Bastion', 'Party defence and resistance up for 4 turns.', { status: { defUp: 4, resUp: 4 }, mp: 9 }], ['Living Wall', 'Party defence up and regenerating.', { status: { defUp: 3, regen: 3 }, mp: 9 }]],
+  provoke:      [['Challenge', 'Draws attacks, braces and gets angry.', { status: { taunt: 4, defUp: 4, strUp: 3 } }], ['Iron Hide', 'Draws attacks, braces and regenerates.', { status: { taunt: 3, defUp: 3, regen: 3 } }]],
+  second_wind:  [['Second Life', 'Recover 65% of health.', { pct: 0.65, mp: 10 }], ['Battle Trance', 'Recover 35%, then strike harder and faster.', { pct: 0.35, status: { strUp: 3, haste: 2 } }]],
+  venom_shot:   [['Death Cap', 'Harder hit and a long, certain poison.', { power: 1.3, status: { poison: 6 }, chance: 1 }], ['Venom Spray', 'Poisons every enemy.', { power: 0.7, target: 'enemies', chance: 0.7, mp: 9 }]],
+  double_shot:  [['Triple Shot', 'Three quick hits.', { power: 0.75, hits: 3, mp: 9 }], ['Scatter Shot', 'Five arrows at random enemies.', { power: 0.6, hits: 5, target: 'random', mp: 9 }]],
+  hamstring:    [['Cripple', 'Slows them for longer and breaks armour.', { power: 1.6, status: { slow: 4, defDown: 3 }, chance: 1 }], ['Pinning Shot', 'Hits and may slow every enemy.', { power: 1.2, target: 'enemies', status: { slow: 2 }, chance: 0.6, mp: 13 }]],
+  fire:         [['Searing Flame', 'Heavy single target fire that usually burns.', { power: 1.7, status: { burn: 3 }, chance: 0.8, mp: 8 }], ['Fire Lash', 'Fire across every enemy.', { power: 0.8, target: 'enemies', mp: 9 }]],
+  blaze:        [['Wildfire', 'Stronger, and may set everyone burning.', { power: 1.0, status: { burn: 3 }, chance: 0.5, mp: 15 }], ['Firestorm', 'Two waves of fire over every enemy.', { power: 0.6, hits: 2, mp: 15 }]],
+  inferno:      [['Sunfall', 'A huge blast over every enemy.', { power: 2.0, mp: 30 }], ['Cinder Sea', 'Fire that leaves everything burning.', { power: 1.4, status: { burn: 4 }, chance: 1, mp: 28 }]],
+  frost:        [['Glacial Spike', 'Heavy frost, often slows.', { power: 1.6, status: { slow: 3 }, chance: 0.6, mp: 8 }], ['Hoarfrost', 'Frost over every enemy.', { power: 0.8, target: 'enemies', chance: 0.4, mp: 10 }]],
+  ice_lance:    [['Frozen Heart', 'An enormous single hit.', { power: 2.6, mp: 15 }], ['Shardstorm', 'Four shards at random enemies.', { power: 0.7, hits: 4, target: 'random', mp: 14 }]],
+  frostguard:   [['Winter Ward', 'Party resistance and defence up.', { status: { resUp: 4, defUp: 3 }, mp: 11 }], ['Ice Mirror', 'Party resistance up and regenerating.', { status: { resUp: 3, regen: 3 }, mp: 11 }]],
+  blizzard:     [['Whiteout', 'Much stronger, slows most of them.', { power: 1.7, status: { slow: 3 }, chance: 0.7, mp: 28 }], ['Deep Freeze', 'Slows and cracks every enemy\'s armour.', { power: 1.2, status: { slow: 4, defDown: 3 }, chance: 0.8, mp: 26 }]],
+  heal:         [['Greater Heal', 'A much bigger heal.', { power: 1.8, mp: 8 }], ['Renew', 'A heal that keeps healing.', { power: 0.9, status: { regen: 3 }, mp: 7 }]],
+  mass_heal:    [['Grand Mending', 'A big heal for everyone.', { power: 1.15, mp: 18 }], ['Soothing Light', 'Heals everyone and keeps healing.', { power: 0.6, status: { regen: 3 }, mp: 15 }]],
+  raise:        [['Resurrection', 'Back on their feet with 75% health.', { pct: 0.75, mp: 22 }], ['Swift Return', 'A cheap raise with 35% health.', { pct: 0.35, mp: 9 }]],
+  smite:        [['Holy Lance', 'A huge holy strike.', { power: 2.3, mp: 14 }], ['Radiance', 'Holy light over every enemy.', { power: 0.9, target: 'enemies', mp: 16 }]],
+  sanctuary:    [['Benediction', 'An enormous heal with long regeneration.', { power: 1.8, status: { regen: 4 }, mp: 34 }], ['Haven', 'Heals, regenerates and braces everyone.', { power: 1.1, status: { regen: 3, defUp: 3 }, mp: 30 }]],
+  rally_cry:    [['Battle Hymn', 'Party strength up, and faster.', { status: { strUp: 4, haste: 2 }, mp: 10 }], ['War Chant', 'Party strength and defence up.', { status: { strUp: 3, defUp: 3 }, mp: 10 }]],
+  maul:         [['Savage Maul', 'A brutal hit that festers.', { power: 2.3, status: { poison: 3 }, chance: 0.8, mp: 11 }], ['Rending Maul', 'Two tearing hits.', { power: 1.4, hits: 2, status: null, mp: 11 }]],
+  feral_howl:   [['Terrify', 'Breaks every enemy\'s armour and slows them.', { status: { defDown: 4, slow: 2 }, mp: 13 }], ['Pack Howl', 'Breaks their armour and fires up the party.', { after: { strUp: 3 }, mp: 13 }]],
+  cheap_shot:   [['Low Blow', 'Hurts more and nearly always slows.', { power: 1.8, status: { slow: 3 }, chance: 0.9, mp: 7 }], ['Smoke and Knives', 'Cuts every enemy, may slow them.', { power: 0.9, target: 'enemies', chance: 0.4, mp: 9 }]],
+  flurry:       [['Blade Dance', 'Six cuts at random enemies.', { power: 0.55, hits: 6, mp: 13 }], ['Whirling Steel', 'One sweep through every enemy.', { power: 0.9, hits: 1, target: 'enemies', mp: 12 }]],
+  assassinate:  [['Death Mark', '3x damage, doubled on anyone below half health.', { power: 3.0, execute: 0.5, mp: 18 }], ['Shadow Step', 'Cheaper and quicker to reach for.', { power: 2.2, mp: 9 }]],
+  oath_strike:  [['Sacred Blade', 'Holy steel, heals Aldric more.', { power: 2.1, drain: 0.3, mp: 7 }], ['Shield of Faith', 'Holy strike, then the party braces.', { power: 1.4, after: { defUp: 2 }, mp: 7 }]],
+  grave_ward:   [['Last Rites', 'Strong wards and a little regeneration.', { status: { defUp: 4, resUp: 4, regen: 2 }, mp: 13 }], ['Hallowed Ground', 'Wards and steady regeneration.', { status: { defUp: 3, resUp: 3, regen: 3 }, mp: 13 }]],
+  judgement:    [['Final Judgement', 'Far stronger holy damage to every enemy.', { power: 1.8, mp: 22 }], ['Dawnbreak', 'Holy damage, then the party regenerates.', { power: 1.1, after: { regen: 3 }, mp: 18 }]],
+  curse:        [['Wither', 'Breaks armour and slows, every time.', { power: 1.4, status: { defDown: 4, slow: 2 }, chance: 1, mp: 8 }], ['Plague', 'Breaks every enemy\'s armour.', { power: 0.6, target: 'enemies', chance: 0.7, mp: 10 }]],
+  leech:        [['Devour', 'A huge drain.', { power: 2.0, drain: 0.7, mp: 14 }], ['Blood Pact', 'Drains every enemy at once.', { power: 0.8, target: 'enemies', drain: 0.4, mp: 15 }]],
+  doom:         [['Oblivion', 'Far stronger darkness that slows.', { power: 2.0, status: { slow: 3 }, chance: 0.8, mp: 28 }], ['Creeping Doom', 'Poisons and slows every enemy.', { power: 1.0, status: { poison: 5, slow: 2 }, chance: 1, mp: 22 }]],
+};
+for (const base in SKILL_EVO) SKILL_EVO[base] = SKILL_EVO[base].map(([name, desc, mod], i) => {
+  const id = base + '_' + (i ? 'b' : 'a');
+  const sk = Object.assign({}, SKILLS[base], mod, { name, desc, evolvedFrom: base });
+  for (const k in mod) if (mod[k] === null) delete sk[k];
+  SKILLS[id] = sk;
+  return { id, name, desc };
+});
+
+const DATA = { SKILL_EVO, STATS, HEROES, PARTY, ROSTER, SURGE, TALENT_REQ, TALENT_COST, TREES, SKILLS, GEAR, ITEMS, MATS, FORGE, ENEMIES, AREAS, STORY };
 if (typeof module !== 'undefined' && module.exports) module.exports = DATA; else root.DATA = DATA;
 })(this);

@@ -46,54 +46,75 @@ function drawSprite(ctx, id, sx, sy, unit, face, flash, alpha) {
 }
 
 // ---------- the static scene: ground, wall, keep and buildings ----------
+// The yard, hall and buildings are drawn in the old 100 wide layout through a view shifted by (OX, OY).
+const shifted = V => Object.assign({}, V, { ox: V.ox + G.OX * V.s, oy: V.oy + G.OY * V.s });
+// Cottages for the survivors on either side of the hall. More go up as more nights are held.
+const COTTAGES = [[14, 168], [160, 168], [28, 176], [146, 176], [10, 186], [164, 186], [26, 192], [148, 192], [40, 188], [134, 188], [18, 178], [156, 178]];
+const cottageCount = S => S.areas && S.areas.millroad && S.areas.millroad.cleared ? Math.min(COTTAGES.length, 2 + ((S.siege && S.siege.best) || 0)) : 0;
 function drawScene(ctx, V, S, opt) {
-  const night = !!opt.night, wl = S.buildings.walls || 0;
+  const night = !!opt.night, wl = S.buildings.walls || 0, W = G.W, H = G.H, GX = G.GX;
   const r = seeded(4242);
   // Field
   let g = ctx.createLinearGradient(0, Y(V, 0), 0, Y(V, G.WALL_Y));
   g.addColorStop(0, night ? '#14241a' : '#4d7a3c'); g.addColorStop(1, night ? '#243c22' : '#6b9a4a');
-  ctx.fillStyle = g; ctx.fillRect(X(V, 0), Y(V, 0), 100 * V.s, G.WALL_Y * V.s);
-  for (let i = 0; i < 900; i++) {
-    const x = r() * 100, y = r() * G.WALL_Y;
+  ctx.fillStyle = g; ctx.fillRect(X(V, 0), Y(V, 0), W * V.s, G.WALL_Y * V.s);
+  for (let i = 0; i < 2600; i++) {
+    const x = r() * W, y = r() * G.WALL_Y;
     ctx.fillStyle = r() < 0.5 ? (night ? 'rgba(10,20,10,.5)' : 'rgba(40,70,30,.45)') : (night ? 'rgba(60,90,50,.35)' : 'rgba(150,190,100,.35)');
     ctx.fillRect(X(V, x), Y(V, y), Math.max(1, V.s * 0.5), Math.max(1, V.s * (0.5 + r())));
   }
   // Road to the gate
   ctx.fillStyle = night ? '#3a3024' : '#9a8460';
-  ctx.beginPath(); ctx.moveTo(X(V, 46), Y(V, 0)); ctx.lineTo(X(V, 54), Y(V, 0)); ctx.lineTo(X(V, 59), Y(V, G.WALL_Y)); ctx.lineTo(X(V, 41), Y(V, G.WALL_Y)); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(X(V, GX - 4), Y(V, 0)); ctx.lineTo(X(V, GX + 4), Y(V, 0)); ctx.lineTo(X(V, GX + 9), Y(V, G.WALL_Y)); ctx.lineTo(X(V, GX - 9), Y(V, G.WALL_Y)); ctx.closePath(); ctx.fill();
   ctx.strokeStyle = night ? 'rgba(0,0,0,.3)' : 'rgba(80,60,40,.35)'; ctx.lineWidth = Math.max(1, V.s * 0.4);
-  for (const off of [-2.5, 2.5]) { ctx.beginPath(); ctx.moveTo(X(V, 50 + off * 0.8), Y(V, 0)); ctx.lineTo(X(V, 50 + off * 1.6), Y(V, G.WALL_Y)); ctx.stroke(); }
+  for (const off of [-2.5, 2.5]) { ctx.beginPath(); ctx.moveTo(X(V, GX + off * 0.8), Y(V, 0)); ctx.lineTo(X(V, GX + off * 1.6), Y(V, G.WALL_Y)); ctx.stroke(); }
   // Rocks
-  for (let i = 0; i < 18; i++) {
-    const x = r() * 100, y = 10 + r() * (G.WALL_Y - 20);
-    if (Math.abs(x - 50) < 10) continue;
+  for (let i = 0; i < 46; i++) {
+    const x = r() * W, y = 30 + r() * (G.WALL_Y - 40);
+    if (Math.abs(x - GX) < 12) continue;
     ctx.fillStyle = night ? '#3a3f44' : '#8a8f94';
     ctx.beginPath(); ctx.ellipse(X(V, x), Y(V, y), V.s * (0.8 + r()), V.s * (0.5 + r() * 0.5), 0, 0, Math.PI * 2); ctx.fill();
   }
-  // Pines framing the field
+  // Pines framing the field and the far wood
   const trees = [];
-  for (let i = 0; i < 46; i++) {
-    const side = r() < 0.5, x = side ? r() * 14 : 86 + r() * 14, y = 2 + r() * (G.WALL_Y - 14);
+  for (let i = 0; i < 70; i++) {
+    const side = r() < 0.5, x = side ? r() * 9 : W - 9 + r() * 9, y = 2 + r() * (G.WALL_Y - 14);
     trees.push([x, y, 3 + r() * 3]);
   }
-  for (let i = 0; i < 16; i++) trees.push([r() * 100, -2 + r() * 8, 3 + r() * 2.5]);
+  for (let i = 0; i < 60; i++) { const x = r() * W; if (Math.abs(x - GX) > 7) trees.push([x, -2 + r() * 16, 3 + r() * 3]); }
   trees.sort((a, b) => a[1] - b[1]);
   for (const [x, y, h] of trees) pine(ctx, V, x, y, h, night);
   // Yard
-  g = ctx.createLinearGradient(0, Y(V, G.YARD_Y), 0, Y(V, 150));
+  g = ctx.createLinearGradient(0, Y(V, G.YARD_Y), 0, Y(V, H));
   g.addColorStop(0, night ? '#2e2a26' : '#8a7a62'); g.addColorStop(1, night ? '#24201c' : '#76684f');
-  ctx.fillStyle = g; ctx.fillRect(X(V, 0), Y(V, G.WALL_Y), 100 * V.s, (150 - G.WALL_Y) * V.s);
-  for (let i = 0; i < 260; i++) {
-    const x = r() * 100, y = G.YARD_Y + r() * (150 - G.YARD_Y);
+  ctx.fillStyle = g; ctx.fillRect(X(V, 0), Y(V, G.WALL_Y), W * V.s, (H - G.WALL_Y) * V.s);
+  for (let i = 0; i < 700; i++) {
+    const x = r() * W, y = G.YARD_Y + r() * (H - G.YARD_Y);
     ctx.fillStyle = night ? 'rgba(0,0,0,.25)' : 'rgba(60,50,35,.3)';
     ctx.fillRect(X(V, x), Y(V, y), V.s * (0.6 + r() * 1.2), V.s * 0.5);
   }
+  // Vegetable plots at the far corners
+  for (const x0 of [4, W - 36]) for (let k = 0; k < 5; k++) {
+    rect(ctx, V, x0, 194 + k * 1.2 - 4, 32, 0.6, night ? '#2a3a20' : '#5a7a3a');
+  }
+  // Cottages
+  for (const [x, y] of COTTAGES.slice(0, cottageCount(S))) cottage(ctx, V, x, y, night || opt.lit);
   // Path from gate to keep
+  const VS = shifted(V);
   ctx.fillStyle = night ? '#38332c' : '#a8977a';
-  ctx.fillRect(X(V, 45), Y(V, G.YARD_Y), 10 * V.s, (134 - G.YARD_Y) * V.s);
-  buildings(ctx, V, S, night, opt);
-  keepHall(ctx, V, S, night, opt);
+  ctx.fillRect(X(VS, 45), Y(VS, G.YARD_Y - G.OY), 10 * V.s, (134 - (G.YARD_Y - G.OY)) * V.s);
+  buildings(ctx, VS, S, night, opt);
+  keepHall(ctx, VS, S, night, opt);
   wall(ctx, V, S, night, wl, opt);
+}
+function cottage(ctx, V, x, y, lit) {
+  rect(ctx, V, x - 4, y - 4, 8, 4.5, '#6a5038');
+  rect(ctx, V, x - 4, y - 4, 8, 0.8, '#7a5e44');
+  ctx.fillStyle = '#8a6a3a';
+  ctx.beginPath(); ctx.moveTo(X(V, x - 5), Y(V, y - 3.6)); ctx.lineTo(X(V, x), Y(V, y - 7.5)); ctx.lineTo(X(V, x + 5), Y(V, y - 3.6)); ctx.closePath(); ctx.fill();
+  rect(ctx, V, x - 0.8, y - 2.4, 1.6, 2.9, '#2a1a0e');
+  rect(ctx, V, x + 1.8, y - 3, 1.4, 1.2, lit ? '#ffcf6a' : '#2a2a30');
+  rect(ctx, V, x - 3.2, y - 3, 1.4, 1.2, lit ? '#ffcf6a' : '#2a2a30');
 }
 function pine(ctx, V, x, y, h, night) {
   ctx.fillStyle = 'rgba(0,0,0,.25)';
@@ -111,23 +132,23 @@ function wall(ctx, V, S, night, wl, opt) {
   const y = G.WALL_Y, h = G.WALL_H;
   if (wl === 0) {
     // Wooden palisade
-    rect(ctx, V, 0, y + 2.5, 100, h - 2.5, night ? '#2a2016' : '#6a5038');
-    for (let x = 0; x < 100; x += 1.6) {
+    rect(ctx, V, 0, y + 2.5, G.W, h - 2.5, night ? '#2a2016' : '#6a5038');
+    for (let x = 0; x < G.W; x += 1.6) {
       if (x > G.GATE_X0 - 0.5 && x < G.GATE_X1) continue;
       rect(ctx, V, x, y, 1.3, h - 1.5, night ? '#4a3622' : '#8a6440');
       ctx.fillStyle = night ? '#5a4430' : '#a07a50';
       ctx.beginPath(); ctx.moveTo(X(V, x), Y(V, y)); ctx.lineTo(X(V, x + 0.65), Y(V, y - 1.2)); ctx.lineTo(X(V, x + 1.3), Y(V, y)); ctx.fill();
     }
   } else {
-    rect(ctx, V, 0, y, 100, h, night ? '#4a4a50' : '#9a9690');
+    rect(ctx, V, 0, y, G.W, h, night ? '#4a4a50' : '#9a9690');
     ctx.strokeStyle = night ? 'rgba(0,0,0,.35)' : 'rgba(60,55,50,.45)'; ctx.lineWidth = 1;
     for (let row = 0; row < 3; row++) {
       const yy = y + row * h / 3;
-      ctx.beginPath(); ctx.moveTo(X(V, 0), Y(V, yy)); ctx.lineTo(X(V, 100), Y(V, yy)); ctx.stroke();
-      for (let x = (row % 2) * 2; x < 100; x += 4) { ctx.beginPath(); ctx.moveTo(X(V, x), Y(V, yy)); ctx.lineTo(X(V, x), Y(V, yy + h / 3)); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(X(V, 0), Y(V, yy)); ctx.lineTo(X(V, G.W), Y(V, yy)); ctx.stroke();
+      for (let x = (row % 2) * 2; x < G.W; x += 4) { ctx.beginPath(); ctx.moveTo(X(V, x), Y(V, yy)); ctx.lineTo(X(V, x), Y(V, yy + h / 3)); ctx.stroke(); }
     }
-    rect(ctx, V, 0, y + h - 1.6, 100, 1.6, night ? '#3a3a40' : '#7a7670');
-    for (let x = 0; x < 100; x += 3) {
+    rect(ctx, V, 0, y + h - 1.6, G.W, 1.6, night ? '#3a3a40' : '#7a7670');
+    for (let x = 0; x < G.W; x += 3) {
       if (x > G.GATE_X0 - 2 && x < G.GATE_X1 + 1) continue;
       rect(ctx, V, x, y - 1.4, 1.8, 1.6, night ? '#55555c' : '#aaa69e');
     }
@@ -235,7 +256,7 @@ function drawGate(ctx, V, gate, wl, night) {
   ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1;
   for (let x = x0; x <= x0 + w; x += 1.5) { ctx.beginPath(); ctx.moveTo(X(V, x), Y(V, y)); ctx.lineTo(X(V, x), Y(V, y + h)); ctx.stroke(); }
   rect(ctx, V, x0, y + 1.2, w, 0.7, '#2a2a30'); rect(ctx, V, x0, y + h - 2, w, 0.7, '#2a2a30');
-  rect(ctx, V, 49.8, y, 0.4, h, '#1a1010');
+  rect(ctx, V, G.GX - 0.2, y, 0.4, h, '#1a1010');
   if (wl >= 1) { rect(ctx, V, x0 - 1, y - 1.5, 1.4, h + 1.5, '#7a7670'); rect(ctx, V, x0 + w - 0.4, y - 1.5, 1.4, h + 1.5, '#7a7670'); }
   const dmg = 1 - gate.hp / gate.max, cracks = Math.floor(dmg * 7);
   const r = seeded(31);
@@ -357,8 +378,135 @@ function drawPieces(ctx, V, pieces, opt) {
   }
 }
 
+// ---------- the camera: drag to pan, pinch or wheel to zoom ----------
+const BG_S = 8; // the whole world is painted once at 8 pixels per unit, then the visible part is copied each frame
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+function worldCanvas(S, opt) {
+  const c = document.createElement('canvas');
+  c.width = G.W * BG_S; c.height = G.H * BG_S;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  const V = { x0: 0, y0: 0, s: BG_S, ox: 0, oy: 0 };
+  drawScene(g, V, S, opt);
+  if (opt.gate) drawGate(g, V, { hp: 1, max: 1 }, S.buildings.walls || 0, !!opt.night);
+  return c;
+}
+// Copies the visible part of the world. The source rectangle is kept inside the image (Safari draws nothing otherwise).
+function blit(ctx, bg, V, cw, ch) {
+  const k = V.s / BG_S;
+  let sx = V.x0 * BG_S, sy = V.y0 * BG_S, sw = cw / k, sh = ch / k, dx = 0, dy = 0, dw = cw, dh = ch;
+  if (sx < 0) { dx = -sx * k; dw -= dx; sw += sx; sx = 0; }
+  if (sy < 0) { dy = -sy * k; dh -= dy; sh += sy; sy = 0; }
+  if (sx + sw > bg.width) { const o = sx + sw - bg.width; sw -= o; dw -= o * k; }
+  if (sy + sh > bg.height) { const o = sy + sh - bg.height; sh -= o; dh -= o * k; }
+  if (sw <= 0 || sh <= 0) return;
+  ctx.imageSmoothingEnabled = k < 1;
+  ctx.drawImage(bg, sx, sy, sw, sh, dx, dy, dw, dh);
+  ctx.imageSmoothingEnabled = false;
+}
+// o: bounds [x0, y0, x1, y1], start(cw, ch) -> { cx, cy, s }, tap(world, screen), box() -> bool, boxEnd(a, b)
+function Camera(canvas, o) {
+  const [bx0, by0, bx1, by1] = o.bounds;
+  const cam = { cx: (bx0 + bx1) / 2, cy: (by0 + by1) / 2, s: 4, cw: 0, ch: 0, V: null, box: null };
+  cam.minS = () => Math.min(cam.cw / (bx1 - bx0), cam.ch / (by1 - by0));
+  cam.maxS = () => Math.max(cam.minS() * 1.5, cam.cw / 34);
+  cam.fix = () => {
+    cam.s = clampN(cam.s, cam.minS(), cam.maxS());
+    const hw = cam.cw / 2 / cam.s, hh = cam.ch / 2 / cam.s;
+    cam.cx = hw * 2 >= bx1 - bx0 ? (bx0 + bx1) / 2 : clampN(cam.cx, bx0 + hw, bx1 - hw);
+    cam.cy = hh * 2 >= by1 - by0 ? (by0 + by1) / 2 : clampN(cam.cy, by0 + hh, by1 - hh);
+    cam.V = { x0: cam.cx - hw, y0: cam.cy - hh, s: cam.s, ox: 0, oy: 0 };
+  };
+  cam.resize = (w, h) => { const first = !cam.cw; cam.cw = w; cam.ch = h; if (first) Object.assign(cam, o.start(w, h)); cam.fix(); };
+  cam.toWorld = (sx, sy) => ({ x: cam.V.x0 + sx / cam.s, y: cam.V.y0 + sy / cam.s });
+  cam.zoomAt = (f, sx, sy) => {
+    const w = cam.toWorld(sx, sy);
+    cam.s = clampN(cam.s * f, cam.minS(), cam.maxS());
+    cam.cx = w.x - (sx - cam.cw / 2) / cam.s; cam.cy = w.y - (sy - cam.ch / 2) / cam.s;
+    cam.fix();
+  };
+  cam.look = (x, y) => { cam.cx = x; cam.cy = y; cam.fix(); };
+  const pts = new Map();
+  let g = null;
+  const local = ev => { const r = canvas.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+  canvas.addEventListener('pointerdown', ev => {
+    ev.preventDefault();
+    try { canvas.setPointerCapture(ev.pointerId); } catch (e) { /* not supported */ }
+    const p = local(ev);
+    pts.set(ev.pointerId, p);
+    if (pts.size === 1) {
+      g = { kind: o.box && o.box() ? 'box' : 'pan', sx: p.x, sy: p.y, cx: cam.cx, cy: cam.cy, moved: false };
+      if (g.kind === 'box') cam.box = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+    } else if (pts.size === 2) {
+      const [a, b] = [...pts.values()], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      g = { kind: 'pinch', d: Math.hypot(a.x - b.x, a.y - b.y) || 1, s: cam.s, w: cam.toWorld(mx, my) };
+      cam.box = null;
+    }
+  });
+  canvas.addEventListener('pointermove', ev => {
+    if (!pts.has(ev.pointerId) || !g) return;
+    const p = local(ev);
+    pts.set(ev.pointerId, p);
+    if (g.kind === 'pan' || g.kind === 'box') {
+      const dx = p.x - g.sx, dy = p.y - g.sy;
+      if (!g.moved && Math.hypot(dx, dy) > 9) g.moved = true;
+      if (!g.moved) return;
+      if (g.kind === 'pan') { cam.cx = g.cx - dx / cam.s; cam.cy = g.cy - dy / cam.s; cam.fix(); }
+      else { cam.box.x1 = p.x; cam.box.y1 = p.y; }
+    } else if (g.kind === 'pinch' && pts.size >= 2) {
+      const [a, b] = [...pts.values()], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      cam.s = clampN(g.s * Math.hypot(a.x - b.x, a.y - b.y) / g.d, cam.minS(), cam.maxS());
+      cam.cx = g.w.x - (mx - cam.cw / 2) / cam.s; cam.cy = g.w.y - (my - cam.ch / 2) / cam.s;
+      cam.fix();
+    }
+  });
+  const up = ev => {
+    if (!pts.has(ev.pointerId)) return;
+    const p = local(ev);
+    pts.delete(ev.pointerId);
+    if (g && pts.size === 0 && ev.type === 'pointerup') {
+      if ((g.kind === 'pan' || g.kind === 'box') && !g.moved) o.tap(cam.toWorld(p.x, p.y), p);
+      else if (g.kind === 'box' && g.moved && o.boxEnd) { const b = cam.box; o.boxEnd(cam.toWorld(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1)), cam.toWorld(Math.max(b.x0, b.x1), Math.max(b.y0, b.y1))); }
+    }
+    if (pts.size === 0) { g = null; cam.box = null; }
+    else if (g && g.kind === 'pinch') g = { kind: 'none' };
+  };
+  canvas.addEventListener('pointerup', up);
+  canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('wheel', ev => { ev.preventDefault(); const p = local(ev); cam.zoomAt(ev.deltaY < 0 ? 1.15 : 1 / 1.15, p.x, p.y); }, { passive: false });
+  return cam;
+}
+function zoomButtons(stage, cam) {
+  const z = document.createElement('div');
+  z.className = 'sg-zoom';
+  z.innerHTML = '<button class="sm" data-z="in" aria-label="Zoom in">+</button><button class="sm" data-z="out" aria-label="Zoom out">−</button><button class="sm" data-z="fit" aria-label="Whole map">⤢</button>';
+  z.querySelectorAll('button').forEach(b => b.onclick = () => {
+    if (b.dataset.z === 'fit') { cam.s = cam.minS(); cam.fix(); }
+    else cam.zoomAt(b.dataset.z === 'in' ? 1.35 : 1 / 1.35, cam.cw / 2, cam.ch / 2);
+  });
+  stage.appendChild(z);
+}
+
 // ---------- fortify: building the castle between nights ----------
 const PIECE_ORDER = ['wall', 'tower', 'moat', 'stakes', 'pit', 'pitch', 'brazier', 'mangonel'];
+const costTxt = c => (c.gold ? c.gold + 'g' : '') + Object.keys(c.mats || {}).map(m => ' ' + c.mats[m] + ' ' + (m === 'ore' ? 'iron' : D.MATS[m].name)).join('');
+// Where a tap puts a piece: 2x2 pieces centre on the tap.
+function pieceCell(k, x, y) {
+  const sz = SG.PIECES[k].size;
+  if (sz === 2) return { c: Math.max(0, Math.round(x / G.CELL) - 1), r: Math.round(y / G.CELL) - 1 };
+  return SG.cellOf(x, y);
+}
+function pieceCards(S, tool) {
+  return PIECE_ORDER.map(k => {
+    const d = SG.PIECES[k], locked = d.req && (S.buildings[d.req[0]] || 0) < d.req[1];
+    return `<button class="sg-card fcard ${tool === k ? 'on' : ''} ${locked || !E.canAfford(S, d.cost) ? 'poor' : ''}" data-p="${k}"><i class="sw sw-${k}"></i><span>${d.name}</span><b>${costTxt(d.cost)}</b></button>`;
+  }).join('') + `<button class="sg-card fcard ${tool === 'demolish' ? 'on' : ''}" data-p="demolish"><i class="sw sw-demolish"></i><span>Demolish</span><b>half back</b></button>`;
+}
+function drawGrid(ctx, V, tool) {
+  const z = SG.PIECES[tool] && SG.PIECES[tool].zone === 'yard' ? G.YBUILD : G.BUILD;
+  ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1;
+  for (let c = 0; c <= G.COLS; c++) { ctx.beginPath(); ctx.moveTo(X(V, c * G.CELL), Y(V, z.r0 * G.CELL)); ctx.lineTo(X(V, c * G.CELL), Y(V, (z.r1 + 1) * G.CELL)); ctx.stroke(); }
+  for (let r = z.r0; r <= z.r1 + 1; r++) { ctx.beginPath(); ctx.moveTo(X(V, 0), Y(V, r * G.CELL)); ctx.lineTo(X(V, G.W), Y(V, r * G.CELL)); ctx.stroke(); }
+}
 function runFortify(S, done) {
   const el = document.createElement('div');
   el.id = 'siege';
@@ -370,57 +518,46 @@ function runFortify(S, done) {
   document.body.style.overflow = 'hidden';
   const stage = el.querySelector('#sgstage'), canvas = el.querySelector('#sgc');
   const dpr = Math.min(2, window.devicePixelRatio || 1), ctx = canvas.getContext('2d');
-  const bg = document.createElement('canvas'), bctx = bg.getContext('2d');
-  let cw = 0, ch = 0, V = null, tool = 'wall', raf = 0, alive = true;
+  const bg = worldCanvas(S, { night: false, slots: true, gate: true });
+  let cw = 0, ch = 0, tool = 'wall', raf = 0, alive = true;
+  const cam = Camera(canvas, {
+    bounds: [0, 0, G.W, G.H],
+    start: (w, h) => ({ cx: G.GX, cy: G.WALL_Y - 24, s: Math.max(w / 120, h / 150) }),
+    tap: w => {
+      if (tool === 'demolish') { if (!SG.demolish(S, SG.cellOf(w.x, w.y).c, SG.cellOf(w.x, w.y).r)) banner('Nothing there to pull down.', 'warn'); }
+      else { const { c, r } = pieceCell(tool, w.x, w.y), err = SG.build(S, tool, c, r); if (err) banner(err, 'warn'); }
+      cards();
+    },
+  });
+  zoomButtons(stage, cam);
+  el._cam = cam; // for tests
   function layout() {
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h || (w === cw && h === ch)) return;
     cw = w; ch = h;
     canvas.width = cw * dpr; canvas.height = ch * dpr; canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
-    V = view(0, 30, 100, 110, cw, ch);
-    bg.width = cw * dpr; bg.height = ch * dpr; bctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.imageSmoothingEnabled = false;
-    drawScene(bctx, V, S, { night: false, slots: true });
-    drawGate(bctx, V, { hp: 1, max: 1 }, S.buildings.walls || 0, false);
+    cam.resize(cw, ch);
   }
   layout();
   const ro = window.ResizeObserver ? new ResizeObserver(layout) : null;
   if (ro) ro.observe(stage);
   const banner = (t, cls) => { const b = el.querySelector('#sgbanner'); b.className = 'sg-banner show ' + (cls || ''); b.textContent = t; clearTimeout(banner.t); banner.t = setTimeout(() => { b.className = 'sg-banner'; }, 1600); };
-  const costTxt = c => (c.gold ? c.gold + 'g' : '') + Object.keys(c.mats || {}).map(m => ' ' + c.mats[m] + ' ' + (m === 'ore' ? 'iron' : D.MATS[m].name)).join('');
   function cards() {
-    el.querySelector('#fcards').innerHTML = PIECE_ORDER.map(k => {
-      const d = SG.PIECES[k], locked = d.req && (S.buildings[d.req[0]] || 0) < d.req[1];
-      return `<button class="sg-card fcard ${tool === k ? 'on' : ''} ${locked ? 'poor' : ''}" data-k="${k}"><i class="sw sw-${k}"></i><span>${d.name}</span><b>${costTxt(d.cost)}</b></button>`;
-    }).join('') + `<button class="sg-card fcard ${tool === 'demolish' ? 'on' : ''}" data-k="demolish"><i class="sw sw-demolish"></i><span>Demolish</span><b>half back</b></button>`;
-    el.querySelectorAll('.fcard').forEach(b => b.onclick = () => { tool = b.dataset.k; cards(); hint(); });
+    el.querySelector('#fcards').innerHTML = pieceCards(S, tool);
+    el.querySelectorAll('.fcard').forEach(b => b.onclick = () => { tool = b.dataset.p; cards(); hint(); });
     el.querySelector('#fgold').textContent = `${S.gold} g · ${S.mats.ore || 0} iron`;
   }
   function hint() {
     const d = SG.PIECES[tool];
-    el.querySelector('#sghint').innerHTML = tool === 'demolish' ? 'Tap a piece to pull it down. You get half the gold back.' : `<b>${d.name}</b>: ${d.desc} Tap the ${d.zone === 'yard' ? 'yard' : 'ground in front of the wall'} to build.`;
+    el.querySelector('#sghint').innerHTML = (tool === 'demolish' ? 'Tap a piece to pull it down. You get half the gold back.' : `<b>${d.name}</b>: ${d.desc} Tap the ${d.zone === 'yard' ? 'yard' : 'ground in front of the wall'} to build.`) + ' <span class="muted">Drag to look around, pinch to zoom.</span>';
   }
-  canvas.addEventListener('pointerdown', ev => {
-    const r = canvas.getBoundingClientRect();
-    const x = (ev.clientX - r.left - V.ox) / V.s + V.x0, y = (ev.clientY - r.top - V.oy) / V.s + V.y0;
-    const { c, r: row } = SG.cellOf(x, y);
-    if (tool === 'demolish') { if (!SG.demolish(S, c, row)) banner('Nothing there to pull down.', 'warn'); }
-    else {
-      const sz = SG.PIECES[tool].size, cc = sz === 2 ? Math.max(0, Math.round(x / G.CELL) - 1) : c, rr = sz === 2 ? Math.round(y / G.CELL) - 1 : row;
-      const err = SG.build(S, tool, cc, rr);
-      if (err) banner(err, 'warn');
-    }
-    cards();
-  });
   function frame(now) {
     if (!alive) return;
-    const t = now / 1000;
-    ctx.clearRect(0, 0, cw, ch);
-    ctx.drawImage(bg, 0, 0, cw, ch);
-    const z = SG.PIECES[tool] && SG.PIECES[tool].zone === 'yard' ? G.YBUILD : G.BUILD;
-    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1;
-    for (let c = 0; c <= G.COLS; c++) { ctx.beginPath(); ctx.moveTo(X(V, c * G.CELL), Y(V, z.r0 * G.CELL)); ctx.lineTo(X(V, c * G.CELL), Y(V, (z.r1 + 1) * G.CELL)); ctx.stroke(); }
-    for (let r = z.r0; r <= z.r1 + 1; r++) { ctx.beginPath(); ctx.moveTo(X(V, 0), Y(V, r * G.CELL)); ctx.lineTo(X(V, 100), Y(V, r * G.CELL)); ctx.stroke(); }
+    const t = now / 1000, V = cam.V;
+    ctx.fillStyle = '#08090f'; ctx.fillRect(0, 0, cw, ch);
+    blit(ctx, bg, V, cw, ch);
+    drawGrid(ctx, V, tool);
     drawPieces(ctx, V, SG.castle(S).pieces.map(p => Object.assign({ size: SG.PIECES[p.k].size }, p)), { build: true, t });
     raf = requestAnimationFrame(frame);
   }
@@ -436,7 +573,7 @@ function mountKeep(canvas, S) {
   canvas.width = cw * dpr; canvas.height = ch * dpr;
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr); ctx.imageSmoothingEnabled = false;
-  const V = view(0, 97, 100, 53, cw, ch);
+  const V = view(G.OX, G.OY + 97, 100, 53, cw, ch);
   V.ox = 0; V.s = cw / 100; V.oy = ch - 53 * V.s; // fill the width
   const bg = document.createElement('canvas');
   bg.width = cw * dpr; bg.height = ch * dpr;
@@ -447,14 +584,14 @@ function mountKeep(canvas, S) {
   const P = new Particles();
   // Who's about
   const people = [];
-  const spot = () => { const x = 6 + Math.random() * 88; return { x, y: G.YARD_Y + 4 + Math.random() * (x > 30 && x < 70 ? 15 : 22) }; };
+  const spot = () => { const x = G.OX + 6 + Math.random() * 88; return { x, y: G.YARD_Y + 4 + Math.random() * (x > G.OX + 30 && x < G.OX + 70 ? 15 : 22) }; };
   const survivors = S.areas && S.areas.millroad && S.areas.millroad.cleared ? 4 + 2 * Math.min(6, (S.siege && S.siege.best) || 0) : 0;
   const villagers = ['m_sword', 'm_archer', 'm_spear', 'm_priest'];
   for (let i = 0; i < survivors; i++) people.push(Object.assign(spot(), { sprite: villagers[i % 4], speed: 3 + Math.random() * 2, face: 1, wait: Math.random() * 3 }));
-  S.party.forEach((id, i) => people.push({ sprite: D.HEROES[id].sprite, x: 42 + i * 7, y: 126, speed: 4, face: -1, wait: 2 + i * 2, hero: true }));
+  S.party.forEach((id, i) => people.push({ sprite: D.HEROES[id].sprite, x: G.OX + 42 + i * 7, y: G.OY + 126, speed: 4, face: -1, wait: 2 + i * 2, hero: true }));
   const c = E.creatureOf(S, S.companion);
-  if (c) people.push({ sprite: E.creatureSprite(c), x: 60, y: 126, speed: 6, face: 1, wait: 1, pet: true });
-  if (S.buildings.kennels) for (const k of S.creatures.filter(x => x.cid !== S.companion).slice(0, 3)) people.push({ sprite: E.creatureSprite(k), x: 18, y: 132, speed: 5, face: 1, wait: Math.random() * 3, pet: true, home: { x: 17, y: 133 } });
+  if (c) people.push({ sprite: E.creatureSprite(c), x: G.OX + 60, y: G.OY + 126, speed: 6, face: 1, wait: 1, pet: true });
+  if (S.buildings.kennels) for (const k of S.creatures.filter(x => x.cid !== S.companion).slice(0, 3)) people.push({ sprite: E.creatureSprite(k), x: G.OX + 18, y: G.OY + 132, speed: 5, face: 1, wait: Math.random() * 3, pet: true, home: { x: G.OX + 17, y: G.OY + 133 } });
   for (const p of people) p.goal = spot();
   let last = performance.now(), raf = 0, t = 0, alive = true;
   function frame(now) {
@@ -470,8 +607,8 @@ function mountKeep(canvas, S) {
       }
       p.x += dx / d * p.speed * dt; p.y += dy / d * p.speed * dt; p.face = dx > 0 ? 1 : -1; p.moving = true;
     }
-    if (Math.random() < dt * 5) P.add({ x: 19.3 + Math.random(), y: 108.5, vx: 1 + Math.random(), vy: -3 - Math.random() * 2, life: 2.5, size: 1.2 + Math.random(), col: 'rgba(200,200,210,.5)', shrink: false });
-    if (Math.random() < dt * 8) P.add({ x: 13 + Math.random() * 2.5, y: 117.5, vx: (Math.random() - 0.5) * 2, vy: -3, life: 0.6, size: 0.5, col: ['#ffb84a', '#ff7a2a'][Math.random() < 0.5 ? 0 : 1], glow: true });
+    if (Math.random() < dt * 5) P.add({ x: G.OX + 19.3 + Math.random(), y: G.OY + 108.5, vx: 1 + Math.random(), vy: -3 - Math.random() * 2, life: 2.5, size: 1.2 + Math.random(), col: 'rgba(200,200,210,.5)', shrink: false });
+    if (Math.random() < dt * 8) P.add({ x: G.OX + 13 + Math.random() * 2.5, y: G.OY + 117.5, vx: (Math.random() - 0.5) * 2, vy: -3, life: 0.6, size: 0.5, col: ['#ffb84a', '#ff7a2a'][Math.random() < 0.5 ? 0 : 1], glow: true });
     P.step(dt);
     ctx.clearRect(0, 0, cw, ch);
     ctx.drawImage(bg, 0, 0, cw, ch);
@@ -492,6 +629,7 @@ function mountKeep(canvas, S) {
 // ---------- the siege screen ----------
 const UNIT_ORDER = ['archer', 'sword', 'spear', 'priest', 'knight', 'ballista'];
 const AUD = () => root.AUDIO || { play() {}, sfx() {} };
+const PLURAL = { Swordsman: 'swordsmen', Spearman: 'spearmen', Archer: 'archers', Priest: 'priests', Knight: 'knights', Wolf: 'wolves', Ballista: 'ballistas' };
 function runSiege(S, n, done) {
   const sg = new SG.Siege(S, n);
   AUD().play('siege');
@@ -503,16 +641,34 @@ function runSiege(S, n, done) {
       <button class="sm" id="sgspeed">1x</button><button class="sm" id="sgpause">❚❚</button></div>
     <div class="sg-stage" id="sgstage"><canvas id="sgc"></canvas><div class="sg-banner" id="sgbanner"></div><div class="sg-hint" id="sghint"></div></div>
     <div class="sg-bottom"><div class="spread"><div class="sg-levy">Levy <b id="sglevy">0</b><span class="muted small"> +${sg.regen.toFixed(2).replace(/0$/, '')}/s</span></div><span class="muted small" id="sgcount"></span></div>
-      <div class="sg-sel" id="sgsel"></div><div class="sg-cards" id="sgcards"></div><div class="sg-heroes" id="sgheroes"></div>
+      <div class="sg-tabs" id="sgtabs"><button data-t="command">Command</button><button data-t="recruit">Recruit</button><button data-t="build">Build</button></div>
+      <div class="sg-panel" id="sgpanel"></div>
       <button class="primary big" id="sgstart">Sound the horn</button></div>`;
   document.body.appendChild(el);
   document.body.style.overflow = 'hidden';
   const stage = el.querySelector('#sgstage'), canvas = el.querySelector('#sgc');
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const ctx = canvas.getContext('2d');
-  const bg = document.createElement('canvas'), bctx = bg.getContext('2d');
+  const bg = worldCanvas(S, { night: true, lit: true, slots: true });
   const light = document.createElement('canvas'), lctx = light.getContext('2d');
-  let cw = 0, ch = 0, V = null;
+  let cw = 0, ch = 0;
+  let mode = null, tab = 'recruit', tool = 'wall', boxMode = false;
+  const cam = Camera(canvas, {
+    bounds: [0, 0, G.W, G.H],
+    // Start on the wall and yard, about the old map's width across.
+    start: (w, h) => ({ cx: G.GX, cy: G.H, s: Math.max(w / 112, h / 170) }),
+    tap: w => tap(w),
+    box: () => tab === 'command' && boxMode,
+    boxEnd: (a, b) => {
+      const pick = sg.units.filter(u => u.side === 'p' && u.hp > 0 && u.type !== 'ballista' && u.x >= a.x - 1 && u.x <= b.x + 1 && u.y >= a.y - 1 && u.y <= b.y + 3);
+      if (!pick.length) { banner('Nobody of yours in there.', 'warn'); return; }
+      sg.selected = pick.map(u => u.uid); boxMode = false;
+      for (const u of pick) P.add({ x: u.x, y: u.y, ring: 3, life: 0.3, col: '#7ad8ff', glow: true });
+      refreshUI(true);
+    },
+  });
+  zoomButtons(stage, cam);
+  el._cam = cam; // for tests
   // Sizes the battlefield to its box, and again whenever the box changes.
   function layout() {
     const w = stage.clientWidth, h = stage.clientHeight;
@@ -520,10 +676,7 @@ function runSiege(S, n, done) {
     cw = w; ch = h;
     canvas.width = cw * dpr; canvas.height = ch * dpr; canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
-    V = view(0, 0, 100, 150, cw, ch);
-    bg.width = cw * dpr; bg.height = ch * dpr;
-    bctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.imageSmoothingEnabled = false;
-    drawScene(bctx, V, S, { night: true, lit: true, slots: true });
+    cam.resize(cw, ch);
     light.width = Math.ceil(cw / 2); light.height = Math.ceil(ch / 2);
   }
   layout();
@@ -531,14 +684,14 @@ function runSiege(S, n, done) {
   if (ro) ro.observe(stage);
   const P = new Particles();
   const lights = [];
-  for (const x of [4, 16, 27, 38, 62, 73, 84, 96]) lights.push({ x, y: G.WALL_Y + 1, r: 13, torch: true });
-  for (const x of [41.5, 58.5]) lights.push({ x, y: G.WALL_Y - 1, r: 16, torch: true });
-  for (const wx of [39.5, 44, 56, 60.5]) lights.push({ x: wx, y: 139, r: 7 });
-  lights.push({ x: 14, y: 118, r: 10 });
-  for (const p of sg.pieces) if (p.k === 'brazier') lights.push({ x: p.x, y: p.y, r: 11, torch: true });
-  let mode = null, speed = 1, paused = false, shake = 0, last = performance.now(), acc = 0, raf = 0, ended = false, flash = 0;
+  for (let x = 6; x < G.W; x += 12) if (Math.abs(x - G.GX) > 12) lights.push({ x, y: G.WALL_Y + 1, r: 13, torch: true });
+  for (const x of [G.GX - 8.5, G.GX + 8.5]) lights.push({ x, y: G.WALL_Y - 1, r: 16, torch: true });
+  for (const wx of [39.5, 44, 56, 60.5]) lights.push({ x: wx + G.OX, y: 139 + G.OY, r: 7 });
+  lights.push({ x: 14 + G.OX, y: 118 + G.OY, r: 10 });
+  for (const [x, y] of COTTAGES.slice(0, cottageCount(S))) lights.push({ x, y: y - 2, r: 6 });
+  let speed = 1, paused = false, shake = 0, last = performance.now(), acc = 0, raf = 0, ended = false, flash = 0;
   const pos = {};
-  let tip = 0, tipShown = {};
+  let tipShown = {};
 
   function setHint(t) { el.querySelector('#sghint').innerHTML = t || ''; el.querySelector('#sghint').style.display = t ? 'block' : 'none'; }
   function banner(t, cls) {
@@ -546,30 +699,72 @@ function runSiege(S, n, done) {
     b.className = 'sg-banner show ' + (cls || ''); b.textContent = t;
     clearTimeout(banner.t); banner.t = setTimeout(() => { b.className = 'sg-banner'; }, 1800);
   }
+  // ----- the three modes -----
+  function setTab(t) {
+    tab = t; mode = null; boxMode = false;
+    el.querySelectorAll('#sgtabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+    const box = el.querySelector('#sgpanel');
+    if (t === 'command') box.innerHTML = '<div class="sg-sel" id="sgsel"></div><div class="sg-heroes" id="sgheroes"></div>';
+    else if (t === 'recruit') box.innerHTML = '<div class="sg-cards" id="sgcards"></div><div class="sg-heroes" id="sgheroes"></div>';
+    else box.innerHTML = '<div class="sg-cards" id="sgbuild"></div><div class="muted small" id="sgbgold"></div>';
+    cards(); heroes(); buildCards(); refreshUI(true);
+  }
+  el.querySelectorAll('#sgtabs button').forEach(b => b.onclick = () => setTab(b.dataset.t));
   function cards() {
     const box = el.querySelector('#sgcards');
+    if (!box) return;
     box.innerHTML = UNIT_ORDER.filter(k => sg.unlocked(k)).map(k => {
       const d = SG.UNITS[k];
-      return `<button class="sg-card" data-k="${k}"><img class="px" src="${SP.spriteURL(d.sprite, 2).url}" alt=""><span>${d.name}</span><b>${d.cost}</b></button>`;
+      return `<button class="sg-card ucard" data-k="${k}"><img class="px" src="${SP.spriteURL(d.sprite, 2).url}" alt=""><span>${d.name}</span><b>${d.cost}</b></button>`;
     }).join('');
-    box.querySelectorAll('.sg-card').forEach(b => b.onclick = () => { sg.selected = []; mode = mode && mode.k === b.dataset.k ? null : { kind: 'unit', k: b.dataset.k }; refreshUI(true); });
+    box.querySelectorAll('.ucard').forEach(b => b.onclick = () => { sg.selected = []; mode = mode && mode.k === b.dataset.k ? null : { kind: 'unit', k: b.dataset.k }; refreshUI(true); });
+  }
+  function buildCards() {
+    const box = el.querySelector('#sgbuild');
+    if (!box) return;
+    box.innerHTML = pieceCards(S, tool);
+    box.querySelectorAll('.fcard').forEach(b => b.onclick = () => { tool = b.dataset.p; buildCards(); refreshUI(true); });
+    el.querySelector('#sgbgold').textContent = `${S.gold} g · ${S.mats.ore || 0} iron. Pieces stay for every night after this one.`;
   }
   function heroes() {
     const box = el.querySelector('#sgheroes');
+    if (!box) return;
+    const placing = tab === 'recruit';
+    if (placing && sg.phase !== 'deploy') { box.innerHTML = ''; return; }
     box.innerHTML = S.party.map(id => {
       const p = SG.POWERS[id];
-      return `<button class="sg-hero" data-id="${id}"><img class="px" src="${SP.spriteURL(D.HEROES[id].sprite, 2).url}" alt=""><span class="nm">${sg.phase === 'deploy' ? 'Place ' + D.HEROES[id].name : p.name}</span><i class="cdv"></i></button>`;
+      return `<button class="sg-hero" data-id="${id}"><img class="px" src="${SP.spriteURL(D.HEROES[id].sprite, 2).url}" alt=""><span class="nm">${placing ? 'Place ' + D.HEROES[id].name : p.name}</span><i class="cdv"></i></button>`;
     }).join('');
     box.querySelectorAll('.sg-hero').forEach(b => b.onclick = () => {
       const id = b.dataset.id;
-      if (sg.phase === 'deploy') { if (sg.placedHeroes[id]) { banner(D.HEROES[id].name + ' is in place'); return; } mode = mode && mode.id === id ? null : { kind: 'hero', id }; refreshUI(true); return; }
+      if (placing) { if (sg.placedHeroes[id]) { banner(D.HEROES[id].name + ' is in place'); return; } mode = mode && mode.id === id ? null : { kind: 'hero', id }; refreshUI(true); return; }
       const p = SG.POWERS[id];
+      if (sg.phase === 'deploy') { banner('Powers charge once the horn sounds'); return; }
       if (sg.powers[id].cd > 0) { banner(p.name + ' is still charging'); return; }
       if (!p.aim) { sg.usePower(id); mode = null; refreshUI(true); return; }
       mode = mode && mode.id === id ? null : { kind: 'power', id }; refreshUI(true);
     });
   }
   let lastUI = 0;
+  function selRow() {
+    const selBox = el.querySelector('#sgsel');
+    if (!selBox) return;
+    const us = sg.units.filter(u => sg.selected.includes(u.uid)), first = us[0];
+    const label = !us.length ? 'Nobody selected' : us.length === 1 ? first.name : `${us.length} selected`;
+    const key = `${label}|${first ? first.type : ''}|${boxMode}`;
+    if (selBox.dataset.key === key) return;
+    selBox.dataset.key = key;
+    const all = first && first.type !== 'hero' ? `<button class="sm" data-s="type">All ${PLURAL[first.name] || first.name + 's'}</button>` : '';
+    selBox.innerHTML = `<b>${label}</b><button class="sm ${boxMode ? 'on' : ''}" data-s="box">▭ Box</button>${all}<button class="sm" data-s="all">Everyone</button>${us.length ? '<button class="sm" data-s="none">✕</button>' : ''}`;
+    selBox.querySelectorAll('button').forEach(b => b.onclick = () => {
+      const s = b.dataset.s;
+      if (s === 'box') boxMode = !boxMode;
+      else if (s === 'none') sg.selected = [];
+      else if (s === 'all') sg.selected = sg.units.filter(u => u.side === 'p' && u.hp > 0 && u.type !== 'ballista').map(u => u.uid);
+      else sg.selected = sg.units.filter(u => u.side === 'p' && u.hp > 0 && u.type === first.type).map(u => u.uid);
+      refreshUI(true);
+    });
+  }
   function refreshUI(force) {
     const now = performance.now();
     if (!force && now - lastUI < 150) return;
@@ -579,24 +774,8 @@ function runSiege(S, n, done) {
     el.querySelector('#sgkeep').style.width = (Math.max(0, sg.keep.hp) / sg.keep.max * 100) + '%';
     el.querySelector('#sgcount').textContent = `Army ${sg.meleeCount()}/${SG.ARMY_CAP}`;
     sg.selected = sg.selected.filter(id => sg.units.some(u => u.uid === id && u.hp > 0));
-    const selBox = el.querySelector('#sgsel');
-    if (sg.selected.length) {
-      const us = sg.units.filter(u => sg.selected.includes(u.uid)), first = us[0];
-      const label = us.length === 1 ? first.name : `${us.length} selected`;
-      const key = `${label}|${first.type}`;
-      if (selBox.dataset.key !== key) {
-        selBox.dataset.key = key;
-        selBox.innerHTML = `<b>${label}</b>${first.type !== 'hero' ? `<button class="sm" data-s="type">All ${({ Swordsman: 'swordsmen', Spearman: 'spearmen', Archer: 'archers', Priest: 'priests', Knight: 'knights', Wolf: 'wolves' })[first.name] || first.name + 's'}</button>` : ''}<button class="sm" data-s="all">Everyone</button><button class="sm" data-s="none">✕</button>`;
-        selBox.querySelectorAll('button').forEach(b => b.onclick = () => {
-          if (b.dataset.s === 'none') sg.selected = [];
-          else if (b.dataset.s === 'all') sg.selected = sg.units.filter(u => u.side === 'p' && u.hp > 0 && u.type !== 'ballista').map(u => u.uid);
-          else sg.selected = sg.units.filter(u => u.side === 'p' && u.hp > 0 && u.type === first.type).map(u => u.uid);
-          refreshUI(true);
-        });
-      }
-      selBox.style.display = 'flex';
-    } else { selBox.style.display = 'none'; selBox.dataset.key = ''; }
-    el.querySelectorAll('.sg-card').forEach(b => {
+    selRow();
+    el.querySelectorAll('.ucard').forEach(b => {
       const d = SG.UNITS[b.dataset.k];
       b.classList.toggle('poor', sg.levy < d.cost);
       b.classList.toggle('on', !!(mode && mode.k === b.dataset.k));
@@ -604,65 +783,91 @@ function runSiege(S, n, done) {
     el.querySelectorAll('.sg-hero').forEach(b => {
       const id = b.dataset.id;
       b.classList.toggle('on', !!(mode && mode.id === id));
-      if (sg.phase === 'deploy') { b.classList.toggle('done', !!sg.placedHeroes[id]); b.querySelector('.cdv').style.height = '0'; return; }
+      if (tab === 'recruit') { b.classList.toggle('done', !!sg.placedHeroes[id]); b.querySelector('.cdv').style.height = '0'; return; }
+      if (sg.phase === 'deploy') { b.querySelector('.cdv').style.height = '0'; return; }
       const cd = sg.powers[id].cd / SG.POWERS[id].cd;
       b.querySelector('.cdv').style.height = (cd * 100) + '%';
       b.classList.toggle('ready', cd <= 0);
       const hu = sg.units.find(u => u.hero === id);
       b.classList.toggle('down', !!(hu && hu.hp <= 0));
     });
-    if (sg.selected.length && !mode) setHint('Tap where to send them. Archers take free spots on walls and towers. Tap a soldier to pick someone else.');
-    else if (tutorial) tutorialHint();
-    else if (mode && mode.kind === 'unit') setHint(SG.UNITS[mode.k].desc);
-    else if (mode && mode.kind === 'power') setHint(`${SG.POWERS[mode.id].name}: tap where to use it.`);
-    else if (mode && mode.kind === 'hero') setHint(`Tap in front of the wall or in the yard to place ${D.HEROES[mode.id].name}.`);
-    else setHint('');
+    if (tutorial) tutorialHint(); else setHint(modeHint());
+  }
+  function modeHint() {
+    if (mode && mode.kind === 'power') return `${SG.POWERS[mode.id].name}: tap where to use it.`;
+    if (tab === 'command') {
+      if (boxMode) return 'Drag a box around the soldiers you want. Two fingers move the map.';
+      if (sg.selected.length) return 'Tap where to send them. Archers take free spots on walls and towers.';
+      return '';
+    }
+    if (tab === 'recruit') {
+      if (mode && mode.kind === 'unit') return SG.UNITS[mode.k].desc;
+      if (mode && mode.kind === 'hero') return `Tap in front of the wall or in the yard to place ${D.HEROES[mode.id].name}.`;
+      return 'Pick a soldier, then tap the map to place them.';
+    }
+    if (tool === 'demolish') return 'Tap a piece to pull it down. You get half the gold back.';
+    return `<b>${SG.PIECES[tool].name}</b>: ${SG.PIECES[tool].desc}`;
   }
   function tutorialHint() {
     const archers = sg.units.filter(u => u.type === 'archer').length, swords = sg.units.filter(u => u.type === 'sword').length;
     let h = '';
     if (sg.phase === 'deploy') {
-      if (archers < 2) h = 'Tap <b>Archer</b> below, then tap a gold spot on the wall.';
+      if (tab !== 'recruit') h = modeHint();
+      else if (archers < 2) h = 'Tap <b>Archer</b> below, then tap a gold spot on the wall. Drag to look around, pinch to zoom.';
       else if (swords < 1) h = 'Now a <b>Swordsman</b>: tap it, then tap the ground just in front of the gate.';
       else h = 'Place your heroes with the buttons below, or let them pick their own spots. Then sound the horn.';
     } else if (sg.phase === 'fight' || sg.phase === 'break') {
       if (sg.ladders.length && !tipShown.ladder) { tipShown.ladder = sg.t; }
       if (tipShown.ladder && sg.t - tipShown.ladder < 9) h = 'A ladder! Enemies will climb into the yard. A swordsman placed <b>in the yard</b> will pull it down.';
-      else if (sg.t < 12) h = 'Levy builds up over time. Keep adding soldiers. Hero powers charge up: tap one, then tap where to use it.';
-      else if (sg.t < 24) h = 'Tap any of your soldiers to select them, then tap the ground to send them there. Send a few out of the gate to hunt a ram.';
+      else if (sg.t < 12) h = 'You\'re in <b>Command</b> now: tap a soldier, then tap the ground to send them. Use <b>Recruit</b> to add more as levy builds.';
+      else if (sg.t < 24) h = 'Hero powers charge up: tap one, then tap where to use it. <b>Box</b> lets you drag round a group.';
+      else h = modeHint();
     }
     if (mode && mode.kind === 'power') h = `${SG.POWERS[mode.id].name}: tap where to use it.`;
     setHint(h);
   }
-  const toWorld = (cx, cy) => ({ x: (cx - V.ox) / V.s, y: (cy - V.oy) / V.s });
-  canvas.addEventListener('pointerdown', ev => {
-    const r = canvas.getBoundingClientRect();
-    const w = toWorld(ev.clientX - r.left, ev.clientY - r.top);
-    if (!mode) {
-      if (sg.phase === 'won' || sg.phase === 'lost') return;
+  function buildAt(w) {
+    if (tool === 'demolish') {
+      const { c, r } = SG.cellOf(w.x, w.y);
+      if (SG.demolish(S, c, r)) { sg.syncPieces(); P.burst(w.x, w.y, 12, { col: ['#a8a49c', '#7a766e'], speed: 9, life: 0.5, size: 0.7, grav: 25 }); }
+      else banner('Nothing there to pull down.', 'warn');
+      buildCards(); return;
+    }
+    const { c, r } = pieceCell(tool, w.x, w.y);
+    const err = SG.canBuild(S, tool, c, r) || (sg.standingIn(tool, c, r) ? 'Someone is standing there.' : null);
+    if (err) { banner(err, 'warn'); return; }
+    SG.build(S, tool, c, r); sg.syncPieces();
+    const d = SG.PIECES[tool];
+    AUD().sfx('place');
+    P.burst((c + d.size / 2) * G.CELL, (r + d.size / 2) * G.CELL, 14, { col: ['#c8b890', '#a89870'], speed: 8, life: 0.5, size: 0.7 });
+    buildCards();
+  }
+  function tap(w) {
+    if (sg.phase === 'won' || sg.phase === 'lost') return;
+    let err = null;
+    if (mode && mode.kind === 'power') { err = sg.usePower(mode.id, w.x, w.y); if (!err) mode = null; }
+    else if (tab === 'build') { buildAt(w); refreshUI(true); return; }
+    else if (tab === 'recruit') {
+      if (!mode) { banner('Pick a soldier below first.', 'warn'); return; }
+      if (mode.kind === 'unit') err = sg.place(mode.k, w.x, w.y);
+      else if (mode.kind === 'hero') { err = sg.placeHero(mode.id, w.x, w.y); if (!err) { mode = null; heroes(); } }
+    } else {
       // Tap a soldier to select them; with soldiers selected, tap the ground to send them.
-      let best = null, bd = 3.6;
+      let best = null, bd = Math.max(3.6, 16 / cam.s);
       for (const u of sg.units) if (u.side === 'p' && u.hp > 0) { const d = Math.hypot(u.x - w.x, u.y - 2 - w.y); if (d < bd) { bd = d; best = u; } }
       if (best) { sg.selected = [best.uid]; P.add({ x: best.x, y: best.y, ring: 3, life: 0.3, col: '#7ad8ff', glow: true }); refreshUI(true); return; }
       if (sg.selected.length) {
-        const err = sg.order(sg.selected, w.x, w.y);
-        if (err) banner(err, 'warn'); else P.add({ x: w.x, y: w.y, ring: 3, life: 0.4, col: '#7ad8ff', glow: true });
-        refreshUI(true); return;
-      }
-      if (sg.lightPitchAt(w.x, w.y)) { banner('The pitch catches!', 'bad'); return; }
-      return;
+        err = sg.order(sg.selected, w.x, w.y);
+        if (!err) P.add({ x: w.x, y: w.y, ring: 3, life: 0.4, col: '#7ad8ff', glow: true });
+      } else if (sg.lightPitchAt(w.x, w.y)) { banner('The pitch catches!', 'bad'); return; }
     }
-    let err = null;
-    if (mode.kind === 'unit') err = sg.place(mode.k, w.x, w.y);
-    else if (mode.kind === 'hero') { err = sg.placeHero(mode.id, w.x, w.y); if (!err) mode = null; }
-    else if (mode.kind === 'power') { err = sg.usePower(mode.id, w.x, w.y); if (!err) mode = null; }
-    if (err) { banner(err, 'warn'); }
+    if (err) banner(err, 'warn');
     refreshUI(true);
-  });
+  }
   el.querySelector('#sgstart').onclick = () => {
-    sg.start(); mode = null;
+    sg.start();
     el.querySelector('#sgstart').style.display = 'none';
-    heroes(); refreshUI(true);
+    setTab('command');
   };
   el.querySelector('#sgspeed').onclick = e => { speed = speed === 1 ? 2 : 1; e.target.textContent = speed + 'x'; };
   el.querySelector('#sgpause').onclick = () => {
@@ -702,13 +907,13 @@ function runSiege(S, n, done) {
           shake = Math.max(shake, f.big ? 0.35 : 0.08);
           break;
         case 'keephit': P.burst(f.x, f.y, 4, { col: ['#a8a196', '#7a756c'], speed: 8, life: 0.4, size: 0.6, grav: 20 }); shake = Math.max(shake, 0.1); break;
-        case 'gatebroken': banner('The gate is down!', 'bad'); shake = 0.8; P.burst(50, G.WALL_Y + 3, 50, { col: ['#7a5232', '#a07a50', '#3a2616'], speed: 20, life: 1, size: 1.2, grav: 30 }); break;
+        case 'gatebroken': banner('The gate is down!', 'bad'); shake = 0.8; P.burst(G.GX, G.WALL_Y + 3, 50, { col: ['#7a5232', '#a07a50', '#3a2616'], speed: 20, life: 1, size: 1.2, grav: 30 }); break;
         case 'ladder': banner('Ladder on the wall!', 'warn'); break;
         case 'ladderdown': P.burst(f.x, G.WALL_Y, 12, { col: ['#8a6a3a', '#6a4a2a'], speed: 10, life: 0.6, size: 0.8, grav: 30 }); break;
         case 'wave': el.querySelector('#sgwave').textContent = `Wave ${f.n} of ${f.of}`; banner(f.n === f.of ? 'Last wave!' : `Wave ${f.n}`, f.n === f.of ? 'bad' : ''); break;
         case 'break': el.querySelector('#sgwave').textContent = 'A moment to breathe'; banner('They fall back. Ready yourselves.'); break;
         case 'place': AUD().sfx('place'); P.burst(f.x, f.y, 8, { col: ['#c8b890', '#a89870'], speed: 6, life: 0.4, size: 0.6 }); break;
-        case 'power': P.add({ x: f.x || 50, y: f.y || 120, ring: f.r || 30, life: 0.5, col: '#ffd76a', glow: true }); break;
+        case 'power': P.add({ x: f.x || G.GX, y: f.y || G.KEEP.y - 18, ring: f.r || 30, life: 0.5, col: '#ffd76a', glow: true }); break;
         case 'herodown': banner(`${D.HEROES[f.id].name} is down! Back in 20 seconds.`, 'bad'); break;
         case 'heroback': banner(`${D.HEROES[f.id].name} is back on their feet.`); break;
         case 'piecehit': P.burst(f.x, f.y, f.big ? 10 : 4, { col: ['#a8a49c', '#7a766e', '#5a5650'], speed: 9, life: 0.5, size: 0.7, grav: 25 }); if (f.big) shake = Math.max(shake, 0.2); break;
@@ -721,9 +926,13 @@ function runSiege(S, n, done) {
   }
 
   function draw(t) {
+    const V = cam.V;
+    const lit = lights.concat(sg.pieces.filter(p => p.k === 'brazier' && p.hp >= 0).map(p => ({ x: p.x, y: p.y, r: 11, torch: true })));
+    ctx.fillStyle = '#08090f'; ctx.fillRect(0, 0, cw, ch);
     ctx.save();
     if (shake > 0) ctx.translate((Math.random() - 0.5) * shake * 10, (Math.random() - 0.5) * shake * 10);
-    ctx.drawImage(bg, 0, 0, cw, ch);
+    blit(ctx, bg, V, cw, ch);
+    if (tab === 'build') drawGrid(ctx, V, tool);
     drawGate(ctx, V, sg.gate, S.buildings.walls || 0, true);
     drawPieces(ctx, V, sg.pieces, { night: true, t });
     for (const l of sg.ladders) drawLadder(ctx, V, l, true);
@@ -743,7 +952,7 @@ function runSiege(S, n, done) {
           ctx.beginPath(); ctx.arc(X(V, sp.x), Y(V, sp.y), V.s * (1.6 + Math.sin(t * 6) * 0.3), 0, Math.PI * 2); ctx.fill();
         }
       } else {
-        for (const z of [[4, G.FIELD.y0, 92, G.FIELD.y1 - G.FIELD.y0], [6, G.YARD.y0, 88, G.YARD.y1 - G.YARD.y0]]) {
+        for (const z of [[3, G.FIELD.y0, G.W - 6, G.FIELD.y1 - G.FIELD.y0], [3, G.YARD.y0, G.W - 6, G.YARD.y1 - G.YARD.y0]]) {
           ctx.fillRect(X(V, z[0]), Y(V, z[1]), z[2] * V.s, z[3] * V.s); ctx.strokeRect(X(V, z[0]), Y(V, z[1]), z[2] * V.s, z[3] * V.s);
         }
       }
@@ -751,7 +960,7 @@ function runSiege(S, n, done) {
     }
     if (mode && mode.kind === 'power' && SG.POWERS[mode.id].r) {
       ctx.strokeStyle = 'rgba(255,215,106,.35)'; ctx.setLineDash([3, 5]); ctx.lineWidth = 1;
-      ctx.strokeRect(X(V, 1), Y(V, 1), 98 * V.s, 147 * V.s); ctx.setLineDash([]);
+      ctx.strokeRect(X(V, 1), Y(V, 1), (G.W - 2) * V.s, (G.H - 3) * V.s); ctx.setLineDash([]);
     }
     // units, back to front
     const list = sg.units.filter(u => u.hp > 0).sort((a, b) => a.y - b.y);
@@ -817,19 +1026,20 @@ function runSiege(S, n, done) {
     const ls = 0.5;
     const hole = (x, y, r, a) => {
       const gx = X(V, x) * ls, gy = Y(V, y) * ls, gr = r * V.s * ls;
+      if (gx < -gr || gy < -gr || gx > light.width + gr || gy > light.height + gr) return;
       const g = lctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
       g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(1, 'rgba(0,0,0,0)');
       lctx.fillStyle = g; lctx.beginPath(); lctx.arc(gx, gy, gr, 0, Math.PI * 2); lctx.fill();
     };
-    for (const l of lights) hole(l.x, l.y, l.r * (l.torch ? 0.92 + Math.sin(t * 13 + l.x) * 0.08 : 1), l.ttl != null ? Math.min(1, l.ttl * 2) : 0.95);
+    for (const l of lit) hole(l.x, l.y, l.r * (l.torch ? 0.92 + Math.sin(t * 13 + l.x) * 0.08 : 1), l.ttl != null ? Math.min(1, l.ttl * 2) : 0.95);
     for (const p of sg.proj) if (p.kind === 'fire' || p.kind === 'firearrow') hole(p.x, p.y, p.kind === 'fire' ? 7 : 4, 0.8);
     for (const p of sg.pieces) if (p.lit > 0) hole(p.x, p.y, 9, 0.9);
     for (const u of sg.units) if (u.burn > 0 && u.hp > 0) hole(u.x, u.y - 2, 6, 0.6);
-    hole(50, 60, 60, 0.25);
+    hole(G.GX, 80, 100, 0.25);
     ctx.drawImage(light, 0, 0, light.width, light.height, 0, 0, cw, ch);
     // warm glow on top
     ctx.globalCompositeOperation = 'lighter';
-    for (const l of lights) if (l.torch) {
+    for (const l of lit) if (l.torch) {
       const gx = X(V, l.x), gy = Y(V, l.y), gr = V.s * 4;
       const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
       g.addColorStop(0, `rgba(255,170,70,${0.35 + Math.sin(t * 17 + l.x) * 0.08})`); g.addColorStop(1, 'rgba(255,120,40,0)');
@@ -844,6 +1054,21 @@ function runSiege(S, n, done) {
     ctx.fillStyle = fog; ctx.fillRect(0, Y(V, 0), cw, 18 * V.s);
     if (flash > 0) { ctx.fillStyle = `rgba(255,200,120,${flash * 0.6})`; ctx.fillRect(0, 0, cw, ch); }
     ctx.restore();
+    // enemies out of sight show as red marks at the edge of the screen
+    ctx.fillStyle = 'rgba(255,90,70,.85)';
+    for (const u of sg.units) if (u.side === 'e' && u.hp > 0) {
+      const sx = X(V, u.x), sy = Y(V, u.y);
+      if (sx >= 0 && sx <= cw && sy >= 0 && sy <= ch) continue;
+      const ex = Math.max(6, Math.min(cw - 6, sx)), ey = Math.max(6, Math.min(ch - 6, sy));
+      ctx.beginPath(); ctx.arc(ex, ey, u.large ? 5 : 3, 0, Math.PI * 2); ctx.fill();
+    }
+    if (cam.box) {
+      const b = cam.box;
+      ctx.strokeStyle = '#7ad8ff'; ctx.fillStyle = 'rgba(122,216,255,.12)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+      ctx.fillRect(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1), Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0));
+      ctx.strokeRect(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1), Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0));
+      ctx.setLineDash([]);
+    }
   }
 
   function frame(now) {
@@ -873,7 +1098,7 @@ function runSiege(S, n, done) {
     document.body.style.overflow = '';
     done({ result, stars: sg.stars(), kills: sg.kills, lost: sg.lost, n });
   }
-  cards(); heroes(); refreshUI(true);
+  setTab('recruit');
   if (tutorial) banner('Night falls on Emberwake');
   raf = requestAnimationFrame(frame);
   return sg;

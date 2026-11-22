@@ -11,7 +11,7 @@ A fantasy party RPG for one player on a phone. Underdog party, turn based fights
 ## Layer one (20 November 2026)
 
 - Party of three: Bram (tank, sword), Wren (fast, bow), Isolde (mage, carries the ember). Any hero can learn any of six talent trees (Blade, Guard, Hunt, Fire, Frost, Light), six ranks each, ranks unlock at levels 1, 3, 5, 8, 11, 14 and cost 1, 1, 2, 2, 3, 3 points. Two points per level, plus Tomes of Insight.
-- Skills gain mastery stars with use (5, 15, 35, 70 uses), +10% power each.
+- Skills gain mastery stars with use (6, 20, 45, 90 uses since layer six), +10% power each.
 - Gear in weapon, armour and charm slots. Shop tiers open as the story goes. Bram's forge upgrades any piece to +5 (15% of base stats per level) with gold and materials.
 - Five areas, each a path of 12 to 16 steps with fights, treasure, foraging, camps, a tome and a unique item, then a boss. Cleared areas stay open for training.
 - Battles: ATB with time stopped while choosing (wait mode), weaknesses, statuses, summons and boss phases. Auto battle toggle. Losing sends you to the keep and costs 10% gold, nothing else.
@@ -73,13 +73,19 @@ SPOILERS (he asked to be surprised; don't reveal these to him):
 - Hale's journal: page 1 from the barrows boss, page 2 from the smuggler's chest or the mist path in Fenmire, page 3 from the chapel, the false wall or the strongbox in the tower. All three let Isolde reach for the man inside (redemption, Surge III at double power, Vael named); otherwise he dies unredeemed.
 - On the upper stair Aldric (if recruited) offers to hold it alone: he dies and leaves Aldric's Candle (survive one killing blow), or the party stands together in a hard fight.
 - The chapter end is assembled from the choices (chapterEnd in game.js).
-- audio.js: procedural chiptune with tracks for title, keep, wood, dark, battle, boss, siege, arena and sad, plus sound effects. Settings has music and sound switches. Starts on the first tap (browsers require it).
+- audio.js: see layer six. Settings has music and sound switches. Starts on the first tap (browsers require it).
+
+## Layer six: orchestra, skill evolution, siege rebuild (22 November 2026)
+
+Player feedback: the music sounded like Pokemon; he wants sampled orchestral strings, rock guitar and choir, character leitmotifs, melancholy and tension, closer to the PlayStation era. Also finish skill evolution and the siege rebuild.
+- Music: audio.js is a small sequencer playing real instrument samples from music/ (strings, violin, cello, bass, pizzicato, harp, timpani, choir, horn, brass, flute, oboe, piano, organ, guitar, electric bass, drums). Each is one mp3 holding a note every few semitones, listed in music/manifest.json; notes in between are pitch shifted. Rendered offline from the GeneralUser GS soundfont with FluidSynth (licence and credit in music/LICENSE.txt), about 3.3MB, cached by the service worker on first play. Convolver reverb and a compressor on the master. Scores are written as text ("D4:1.5", chords with +, rests r, repeats (...)xN). Leitmotifs: the Ember (D E F A) for Isolde and the main theme, the Warden's chromatic fall for Morvane and dread scenes, the Hearth (F A C Bb A) for the keep and Maud, choir for Vael. Tracks: title, keep, wood, dark, battle, boss, siege, arena, sad, dread, victory, defeat. Nobody in the build has heard it: needs his ear.
+- Skill evolution: at four stars a skill offers a choice of two evolved forms (SKILL_EVO in data.js, 33 skills), for example Power Strike into Crushing Blow or Twin Strike. Stored in hero.evolved; heroStats swaps the skill. The choice is permanent. A dot on the hero and the Skills tab shows when one is ready.
+- Siege rebuild: the battlefield is 180 by 200 (was 100 by 150). The old keep and yard layout sits in the middle, shifted by (40, 48) (GEO.OX, OY); old castle saves move with it (castle.v = 2). Twelve wall spots, a full width yard with survivor cottages that grow with nights held. Enemies move 30% faster to cover the longer field. Camera: drag to pan, pinch or wheel to zoom, +, - and whole map buttons; the world is painted once at 8 px per unit and the visible part copied each frame. Red marks at the screen edge show enemies out of view. Three modes: Command (tap to select, Box to drag a selection rectangle, All of a type, Everyone, tap ground to send, tap pitch to light, hero powers), Recruit (soldiers, and placing heroes before the horn) and Build (any piece, mid battle too, paid in gold and iron and kept for later nights; not on top of people). Taps only place things in Recruit or Build, so selecting troops can't place a soldier by accident.
+- Balance (bot): bare walls hold to about night 5, half of night 8, none of 10. A built castle holds all twelve.
 
 ## Next layers
 
 - War campaigns (agreed as the next big piece): a territory map, Hollow held villages and forts, battles with the soldiers trained for the siege plus heroes, captured ground paying out daily.
-- Siege rebuild: a larger pannable, zoomable map, separate Command, Recruit and Build modes, drag to select.
-- Skill evolution after mastery, with a choice of two.
 - Chapter two: Vael, the Hollow King.
 - Better art: bigger shaded sprites, idle and attack animations, spell effects.
 - Rebuilding Emberwake (Stronghold style): buildings that unlock shops, training and recruits.

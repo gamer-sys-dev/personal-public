@@ -1,5 +1,6 @@
 // Emberwake siege: real time defence of the keep. Pure rules, no DOM, so it runs in node for balance tests.
-// World is 100 wide by 150 tall. Enemies come from the top, the wall runs across, the keep sits at the bottom.
+// World is 180 wide by 200 tall. Enemies come from the top, the wall runs across, the keep sits at the bottom.
+// The yard and keep are the layer three layout shifted by (40, 48), so OX and OY convert old drawings.
 // The player builds a castle on a grid in front of the wall (walls, towers, moats, traps) and in the yard
 // (mangonels, braziers). Enemies route around what's built using a flow field, or smash through it.
 (function (root) {
@@ -8,15 +9,16 @@ const D = root.DATA || require('./data.js');
 const E = root.ENGINE || require('./engine.js');
 const SG = {};
 
-const WALL_Y = 102, WALL_H = 6, YARD_Y = WALL_Y + WALL_H;
-const CELL = 4, COLS = 25, ROWS = 26; // field grid rows 0..25 cover y 0..104
+const W = 180, H = 200, OX = 40, OY = 48, GX = 90;
+const WALL_Y = 150, WALL_H = 6, YARD_Y = WALL_Y + WALL_H;
+const CELL = 4, COLS = 45, ROWS = 38; // field grid rows 0..37 cover y 0..152
 const GEO = {
-  W: 100, H: 150, WALL_Y, WALL_H, YARD_Y, GATE_X0: 44, GATE_X1: 56, CELL, COLS,
-  KEEP: { x: 50, y: 138 },
-  SLOTS: [8, 19, 30, 70, 81, 92], TOWERS: [38, 62],
-  FIELD: { y0: 40, y1: WALL_Y - 3 }, YARD: { y0: YARD_Y + 3, y1: 129 },
-  BUILD: { r0: 11, r1: 24 }, // field rows you can build on (y 44 to 100)
-  YBUILD: { r0: 28, r1: 31 }, // yard rows for mangonels and braziers (y 112 to 128)
+  W, H, OX, OY, GX, WALL_Y, WALL_H, YARD_Y, GATE_X0: GX - 6, GATE_X1: GX + 6, CELL, COLS,
+  KEEP: { x: GX, y: 186 },
+  SLOTS: [8, 20, 32, 44, 56, 68, 112, 124, 136, 148, 160, 172], TOWERS: [GX - 12, GX + 12],
+  FIELD: { y0: 30, y1: WALL_Y - 3 }, YARD: { y0: YARD_Y + 3, y1: 177 },
+  BUILD: { r0: 9, r1: 36 }, // field rows you can build on (y 36 to 148)
+  YBUILD: { r0: 40, r1: 43 }, // yard rows for mangonels and braziers (y 160 to 176)
 };
 SG.GEO = GEO;
 
@@ -29,15 +31,15 @@ SG.UNITS = {
   ballista: { name: 'Ballista', cost: 14, hp: 140, dmg: 48, rate: 3.2, range: 90, armour: 4, zone: 'tower', sprite: 'ballista', proj: 'bolt', splash: 4, pierce: true, req: ['walls', 1], desc: 'Towers only. Huge bolts that ignore armour.' },
 };
 SG.FOES = {
-  grunt:    { name: 'Hollow Soldier', hp: 70, dmg: 8, rate: 1.1, range: 3.5, speed: 6, armour: 2, sprite: 'soldier', cost: 1 },
-  hound:    { name: 'Shadow Hound', hp: 38, dmg: 6, rate: 0.7, range: 3, speed: 15, armour: 0, sprite: 'hound', cost: 0.8 },
-  bowman:   { name: 'Hollow Bowman', hp: 42, dmg: 6, rate: 1.5, range: 40, speed: 6, armour: 1, sprite: 'h_bowman', ranged: true, proj: 'arrow', cost: 1.5 },
-  acolyte:  { name: 'Hollow Acolyte', hp: 55, heal: 12, rate: 2.0, range: 20, speed: 5, armour: 1, sprite: 'acolyte', healer: true, cost: 2 },
-  ladder:   { name: 'Ladder crew', hp: 70, dmg: 5, rate: 1.2, range: 3, speed: 5.5, armour: 1, sprite: 'h_ladder', ladder: true, cost: 2 },
-  ram:      { name: 'Battering Ram', hp: 380, dmg: 50, rate: 2.2, range: 3, speed: 3.2, armour: 7, large: true, sprite: 'ram', gateOnly: true, cost: 6 },
-  brute:    { name: 'Hollow Brute', hp: 290, dmg: 22, rate: 1.4, range: 4.5, speed: 4.5, armour: 4, large: true, sprite: 'h_brute', cost: 5 },
-  catapult: { name: 'Hollow Catapult', hp: 260, dmg: 55, rate: 6, range: 62, speed: 3, armour: 5, large: true, sprite: 'h_catapult', siege: true, proj: 'rock', splash: 6, cost: 6 },
-  captain:  { name: 'Hollow Captain', hp: 1400, dmg: 28, rate: 1.2, range: 5, speed: 4, armour: 6, large: true, boss: true, aura: true, sprite: 'warden', cost: 0 },
+  grunt:    { name: 'Hollow Soldier', hp: 70, dmg: 8, rate: 1.1, range: 3.5, speed: 7.8, armour: 2, sprite: 'soldier', cost: 1 },
+  hound:    { name: 'Shadow Hound', hp: 38, dmg: 6, rate: 0.7, range: 3, speed: 19.5, armour: 0, sprite: 'hound', cost: 0.8 },
+  bowman:   { name: 'Hollow Bowman', hp: 42, dmg: 6, rate: 1.5, range: 40, speed: 7.8, armour: 1, sprite: 'h_bowman', ranged: true, proj: 'arrow', cost: 1.5 },
+  acolyte:  { name: 'Hollow Acolyte', hp: 55, heal: 12, rate: 2.0, range: 20, speed: 6.5, armour: 1, sprite: 'acolyte', healer: true, cost: 2 },
+  ladder:   { name: 'Ladder crew', hp: 70, dmg: 5, rate: 1.2, range: 3, speed: 7.2, armour: 1, sprite: 'h_ladder', ladder: true, cost: 2 },
+  ram:      { name: 'Battering Ram', hp: 380, dmg: 50, rate: 2.2, range: 3, speed: 4.2, armour: 7, large: true, sprite: 'ram', gateOnly: true, cost: 6 },
+  brute:    { name: 'Hollow Brute', hp: 290, dmg: 22, rate: 1.4, range: 4.5, speed: 5.9, armour: 4, large: true, sprite: 'h_brute', cost: 5 },
+  catapult: { name: 'Hollow Catapult', hp: 260, dmg: 55, rate: 6, range: 62, speed: 3.9, armour: 5, large: true, sprite: 'h_catapult', siege: true, proj: 'rock', splash: 6, cost: 6 },
+  captain:  { name: 'Hollow Captain', hp: 1400, dmg: 28, rate: 1.2, range: 5, speed: 5.2, armour: 6, large: true, boss: true, aura: true, sprite: 'warden', cost: 0 },
 };
 // Castle pieces. Field pieces sit in front of the wall, yard pieces behind it.
 SG.PIECES = {
@@ -85,7 +87,12 @@ SG.MAX_NIGHT = 12;
 SG.ARMY_CAP = 30;
 
 // ---------- Castle building (between nights) ----------
-SG.castle = S => (S.castle = S.castle || { pieces: [] });
+SG.castle = S => {
+  const c = S.castle = S.castle || { pieces: [], v: 2 };
+  // Castles built on the old, smaller map move with the keep to the middle of the new one.
+  if (c.v !== 2) { for (const p of c.pieces) { p.c += OX / CELL; p.r += OY / CELL; } c.v = 2; }
+  return c;
+};
 const cellOf = (x, y) => ({ c: Math.floor(x / CELL), r: Math.floor(y / CELL) });
 SG.cellOf = cellOf;
 SG.pieceCells = p => { const n = SG.PIECES[p.k].size, out = []; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) out.push([p.c + i, p.r + j]); return out; };
@@ -98,7 +105,7 @@ SG.canBuild = function (S, k, c, r) {
   for (let i = 0; i < d.size; i++) for (let j = 0; j < d.size; j++) {
     const cc = c + i, rr = r + j;
     if (cc < 0 || cc >= COLS || rr < z.r0 || rr > z.r1) return d.zone === 'yard' ? 'Build that in the yard.' : 'Build that in front of the wall.';
-    if (d.zone === 'yard' && cc >= 8 && cc <= 16 && rr >= 29) return 'Keep the path to the hall clear.';
+    if (d.zone === 'yard' && cc >= 18 && cc <= 26 && rr >= 41) return 'Keep the path to the hall clear.';
     if (SG.pieceAt(S, cc, rr)) return 'Something is already there.';
   }
   if (!E.canAfford(S, d.cost)) return 'Not enough gold or iron.';
@@ -129,7 +136,7 @@ SG.night = function (n) {
   const rng = seeded(n * 7919 + 13);
   const waves = [];
   const count = Math.min(6, 3 + Math.floor((n - 1) / 3));
-  const pickX = () => 8 + rng() * 84;
+  const pickX = () => 8 + rng() * (W - 16);
   for (let w = 0; w < count; w++) {
     const list = [];
     const add = (t, at) => list.push({ t, at, x: pickX() });
@@ -191,14 +198,28 @@ class Siege {
     this.placedHeroes = {};
     this.kills = 0; this.lost = 0;
     // The castle for tonight: fresh copies of every piece, at full strength.
-    const hpk = wl >= 2 ? 1.5 : 1;
-    this.pieces = SG.castle(S).pieces.map((p, i) => {
+    this.pieces = [];
+    this.syncPieces();
+    this.selected = [];
+  }
+  // Brings tonight's pieces in line with the castle plan, keeping damage on pieces that were already there.
+  // Called at the start and whenever something is built or pulled down mid battle.
+  syncPieces() {
+    const hpk = (this.S.buildings.walls || 0) >= 2 ? 1.5 : 1, old = this.pieces;
+    this.pieces = SG.castle(this.S).pieces.map((p, i) => {
+      const was = old.find(o => o.k === p.k && o.c === p.c && o.r === p.r);
+      if (was) return was;
       const d = SG.PIECES[p.k];
-      return { id: i, k: p.k, c: p.c, r: p.r, size: d.size, hp: (d.hp || 0) * hpk, max: (d.hp || 0) * hpk, used: false, lit: 0,
+      return { id: UID++, k: p.k, c: p.c, r: p.r, size: d.size, hp: (d.hp || 0) * hpk, max: (d.hp || 0) * hpk, used: false, lit: 0,
         x: (p.c + d.size / 2) * CELL, y: (p.r + d.size / 2) * CELL, cd: 0 };
     });
+    for (const u of this.units) if (u.towerRef && !this.pieces.includes(u.towerRef)) { u.towerRef = null; u.zone = 'field'; u.post = { x: u.x, y: u.y + 3 }; }
     this.flowDirty = true;
-    this.selected = [];
+  }
+  // Is anyone standing where a piece would go? Walls and towers can't be dropped on people.
+  standingIn(k, c, r) {
+    const d = SG.PIECES[k], x0 = c * CELL - 1, y0 = r * CELL - 1, w = d.size * CELL + 2;
+    return this.units.some(u => u.hp > 0 && u.zone !== 'wall' && u.zone !== 'tower' && u.x >= x0 && u.x <= x0 + w && u.y >= y0 && u.y <= y0 + w && (d.block || u.side === 'e'));
   }
   // ----- the castle grid -----
   blockedCell(c, r) { const p = this.pieceIn(c, r); return !!(p && SG.PIECES[p.k].block && p.hp > 0); }
@@ -241,7 +262,7 @@ class Siege {
   // Steers along a flow field. Returns false if there's no way through.
   steer(u, field, dt) {
     this.flows();
-    const { c, r } = cellOf(clamp(u.x, 0, 99.9), clamp(u.y, 0, ROWS * CELL - 0.1));
+    const { c, r } = cellOf(clamp(u.x, 0, W - 0.1), clamp(u.y, 0, ROWS * CELL - 0.1));
     const here = field[r * COLS + c];
     if (here === Infinity && !this.blockedCell(c, r)) return false;
     let best = null, bd = here;
@@ -279,8 +300,8 @@ class Siege {
   }
   meleeCount() { return this.units.filter(u => u.side === 'p' && !u.hero && !u.temp && u.type !== 'pet' && u.hp > 0).length; }
   zoneAt(x, y) {
-    if (y >= GEO.FIELD.y0 && y <= GEO.FIELD.y1 && x >= 3 && x <= 97) { const { c, r } = cellOf(x, y); if (this.blockedCell(c, r)) return null; return 'field'; }
-    if (y >= GEO.YARD.y0 && y <= GEO.YARD.y1 && x >= 6 && x <= 94) return 'yard';
+    if (y >= GEO.FIELD.y0 && y <= GEO.FIELD.y1 && x >= 3 && x <= W - 3) { const { c, r } = cellOf(x, y); if (this.blockedCell(c, r)) return null; return 'field'; }
+    if (y >= GEO.YARD.y0 && y <= GEO.YARD.y1 && x >= 3 && x <= W - 3) return 'yard';
     return null;
   }
   occupied(x, y) { return this.units.some(u => u.hp > 0 && u.side === 'p' && (u.zone === 'wall' || u.zone === 'tower') && Math.abs(u.x - x) < 0.5 && Math.abs(u.y - y) < 0.5); }
@@ -300,7 +321,7 @@ class Siege {
   }
   freeSpots(towerOnly) {
     const out = [];
-    for (let x = 0; x <= 100; x += 2) { const s = this.slotAt(x, WALL_Y + 2, towerOnly); if (s && !out.some(o => o.x === s.x && o.y === s.y)) out.push(s); }
+    for (let x = 0; x <= W; x += 2) { const s = this.slotAt(x, WALL_Y + 2, towerOnly); if (s && !out.some(o => o.x === s.x && o.y === s.y)) out.push(s); }
     for (const p of this.pieces) if (p.k === 'tower' && p.hp > 0) for (const sp of this.pieceSlots(p)) { const s = this.slotAt(sp.x, sp.y, towerOnly); if (s && !out.some(o => o.x === s.x && o.y === s.y)) out.push(s); }
     return out;
   }
@@ -375,7 +396,7 @@ class Siege {
     return null;
   }
   start() {
-    const spots = [[50, 94], [41, 92], [59, 92], [35, 96], [65, 96]];
+    const spots = [[GX, WALL_Y - 8], [GX - 9, WALL_Y - 10], [GX + 9, WALL_Y - 10], [GX - 15, WALL_Y - 6], [GX + 15, WALL_Y - 6]];
     let i = 0;
     for (const id of this.S.party) if (!this.placedHeroes[id] && this.S.heroes[id]) {
       let [x, y] = spots[i++ % spots.length];
@@ -410,7 +431,7 @@ class Siege {
       if (!dest) {
         if (u.type === 'ballista') continue;
         const [ox, oy] = ringAt(k++);
-        const tx = clamp(x + ox, 4, 96), ty = y + oy;
+        const tx = clamp(x + ox, 4, W - 4), ty = y + oy;
         const z = this.zoneAt(tx, ty) || this.zoneAt(x, y);
         if (!z) continue;
         dest = { x: this.zoneAt(tx, ty) ? tx : x, y: this.zoneAt(tx, ty) ? ty : y, zone: z };
@@ -423,7 +444,7 @@ class Siege {
   route(u, dest) {
     const from = this.sideOf(u.x, u.y), to = dest.zone === 'field' ? 'out' : dest.zone === 'yard' ? 'in' : dest.zone === 'tower' && dest.ref ? 'out' : 'wall';
     const path = [];
-    const inGate = { x: 50, y: YARD_Y + 3 }, outGate = { x: 50, y: WALL_Y - 4 };
+    const inGate = { x: GX, y: YARD_Y + 3 }, outGate = { x: GX, y: WALL_Y - 4 };
     if (from === 'wall' && to !== 'wall') path.push({ x: u.x, y: YARD_Y + 3 });
     const fromSide = from === 'wall' ? 'in' : from;
     if (fromSide === 'in' && to === 'out') path.push(inGate, outGate);
@@ -542,7 +563,7 @@ class Siege {
     if (d < 0.3) return true;
     let mult = u.slow > 0 ? 0.5 : 1;
     if (u.side === 'e' && u.y < WALL_Y) {
-      const p = this.pieceIn(...Object.values(cellOf(clamp(u.x, 0, 99.9), clamp(u.y, 0, 103))));
+      const p = this.pieceIn(...Object.values(cellOf(clamp(u.x, 0, W - 0.1), clamp(u.y, 0, WALL_Y + 1))));
       if (p && SG.PIECES[p.k].slow) mult *= SG.PIECES[p.k].slow;
     }
     const sp = u.speed * mult * dt;
@@ -555,7 +576,7 @@ class Siege {
   spawn(s) {
     const d = SG.FOES[s.t];
     const u = this.makeUnit('e', s.t, d, s.x, -2, 'field', { hp: d.hp * this.scale.hp, dmg: (d.dmg || 0) * this.scale.dmg, heal: (d.heal || 0) * this.scale.dmg });
-    u.holdY = 26 + this.rng() * 10;
+    u.holdY = WALL_Y - 76 + this.rng() * 12;
     this.units.push(u);
   }
 
@@ -619,7 +640,7 @@ class Siege {
       if (p.k === 'mangonel' && p.hp > 0) {
         p.cd -= dt;
         if (p.cd <= 0) {
-          const foes = this.units.filter(u => u.side === 'e' && u.hp > 0 && u.y < WALL_Y - 6 && u.state !== 'climb' && Math.hypot(u.x - p.x, u.y - p.y) < 90 && Math.hypot(u.x - p.x, u.y - p.y) > 20);
+          const foes = this.units.filter(u => u.side === 'e' && u.hp > 0 && u.y < WALL_Y - 6 && u.state !== 'climb' && Math.hypot(u.x - p.x, u.y - p.y) < 110 && Math.hypot(u.x - p.x, u.y - p.y) > 20);
           let best = null, bs = 0;
           for (const f of foes) { const s = foes.filter(o => Math.hypot(o.x - f.x, o.y - f.y) < 6).length + (f.large ? 2 : 0); if (s > bs) { bs = s; best = f; } }
           if (best) { p.cd = 5; this.proj.push({ x: p.x, y: p.y - 3, t: best, tx: best.x, ty: best.y, kind: 'rock', src: { side: 'p', x: p.x, y: p.y }, dmg: 70, splash: 6, speed: 34, sx: p.x, sy: p.y - 3, mangonel: true }); }
@@ -655,7 +676,7 @@ class Siege {
       if (hurt && u.cd <= 0) { hurt.hp = Math.min(hurt.max, hurt.hp + u.heal); u.cd = u.rate; this.fx.push({ k: 'heal', x: hurt.x, y: hurt.y, dark: true }); }
       const front = this.units.filter(o => o.side === 'e' && o.hp > 0 && o !== u && !o.healer).sort((a, b) => b.y - a.y)[0];
       const gy = front ? Math.max(4, front.y - 10) : WALL_Y - 18;
-      this.moveTo(u, front ? front.x : 50, Math.min(gy, WALL_Y - 12), dt);
+      this.moveTo(u, front ? front.x : GX, Math.min(gy, WALL_Y - 12), dt);
       return;
     }
     // Catapults stop well back and smash walls, towers and anything on the wall.
@@ -664,7 +685,7 @@ class Siege {
       if (u.cd > 0) return;
       const pc = this.pieces.filter(p => SG.PIECES[p.k].block && p.hp > 0 && Math.hypot(p.x - u.x, p.y - u.y) <= u.range).sort((a, b) => b.y - a.y)[0];
       const un = this.nearest(u, o => o.side === 'p' && o.hp > 0, u.range);
-      const tgt = pc ? { x: pc.x, y: pc.y, hp: 1, piece: pc } : un || (Math.hypot(50 - u.x, WALL_Y - u.y) <= u.range + 30 ? { x: 50, y: WALL_Y, hp: 1, gate: true } : null);
+      const tgt = pc ? { x: pc.x, y: pc.y, hp: 1, piece: pc } : un || (Math.hypot(GX - u.x, WALL_Y - u.y) <= u.range + 30 ? { x: GX, y: WALL_Y, hp: 1, gate: true } : null);
       if (tgt) {
         u.cd = u.rate; u.atk = 0.4;
         this.proj.push({ x: u.x, y: u.y - 3, t: tgt.piece || tgt.gate ? null : tgt, tx: tgt.x, ty: tgt.y, piece: tgt.piece || null, gate: !!tgt.gate, kind: 'rock', src: u, dmg: u.dmg, splash: u.splash, speed: 32, sx: u.x, sy: u.y - 3 });
@@ -684,7 +705,7 @@ class Siege {
       if (t) { this.melee(u, t, dt); return; }
     }
     if (inside) {
-      const kx = GEO.KEEP.x + clamp(u.x - 50, -8, 8), ky = GEO.KEEP.y - 7;
+      const kx = GEO.KEEP.x + clamp(u.x - GX, -8, 8), ky = GEO.KEEP.y - 7;
       if (this.moveTo(u, kx, ky, dt) || Math.hypot(u.x - kx, u.y - ky) < 2) {
         if (u.cd <= 0) { this.keep.hp -= u.dmg; u.cd = u.rate; u.atk = 0.2; this.fx.push({ k: 'keephit', x: u.x, y: u.y }); }
       }
@@ -699,12 +720,12 @@ class Siege {
     }
     const nearWall = u.y >= WALL_Y - 7;
     if (this.gate.broken && !u.ladder && nearWall) {
-      if (Math.abs(u.x - 50) > 3.5 && u.y < WALL_Y - 4) this.moveTo(u, 50, WALL_Y - 4, dt);
-      else this.moveTo(u, 50 + clamp(u.x - 50, -3, 3), YARD_Y + 3, dt);
+      if (Math.abs(u.x - GX) > 3.5 && u.y < WALL_Y - 4) this.moveTo(u, GX, WALL_Y - 4, dt);
+      else this.moveTo(u, GX + clamp(u.x - GX, -3, 3), YARD_Y + 3, dt);
       return;
     }
     if (u.ladder && nearWall) {
-      if (Math.abs(u.x - 50) < 9) { this.moveTo(u, u.x < 50 ? 38 : 62, WALL_Y - 2, dt); return; }
+      if (Math.abs(u.x - GX) < 15) { this.moveTo(u, u.x < GX ? GX - 18 : GX + 18, WALL_Y - 2, dt); return; }
       const near = this.ladders.find(l => Math.abs(l.x - u.x) < 8);
       if (near) { if (this.moveTo(u, near.x, WALL_Y - 1.5, dt)) { u.state = 'climb'; u.timer = 2.5; u.ladderRef = near; u.x = near.x; } }
       else if (this.moveTo(u, u.x, WALL_Y - 1.5, dt)) { u.state = 'plant'; u.timer = 3; }
@@ -712,14 +733,14 @@ class Siege {
     }
     if (!u.large && !u.ladder && nearWall) {
       const l = this.ladders.slice().sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
-      if (l && Math.abs(u.x - l.x) < Math.abs(u.x - 50) - 4) {
+      if (l && Math.abs(u.x - l.x) < Math.abs(u.x - GX) - 4) {
         if (this.moveTo(u, l.x, WALL_Y - 1.5, dt)) { u.state = 'climb'; u.timer = 2.5; u.ladderRef = l; u.x = l.x; }
         return;
       }
     }
-    if (nearWall && !u.ladder && Math.abs(u.x - 50) < 9) {
-      const gx = 50 + clamp(u.x - 50, -5, 5), gy = WALL_Y - 2;
-      if (this.moveTo(u, gx, gy, dt) || (u.y >= WALL_Y - 3.5 && Math.abs(u.x - 50) < 7)) {
+    if (nearWall && !u.ladder && Math.abs(u.x - GX) < 9) {
+      const gx = GX + clamp(u.x - GX, -5, 5), gy = WALL_Y - 2;
+      if (this.moveTo(u, gx, gy, dt) || (u.y >= WALL_Y - 3.5 && Math.abs(u.x - GX) < 7)) {
         if (u.cd <= 0) { this.hitGate(u); u.cd = u.rate; u.atk = 0.25; }
       }
       return;
@@ -728,7 +749,7 @@ class Siege {
     this.flows();
     if (!this.steer(u, u.ladder ? this.flowWall : this.flowGate, dt)) {
       u.bash = this.nearestBlock(u);
-      if (!u.bash) this.moveTo(u, 50, WALL_Y - 2, dt);
+      if (!u.bash) this.moveTo(u, GX, WALL_Y - 2, dt);
     }
   }
   playerStep(u, dt) {
@@ -809,14 +830,14 @@ class Siege {
       }
     }
     for (const u of g) {
-      u.x = clamp(u.x, 2, 98);
-      if (u.side === 'e' && !this.inside(u) && !(this.gate.broken && Math.abs(u.x - 50) < 5)) u.y = Math.min(u.y, WALL_Y - 1.2);
+      u.x = clamp(u.x, 2, W - 2);
+      if (u.side === 'e' && !this.inside(u) && !(this.gate.broken && Math.abs(u.x - GX) < 5)) u.y = Math.min(u.y, WALL_Y - 1.2);
       if (u.side === 'p' && u.zone === 'field') u.y = Math.min(u.y, WALL_Y - 1.5);
       if (u.side === 'p' && u.zone === 'yard') u.y = clamp(u.y, YARD_Y + 1, GEO.KEEP.y - 4);
       if (u.side === 'e' && this.inside(u)) u.y = Math.min(u.y, GEO.KEEP.y - 4);
       // Nobody stands inside a wall or tower: push out to the nearest edge.
       if (u.y < WALL_Y) {
-        const { c, r } = cellOf(clamp(u.x, 0, 99.9), clamp(u.y, 0, 103.9));
+        const { c, r } = cellOf(clamp(u.x, 0, W - 0.1), clamp(u.y, 0, WALL_Y + 1.9));
         const p = this.pieceIn(c, r);
         if (p && SG.PIECES[p.k].block && p.hp > 0) {
           const x0 = p.c * CELL, y0 = p.r * CELL, x1 = x0 + p.size * CELL, y1 = y0 + p.size * CELL;

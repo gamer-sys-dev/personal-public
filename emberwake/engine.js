@@ -8,7 +8,7 @@ const E = {};
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 E.clamp = clamp;
 E.xpNext = L => Math.round(20 * Math.pow(L, 1.85) + 10);
-E.MASTERY = [5, 15, 35, 70];
+E.MASTERY = [6, 20, 45, 90];
 E.masteryLevel = uses => E.MASTERY.filter(n => (uses || 0) >= n).length;
 E.masteryMult = uses => 1 + 0.1 * E.masteryLevel(uses);
 
@@ -116,7 +116,7 @@ E.heroStats = function (S, id) {
   }
   for (const k of D.STATS) st[k] = Math.max(k === 'hp' ? 1 : 0, Math.floor(st[k]));
   st.maxHp = st.hp; st.maxMp = st.mp; delete st.hp; delete st.mp;
-  st.flags = flags; st.skills = skills;
+  st.flags = flags; st.skills = skills.map(s => (h.evolved && h.evolved[s]) || s);
   return st;
 };
 
@@ -223,6 +223,18 @@ E.learnTalent = function (S, id, tree) {
   h.mp += Math.max(0, after.maxMp - before.maxMp);
   return true;
 };
+
+// ---------- Skill evolution ----------
+E.canEvolve = (S, id, skill) => !!(D.SKILL_EVO[skill] && E.masteryLevel(S.heroes[id].mastery[skill]) >= 4 && !(S.heroes[id].evolved || {})[skill]);
+E.evolveSkill = function (S, id, skill, which) {
+  if (!E.canEvolve(S, id, skill)) return null;
+  const opt = D.SKILL_EVO[skill][which];
+  const h = S.heroes[id];
+  h.evolved = h.evolved || {};
+  h.evolved[skill] = opt.id;
+  return opt;
+};
+E.readyToEvolve = (S, id) => E.heroStats(S, id).skills.filter(s => E.canEvolve(S, id, s));
 
 // ---------- Equipment ----------
 E.equip = function (S, id, slot, uid) {
