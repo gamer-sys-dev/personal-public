@@ -237,7 +237,7 @@ SCREENS.title = () => {
 
 SCREENS.keep = () => {
   const shopName = S.flags.raid_done ? 'Tilly\'s stall' : S.shopTier >= 2 ? 'Hob\'s Trading Post' : 'Supplies';
-  const pts = S.roster.some(id => S.heroes[id].points > 0 || E.readyToEvolve(S, id).length);
+  const pts = S.roster.some(id => S.heroes[id].points > 0 || E.readyToEvolve(S, id).length || E.pathsReady(S, id).length);
   const bench = S.roster.filter(id => !S.party.includes(id));
   const raid = S.flags.raid ? `<div class="card defend ${S.siege.best ? '' : 'alert'}"><div class="spread"><b class="serif" style="font-size:1.1rem">${S.siege.best ? 'Defend Emberwake' : 'The Hollow are coming!'}</b>
       <span class="pill on">${S.siege.best >= SG.MAX_NIGHT ? 'All nights held' : 'Night ' + (S.siege.best + 1)}</span></div>
@@ -381,7 +381,7 @@ SCREENS.party = () => {
   const h = S.heroes[id], st = E.heroStats(S, id), def = D.HEROES[id];
   let body = '';
   if (tab === 'stats') {
-    body = `<div class="card"><div class="spread"><b class="serif" style="font-size:1.15rem">${def.name}</b><span class="muted">${def.role}</span></div>
+    body = `<div class="card"><div class="spread"><b class="serif" style="font-size:1.15rem">${def.name}</b><span class="muted">${E.heroTitle(h) ? `<b style="color:var(--gold)">${E.heroTitle(h)}</b>` : def.role}</span></div>
       <p class="muted">${def.blurb}</p>
       <div class="spread small"><span>Level ${h.lvl}</span><span class="muted">${h.xp}/${E.xpNext(h.lvl)} XP</span></div>
       <div class="bar xp" style="margin:4px 0 12px"><i style="width:${pct(h.xp, E.xpNext(h.lvl))}%"></i></div>
@@ -394,19 +394,27 @@ SCREENS.party = () => {
       <p class="muted" style="margin-top:10px">Talent points: <b style="color:var(--gold)">${h.points}</b>. Two per level, plus any Tomes of Insight you find.</p></div>`;
   } else if (tab === 'talents') {
     body = `<div class="card"><div class="spread"><b>Talent points</b><span class="pill on">${h.points}</span></div>
-      <p class="muted small">Anyone can learn any tree. Ranks unlock at levels ${D.TALENT_REQ.join(', ')} and cost ${D.TALENT_COST.join(', ')} points.</p>
+      <p class="muted small">Anyone can learn any tree. Ranks unlock at levels ${D.TALENT_REQ.join(', ')} and cost ${D.TALENT_COST.join(', ')} points. Master all six and the tree <b>evolves</b>: pick one of two paths with three more ranks. Two trees at rank ${D.COMBO_RANK} teach a <b>combo art</b> only that pair can do.</p>
       ${Object.keys(D.TREES).map(tk => {
-        const tr = D.TREES[tk], r = h.talents[tk] || 0, n = E.talentNext(S, id, tk);
-        const ranks = tr.ranks.map((rk, i) => {
+        const tr = D.TREES[tk], r = h.talents[tk] || 0, n = E.talentNext(S, id, tk), path = h.paths && h.paths[tk];
+        const rankLine = (rk, i) => {
           const label = rk.skill ? `<b>${D.SKILLS[rk.skill].name}</b> <span class="muted">${D.SKILLS[rk.skill].mp} MP. ${D.SKILLS[rk.skill].desc || ''}</span>` : rk.text;
           const cls = i < r ? 'have' : i === r ? 'next' : 'locked';
-          return `<div class="rank ${cls}">${i + 1}. ${label} <span class="muted small">(Lv ${D.TALENT_REQ[i]}, ${D.TALENT_COST[i]} pt)</span></div>`;
-        }).join('');
-        return `<details ${view.open === tk ? 'open' : ''}><summary><div class="spread">
-          <div><b style="color:${tr.colour}">${tr.name}</b> <span class="dots" style="color:${tr.colour}">${'●'.repeat(r)}${'○'.repeat(6 - r)}</span><div class="muted small">${tr.desc}</div></div>
-          ${n.max ? '<span class="pill good">Mastered</span>' : `<button class="sm ${n.ok ? 'gold' : ''}" data-a="learn" data-v="${tk}" ${n.ok ? '' : 'disabled'}>${h.lvl < n.req ? 'Lv ' + n.req : 'Learn ' + n.cost}</button>`}
-          </div></summary>${ranks}</details>`;
-      }).join('')}</div>`;
+          const req = i < 6 ? D.TALENT_REQ[i] : D.PATH_REQ[i - 6], cost = i < 6 ? D.TALENT_COST[i] : D.PATH_COST[i - 6];
+          return `<div class="rank ${cls}">${i + 1}. ${label} <span class="muted small">(Lv ${req}, ${cost} pt)</span></div>`;
+        };
+        const all = E.treeRanks(h, tk).map(rankLine);
+        const ranks = all.slice(0, 6).join('') + (path != null ? `<div class="small" style="color:${tr.colour};margin:8px 0 2px">Path of the ${tr.paths[path].name}</div>` + all.slice(6).join('') : '');
+        const pathBox = n.path ? `<div class="evochoice"><div class="small" style="color:var(--gold);margin:6px 0 4px">Mastered. Choose the path ${tr.name} takes:</div>
+          ${tr.paths.map((pp, k) => `<button class="sm gold evobtn" data-a="choosePath" data-v="${tk}:${k}"><b>${pp.name}</b><span class="small">${pp.desc} Learns ${pp.ranks.filter(x => x.skill).map(x => D.SKILLS[x.skill].name).join(' and ')}.</span></button>`).join('')}</div>`
+          : r >= 4 && path == null ? `<div class="small muted" style="margin-top:6px">At six ranks this tree evolves into ${tr.paths.map(pp => pp.name).join(' or ')}.</div>` : '';
+        const total = path != null ? 9 : 6, ttl = path != null ? ` <span class="small" style="color:${tr.colour}">${tr.paths[path].name}</span>` : '';
+        const btn = n.done ? '<span class="pill good">Mastered</span>' : n.path ? '<span class="pill on">Evolve</span>' : `<button class="sm ${n.ok ? 'gold' : ''}" data-a="learn" data-v="${tk}" ${n.ok ? '' : 'disabled'}>${h.lvl < n.req ? 'Lv ' + n.req : 'Learn ' + n.cost}</button>`;
+        return `<details ${view.open === tk || n.path ? 'open' : ''}><summary><div class="spread">
+          <div><b style="color:${tr.colour}">${tr.name}</b>${ttl} <span class="dots" style="color:${tr.colour}">${'●'.repeat(Math.min(r, total))}${'○'.repeat(Math.max(0, total - r))}</span><div class="muted small">${tr.desc}</div></div>
+          ${btn}</div></summary>${ranks}${pathBox}</details>`;
+      }).join('')}
+      ${comboList(h)}</div>`;
   } else if (tab === 'gear') {
     body = `<div class="card">${['weapon', 'armour', 'charm'].map(slot => {
       const g = E.gearOf(S, h.equip[slot]);
@@ -429,10 +437,21 @@ SCREENS.party = () => {
   }
   return partyFrame(body, id);
 };
+// Combo arts this hero has, and the ones within reach (one of the pair already started).
+function comboList(h) {
+  const near = D.COMBOS.filter(c => c.trees.some(t => (h.talents[t] || 0) > 0));
+  if (!near.length) return '';
+  return `<div style="margin-top:12px"><b>Combo arts</b><div class="muted small">Two trees at rank ${D.COMBO_RANK} or more teach these.</div>
+    ${near.map(c => {
+      const has = c.trees.every(t => (h.talents[t] || 0) >= D.COMBO_RANK), sk = D.SKILLS[c.skill];
+      const need = c.trees.map(t => `<span style="color:${D.TREES[t].colour}">${D.TREES[t].name} ${Math.min(h.talents[t] || 0, D.COMBO_RANK)}/${D.COMBO_RANK}</span>`).join(' + ');
+      return `<div class="rank ${has ? 'have' : 'locked'}"><b>${sk.name}</b> <span class="muted">${sk.mp} MP. ${sk.desc}</span><div class="small">${need}</div></div>`;
+    }).join('')}</div>`;
+}
 function partyFrame(body, id) {
   const tab = view.tab || 'stats';
   const tabs = ['stats', 'talents', 'gear', 'skills', 'lineup'].map(t => {
-    const dot = (t === 'talents' && id && S.heroes[id].points) || (t === 'skills' && id && E.readyToEvolve(S, id).length);
+    const dot = (t === 'talents' && id && (S.heroes[id].points || E.pathsReady(S, id).length)) || (t === 'skills' && id && E.readyToEvolve(S, id).length);
     return `<button class="${t === tab ? 'on' : ''}" data-a="ptab" data-v="${t}">${t === 'lineup' ? 'Line-up' : t[0].toUpperCase() + t.slice(1)}${dot ? ' ●' : ''}</button>`;
   }).join('');
   return `<div class="topbar"><h1>Party</h1><button class="sm" data-a="back">Back</button></div>
@@ -734,8 +753,10 @@ ACT.ptab = v => { view.tab = v; view.slot = null; if (!view.hero) view.hero = S.
 ACT.stab = v => { view.tab = v; render(); };
 ACT.learn = v => {
   if (E.learnTalent(S, view.hero, v)) {
-    const r = S.heroes[view.hero].talents[v], rk = D.TREES[v].ranks[r - 1];
+    const h = S.heroes[view.hero], r = h.talents[v], rk = E.treeRanks(h, v)[r - 1];
     toast(`${heroName(view.hero)} learned ${rk.skill ? D.SKILLS[rk.skill].name : rk.text}`);
+    if (r === D.COMBO_RANK) for (const c of E.combosOf(h).filter(c => c.trees.includes(v))) setTimeout(() => toast(`Combo art! ${heroName(view.hero)} can now use <b>${D.SKILLS[c.skill].name}</b>.`, 3200), 900);
+    if (r === 6) setTimeout(() => toast(`${D.TREES[v].name} mastered. Choose the path it takes.`, 3200), 900);
     view.open = v; render();
   }
 };
@@ -830,6 +851,19 @@ ACT.evolveSkill = v => {
   overlay(`<div class="sheet" style="text-align:center"><h2>Evolve ${D.SKILLS[skill].name}?</h2><p><b style="color:var(--gold)">${opt.name}</b>: ${opt.desc}</p>
     <p class="muted small">This can't be undone. The other choice will be gone for ${heroName(id)}.</p>
     <button class="primary big" data-a="evolveGo" data-v="${v}">Evolve</button><button class="big" data-a="closeOv">Not yet</button></div>`, 'center');
+};
+ACT.choosePath = v => {
+  const [tk, k] = v.split(':'), pp = D.TREES[tk].paths[+k];
+  overlay(`<div class="sheet" style="text-align:center"><h2>The path of the ${pp.name}?</h2><p>${pp.desc}</p>
+    <div style="text-align:left">${pp.ranks.map((rk, i) => `<div class="rank">${i + 7}. ${rk.skill ? `<b>${D.SKILLS[rk.skill].name}</b> <span class="muted">${D.SKILLS[rk.skill].desc}</span>` : rk.text} <span class="muted small">(Lv ${D.PATH_REQ[i]})</span></div>`).join('')}</div>
+    <p class="muted small">This can't be undone. The other path will be gone for ${heroName(view.hero)}.</p>
+    <button class="primary big" data-a="pathGo" data-v="${v}">Choose ${pp.name}</button><button class="big" data-a="closeOv">Not yet</button></div>`, 'center');
+};
+ACT.pathGo = v => {
+  const [tk, k] = v.split(':');
+  closeOverlay();
+  if (E.choosePath(S, view.hero, tk, +k)) { AU.sfx('level'); toast(`${heroName(view.hero)} walks the path of the <b>${D.TREES[tk].paths[+k].name}</b>.`, 3000); }
+  view.open = tk; render();
 };
 ACT.evolveGo = v => {
   const [skill, k] = v.split(':'), opt = E.evolveSkill(S, view.hero, skill, +k);

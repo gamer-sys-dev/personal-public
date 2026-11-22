@@ -99,14 +99,15 @@ E.heroStats = function (S, id) {
     }
   };
   for (const tree in h.talents) {
-    const ranks = D.TREES[tree].ranks;
-    for (let r = 0; r < h.talents[tree]; r++) {
+    const ranks = E.treeRanks(h, tree);
+    for (let r = 0; r < Math.min(h.talents[tree], ranks.length); r++) {
       const rk = ranks[r];
       if (rk.skill) skills.push(rk.skill);
       if (rk.stats) for (const k in rk.stats) st[k] += rk.stats[k];
       if (rk.flags) addFlags(rk.flags);
     }
   }
+  for (const c of E.combosOf(h)) skills.push(c.skill);
   for (const slot of ['weapon', 'armour', 'charm']) {
     const g = E.gearOf(S, h.equip[slot]);
     if (!g) continue;
@@ -207,9 +208,36 @@ E.setParty = function (S, ids) {
 };
 
 // ---------- Talents ----------
+// A tree's ranks: the six base ranks, then the three of whichever path was chosen once it was mastered.
+E.treeRanks = (h, tree) => {
+  const t = D.TREES[tree], p = h.paths && h.paths[tree];
+  return p == null ? t.ranks : t.ranks.concat(t.paths[p].ranks);
+};
+E.treeTitle = (h, tree) => { const p = h.paths && h.paths[tree]; return p == null ? null : D.TREES[tree].paths[p].name; };
+// The hero's title: the path of their strongest tree, if they have one.
+E.heroTitle = h => {
+  let best = null, br = 0;
+  for (const t in h.paths || {}) if ((h.talents[t] || 0) > br) { br = h.talents[t]; best = E.treeTitle(h, t); }
+  return best;
+};
+E.combosOf = h => D.COMBOS.filter(c => c.trees.every(t => (h.talents[t] || 0) >= D.COMBO_RANK));
+E.canChoosePath = (S, id, tree) => { const h = S.heroes[id]; return (h.talents[tree] || 0) >= 6 && !(h.paths && h.paths[tree] != null); };
+E.choosePath = function (S, id, tree, which) {
+  if (!E.canChoosePath(S, id, tree) || !D.TREES[tree].paths[which]) return false;
+  const h = S.heroes[id];
+  h.paths = h.paths || {};
+  h.paths[tree] = which;
+  return true;
+};
+E.pathsReady = (S, id) => Object.keys(D.TREES).filter(t => E.canChoosePath(S, id, t));
 E.talentNext = function (S, id, tree) {
   const h = S.heroes[id], r = h.talents[tree] || 0;
-  if (r >= 6) return { max: true };
+  if (r >= 6) {
+    if (h.paths == null || h.paths[tree] == null) return { max: true, path: true };
+    if (r >= 9) return { max: true, done: true };
+    const k = r - 6;
+    return { rank: r, cost: D.PATH_COST[k], req: D.PATH_REQ[k], ok: h.lvl >= D.PATH_REQ[k] && h.points >= D.PATH_COST[k] };
+  }
   return { rank: r, cost: D.TALENT_COST[r], req: D.TALENT_REQ[r], ok: h.lvl >= D.TALENT_REQ[r] && h.points >= D.TALENT_COST[r] };
 };
 E.learnTalent = function (S, id, tree) {

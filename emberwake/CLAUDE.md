@@ -83,6 +83,13 @@ Player feedback: the music sounded like Pokemon; he wants sampled orchestral str
 - Siege rebuild: the battlefield is 180 by 200 (was 100 by 150). The old keep and yard layout sits in the middle, shifted by (40, 48) (GEO.OX, OY); old castle saves move with it (castle.v = 2). Twelve wall spots, a full width yard with survivor cottages that grow with nights held. Enemies move 30% faster to cover the longer field. Camera: drag to pan, pinch or wheel to zoom, +, - and whole map buttons; the world is painted once at 8 px per unit and the visible part copied each frame. Red marks at the screen edge show enemies out of view. Three modes: Command (tap to select, Box to drag a selection rectangle, All of a type, Everyone, tap ground to send, tap pitch to light, hero powers), Recruit (soldiers, and placing heroes before the horn) and Build (any piece, mid battle too, paid in gold and iron and kept for later nights; not on top of people). Taps only place things in Recruit or Build, so selecting troops can't place a soldier by accident.
 - Balance (bot): bare walls hold to about night 5, half of night 8, none of 10. A built castle holds all twelve.
 
+## Layer six, part two (22 November 2026)
+
+Player feedback: talents also need to evolve once mastered (all trees top out by level 14), and there was no clear reason to put points in a second tree. Building in the siege was unforgiving: no undo, confirm or full sell back.
+- Talent paths: a tree at six ranks offers a choice of two paths (PATHS in data.js), each with three more ranks at levels 15, 18 and 21 costing 3, 3 and 4 points. Stored in hero.paths; E.treeRanks joins them on. The path names a title shown on the Stats page (Warlord, Duellist, Bastion, Avenger, Marksman, Stalker, Pyromancer, Emberheart, Glacier, Winterward, Packlord, Berserker, Assassin, Rogue, Paladin, Templar, Plaguebringer, Soulreaver, Saint, Lightbringer).
+- Combo arts: two trees both at rank 4 teach a move only that pair has (COMBOS, 22 pairs, for example Blade and Fire make Flame Blade). Listed on the Talents tab with progress for any pair the hero has started.
+- Building is a plan until confirmed: taps place ghost pieces (or mark pieces to sell with a red cross), tap a planned piece to take it back, Undo, Clear, Confirm. Selling pays full price in daylight (Fortify) and half mid battle. Leaving Fortify with plans asks whether to confirm or throw them away.
+
 ## Next layers
 
 - War campaigns (agreed as the next big piece): a territory map, Hollow held villages and forts, battles with the soldiers trained for the siege plus heroes, captured ground paying out daily.

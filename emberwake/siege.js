@@ -118,11 +118,13 @@ SG.build = function (S, k, c, r) {
   SG.castle(S).pieces.push({ k, c, r });
   return null;
 };
-SG.demolish = function (S, c, r) {
+// Sells a piece back. Full price in daylight (it's only a plan until the night), half mid battle.
+SG.demolish = function (S, c, r, back) {
   const p = SG.pieceAt(S, c, r);
   if (!p) return false;
-  const d = SG.PIECES[p.k];
-  S.gold += Math.floor((d.cost.gold || 0) * 0.5);
+  const d = SG.PIECES[p.k], k = back == null ? 0.5 : back;
+  S.gold += Math.floor((d.cost.gold || 0) * k);
+  for (const m in d.cost.mats || {}) S.mats[m] = (S.mats[m] || 0) + Math.floor(d.cost.mats[m] * k);
   SG.castle(S).pieces = SG.castle(S).pieces.filter(x => x !== p);
   return true;
 };

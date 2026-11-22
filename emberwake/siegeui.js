@@ -495,11 +495,11 @@ function pieceCell(k, x, y) {
   if (sz === 2) return { c: Math.max(0, Math.round(x / G.CELL) - 1), r: Math.round(y / G.CELL) - 1 };
   return SG.cellOf(x, y);
 }
-function pieceCards(S, tool) {
+function pieceCards(S, tool, back) {
   return PIECE_ORDER.map(k => {
     const d = SG.PIECES[k], locked = d.req && (S.buildings[d.req[0]] || 0) < d.req[1];
     return `<button class="sg-card fcard ${tool === k ? 'on' : ''} ${locked || !E.canAfford(S, d.cost) ? 'poor' : ''}" data-p="${k}"><i class="sw sw-${k}"></i><span>${d.name}</span><b>${costTxt(d.cost)}</b></button>`;
-  }).join('') + `<button class="sg-card fcard ${tool === 'demolish' ? 'on' : ''}" data-p="demolish"><i class="sw sw-demolish"></i><span>Demolish</span><b>half back</b></button>`;
+  }).join('') + `<button class="sg-card fcard ${tool === 'demolish' ? 'on' : ''}" data-p="demolish"><i class="sw sw-demolish"></i><span>Sell</span><b>${back === 1 ? 'full price' : 'half back'}</b></button>`;
 }
 function drawGrid(ctx, V, tool) {
   const z = SG.PIECES[tool] && SG.PIECES[tool].zone === 'yard' ? G.YBUILD : G.BUILD;
@@ -507,27 +507,110 @@ function drawGrid(ctx, V, tool) {
   for (let c = 0; c <= G.COLS; c++) { ctx.beginPath(); ctx.moveTo(X(V, c * G.CELL), Y(V, z.r0 * G.CELL)); ctx.lineTo(X(V, c * G.CELL), Y(V, (z.r1 + 1) * G.CELL)); ctx.stroke(); }
   for (let r = z.r0; r <= z.r1 + 1; r++) { ctx.beginPath(); ctx.moveTo(X(V, 0), Y(V, r * G.CELL)); ctx.lineTo(X(V, G.W), Y(V, r * G.CELL)); ctx.stroke(); }
 }
+// ---------- building plans: nothing is paid until you confirm ----------
+// Taps add planned builds or sales; tap a planned piece again to take it back; Undo, Clear, Confirm.
+// back: share of the price returned when selling (1 in daylight, 0.5 mid battle).
+function Planner(S, back, guard) {
+  const pl = { list: [], back };
+  const sellValue = d => ({ gold: Math.floor((d.cost.gold || 0) * back), mats: Object.fromEntries(Object.entries(d.cost.mats || {}).map(([m, v]) => [m, Math.floor(v * back)])) });
+  // Totals: what the plan costs and what it gives back.
+  pl.totals = () => {
+    const t = { gold: 0, mats: {}, builds: 0, sells: 0 };
+    for (const e of pl.list) {
+      const d = SG.PIECES[e.k], v = e.op === 'build' ? d.cost : sellValue(d), sg = e.op === 'build' ? 1 : -1;
+      t.gold += sg * (v.gold || 0);
+      for (const m in v.mats || {}) t.mats[m] = (t.mats[m] || 0) + sg * v.mats[m];
+      t[e.op + 's']++;
+    }
+    return t;
+  };
+  // The castle and purse as they'd be if the plan went ahead.
+  pl.virtual = () => {
+    const t = pl.totals(), mats = Object.assign({}, S.mats);
+    for (const m in t.mats) mats[m] = (mats[m] || 0) - t.mats[m];
+    const sold = pl.list.filter(e => e.op === 'sell').map(e => e.piece);
+    const pieces = SG.castle(S).pieces.filter(p => !sold.includes(p)).concat(pl.list.filter(e => e.op === 'build').map(e => ({ k: e.k, c: e.c, r: e.r })));
+    return { buildings: S.buildings, gold: S.gold - t.gold, mats, castle: { pieces, v: 2 } };
+  };
+  const plannedAt = (c, r) => pl.list.find(e => e.op === 'build' && SG.pieceCells(e).some(([a, b]) => a === c && b === r));
+  // Returns an error message, or null.
+  pl.tap = (tool, x, y) => {
+    const cell = SG.cellOf(x, y), mine = plannedAt(cell.c, cell.r);
+    if (mine) { pl.list.splice(pl.list.indexOf(mine), 1); return null; }
+    if (tool === 'demolish') {
+      const p = SG.pieceAt(S, cell.c, cell.r);
+      if (!p) return 'Nothing there to sell.';
+      const i = pl.list.findIndex(e => e.op === 'sell' && e.piece === p);
+      if (i >= 0) pl.list.splice(i, 1); else pl.list.push({ op: 'sell', k: p.k, c: p.c, r: p.r, piece: p });
+      return null;
+    }
+    const { c, r } = pieceCell(tool, x, y);
+    const err = SG.canBuild(pl.virtual(), tool, c, r);
+    if (err) return err === 'Not enough gold or iron.' && pl.list.length ? 'Not enough gold or iron for that as well.' : err;
+    const g = guard && guard(tool, c, r);
+    if (g) return g;
+    pl.list.push({ op: 'build', k: tool, c, r });
+    return null;
+  };
+  pl.undo = () => { pl.list.pop(); };
+  pl.clear = () => { pl.list = []; };
+  pl.confirm = () => {
+    for (const e of pl.list) if (e.op === 'sell') SG.demolish(S, e.piece.c, e.piece.r, back);
+    let failed = 0;
+    for (const e of pl.list) if (e.op === 'build') { if ((guard && guard(e.k, e.c, e.r)) || SG.build(S, e.k, e.c, e.r)) failed++; }
+    const n = pl.list.length - failed;
+    pl.list = [];
+    return { n, failed };
+  };
+  // Pieces to draw as ghosts, and sales to cross out.
+  pl.ghosts = () => pl.list.filter(e => e.op === 'build').map(e => ({ k: e.k, c: e.c, r: e.r, size: SG.PIECES[e.k].size }));
+  pl.sales = () => pl.list.filter(e => e.op === 'sell').map(e => e.piece);
+  pl.bar = () => {
+    if (!pl.list.length) return '';
+    const t = pl.totals(), parts = [];
+    if (t.builds) parts.push(`${t.builds} to build`);
+    if (t.sells) parts.push(`${t.sells} to sell`);
+    const money = (t.gold >= 0 ? `costs ${t.gold}g` : `gives back ${-t.gold}g`) + Object.keys(t.mats).filter(m => t.mats[m]).map(m => `, ${t.mats[m] > 0 ? '' : '+'}${Math.abs(t.mats[m])} iron`).join('');
+    return `<span class="small">${parts.join(', ')} · ${money}</span><span class="sg-plan-b"><button class="sm" data-pl="undo">Undo</button><button class="sm" data-pl="clear">Clear</button><button class="sm primary" data-pl="ok">Confirm</button></span>`;
+  };
+  return pl;
+}
+function drawPlan(ctx, V, pl, t) {
+  const g = pl.ghosts();
+  if (g.length) {
+    ctx.save(); ctx.globalAlpha = 0.55 + Math.sin(t * 5) * 0.1;
+    drawPieces(ctx, V, g, { build: true, t });
+    ctx.restore();
+    ctx.strokeStyle = '#ffd76a'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
+    for (const p of g) ctx.strokeRect(X(V, p.c * G.CELL), Y(V, p.r * G.CELL), p.size * G.CELL * V.s, p.size * G.CELL * V.s);
+    ctx.setLineDash([]);
+  }
+  ctx.strokeStyle = '#ff5a46'; ctx.lineWidth = Math.max(2, V.s * 0.5);
+  for (const p of pl.sales()) {
+    const n = SG.PIECES[p.k].size * G.CELL, x = p.c * G.CELL, y = p.r * G.CELL;
+    ctx.beginPath(); ctx.moveTo(X(V, x + 0.5), Y(V, y + 0.5)); ctx.lineTo(X(V, x + n - 0.5), Y(V, y + n - 0.5));
+    ctx.moveTo(X(V, x + n - 0.5), Y(V, y + 0.5)); ctx.lineTo(X(V, x + 0.5), Y(V, y + n - 0.5)); ctx.stroke();
+  }
+}
+
 function runFortify(S, done) {
   const el = document.createElement('div');
   el.id = 'siege';
   el.innerHTML = `<div class="sg-top"><div><b class="serif">Fortify Emberwake</b> <span class="muted small">Build in daylight, fight at night</span></div>
       <span class="goldtxt" id="fgold"></span><button class="sm primary" id="fdone">Done</button></div>
     <div class="sg-stage" id="sgstage"><canvas id="sgc"></canvas><div class="sg-banner" id="sgbanner"></div><div class="sg-hint" id="sghint" style="display:block"></div></div>
-    <div class="sg-bottom"><div class="sg-cards" id="fcards"></div></div>`;
+    <div class="sg-bottom"><div class="sg-plan" id="fplan"></div><div class="sg-cards" id="fcards"></div></div>`;
   document.body.appendChild(el);
   document.body.style.overflow = 'hidden';
   const stage = el.querySelector('#sgstage'), canvas = el.querySelector('#sgc');
   const dpr = Math.min(2, window.devicePixelRatio || 1), ctx = canvas.getContext('2d');
   const bg = worldCanvas(S, { night: false, slots: true, gate: true });
   let cw = 0, ch = 0, tool = 'wall', raf = 0, alive = true;
+  const plan = Planner(S, 1);
   const cam = Camera(canvas, {
     bounds: [0, 0, G.W, G.H],
     start: (w, h) => ({ cx: G.GX, cy: G.WALL_Y - 24, s: Math.max(w / 120, h / 150) }),
-    tap: w => {
-      if (tool === 'demolish') { if (!SG.demolish(S, SG.cellOf(w.x, w.y).c, SG.cellOf(w.x, w.y).r)) banner('Nothing there to pull down.', 'warn'); }
-      else { const { c, r } = pieceCell(tool, w.x, w.y), err = SG.build(S, tool, c, r); if (err) banner(err, 'warn'); }
-      cards();
-    },
+    tap: w => { const err = plan.tap(tool, w.x, w.y); if (err) banner(err, 'warn'); cards(); },
   });
   zoomButtons(stage, cam);
   el._cam = cam; // for tests
@@ -544,13 +627,22 @@ function runFortify(S, done) {
   if (ro) ro.observe(stage);
   const banner = (t, cls) => { const b = el.querySelector('#sgbanner'); b.className = 'sg-banner show ' + (cls || ''); b.textContent = t; clearTimeout(banner.t); banner.t = setTimeout(() => { b.className = 'sg-banner'; }, 1600); };
   function cards() {
-    el.querySelector('#fcards').innerHTML = pieceCards(S, tool);
+    const v = plan.virtual();
+    el.querySelector('#fcards').innerHTML = pieceCards(v, tool, 1);
     el.querySelectorAll('.fcard').forEach(b => b.onclick = () => { tool = b.dataset.p; cards(); hint(); });
-    el.querySelector('#fgold').textContent = `${S.gold} g · ${S.mats.ore || 0} iron`;
+    el.querySelector('#fgold').textContent = `${v.gold} g · ${v.mats.ore || 0} iron`;
+    const bar = el.querySelector('#fplan');
+    bar.innerHTML = plan.bar(); bar.style.display = plan.list.length ? 'flex' : 'none';
+    bar.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => {
+      if (b.dataset.pl === 'undo') plan.undo();
+      else if (b.dataset.pl === 'clear') plan.clear();
+      else { const r = plan.confirm(); banner(r.failed ? `Built ${r.n}. ${r.failed} couldn't go ahead.` : 'Done. The castle is yours.'); }
+      cards();
+    });
   }
   function hint() {
     const d = SG.PIECES[tool];
-    el.querySelector('#sghint').innerHTML = (tool === 'demolish' ? 'Tap a piece to pull it down. You get half the gold back.' : `<b>${d.name}</b>: ${d.desc} Tap the ${d.zone === 'yard' ? 'yard' : 'ground in front of the wall'} to build.`) + ' <span class="muted">Drag to look around, pinch to zoom.</span>';
+    el.querySelector('#sghint').innerHTML = (tool === 'demolish' ? 'Tap pieces to sell them back at full price.' : `<b>${d.name}</b>: ${d.desc} Tap the ${d.zone === 'yard' ? 'yard' : 'ground in front of the wall'} to plan it.`) + ' <span class="muted">Nothing is paid until you Confirm. Tap a planned piece to take it back.</span>';
   }
   function frame(now) {
     if (!alive) return;
@@ -559,9 +651,19 @@ function runFortify(S, done) {
     blit(ctx, bg, V, cw, ch);
     drawGrid(ctx, V, tool);
     drawPieces(ctx, V, SG.castle(S).pieces.map(p => Object.assign({ size: SG.PIECES[p.k].size }, p)), { build: true, t });
+    drawPlan(ctx, V, plan, t);
     raf = requestAnimationFrame(frame);
   }
-  el.querySelector('#fdone').onclick = () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); el.remove(); document.body.style.overflow = ''; done(); };
+  const close = () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); el.remove(); document.body.style.overflow = ''; done(); };
+  el.querySelector('#fdone').onclick = () => {
+    if (!plan.list.length) { close(); return; }
+    const o = document.createElement('div');
+    o.className = 'overlay center';
+    o.innerHTML = `<div class="sheet" style="text-align:center"><h2>Unconfirmed plans</h2><p class="muted">${plan.bar().replace(/<span class="sg-plan-b">[^]*$/, '')}</p>
+      <button class="primary big" data-c="ok">Confirm and leave</button><button class="big" data-c="drop">Throw the plans away</button><button class="link" data-c="stay">Keep building</button></div>`;
+    document.body.appendChild(o);
+    o.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { o.remove(); if (b.dataset.c === 'stay') return; if (b.dataset.c === 'ok') plan.confirm(); else plan.clear(); close(); });
+  };
   cards(); hint();
   raf = requestAnimationFrame(frame);
 }
@@ -653,6 +755,8 @@ function runSiege(S, n, done) {
   const light = document.createElement('canvas'), lctx = light.getContext('2d');
   let cw = 0, ch = 0;
   let mode = null, tab = 'recruit', tool = 'wall', boxMode = false;
+  // Mid battle: plans are free to change, confirmed pieces appear at once, sales give half back.
+  const plan = Planner(S, 0.5, (k, c, r) => sg.standingIn(k, c, r) ? 'Someone is standing there.' : null);
   const cam = Camera(canvas, {
     bounds: [0, 0, G.W, G.H],
     // Start on the wall and yard, about the old map's width across.
@@ -706,7 +810,7 @@ function runSiege(S, n, done) {
     const box = el.querySelector('#sgpanel');
     if (t === 'command') box.innerHTML = '<div class="sg-sel" id="sgsel"></div><div class="sg-heroes" id="sgheroes"></div>';
     else if (t === 'recruit') box.innerHTML = '<div class="sg-cards" id="sgcards"></div><div class="sg-heroes" id="sgheroes"></div>';
-    else box.innerHTML = '<div class="sg-cards" id="sgbuild"></div><div class="muted small" id="sgbgold"></div>';
+    else box.innerHTML = '<div class="sg-plan" id="sgplan"></div><div class="sg-cards" id="sgbuild"></div><div class="muted small" id="sgbgold"></div>';
     cards(); heroes(); buildCards(); refreshUI(true);
   }
   el.querySelectorAll('#sgtabs button').forEach(b => b.onclick = () => setTab(b.dataset.t));
@@ -722,9 +826,22 @@ function runSiege(S, n, done) {
   function buildCards() {
     const box = el.querySelector('#sgbuild');
     if (!box) return;
-    box.innerHTML = pieceCards(S, tool);
+    const v = plan.virtual();
+    box.innerHTML = pieceCards(v, tool, 0.5);
     box.querySelectorAll('.fcard').forEach(b => b.onclick = () => { tool = b.dataset.p; buildCards(); refreshUI(true); });
-    el.querySelector('#sgbgold').textContent = `${S.gold} g · ${S.mats.ore || 0} iron. Pieces stay for every night after this one.`;
+    el.querySelector('#sgbgold').textContent = `${v.gold} g · ${v.mats.ore || 0} iron. Pieces stay for every night after this one.`;
+    const bar = el.querySelector('#sgplan');
+    bar.innerHTML = plan.bar(); bar.style.display = plan.list.length ? 'flex' : 'none';
+    bar.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => {
+      if (b.dataset.pl === 'undo') plan.undo();
+      else if (b.dataset.pl === 'clear') plan.clear();
+      else {
+        const r = plan.confirm(); sg.syncPieces(); AUD().sfx('place');
+        if (r.failed) banner(`${r.failed} couldn't go ahead: someone was in the way.`, 'warn');
+        for (const p of sg.pieces) P.burst(p.x, p.y, 2, { col: ['#c8b890', '#a89870'], speed: 6, life: 0.4, size: 0.6 });
+      }
+      buildCards(); refreshUI(true);
+    });
   }
   function heroes() {
     const box = el.querySelector('#sgheroes');
@@ -805,8 +922,8 @@ function runSiege(S, n, done) {
       if (mode && mode.kind === 'hero') return `Tap in front of the wall or in the yard to place ${D.HEROES[mode.id].name}.`;
       return 'Pick a soldier, then tap the map to place them.';
     }
-    if (tool === 'demolish') return 'Tap a piece to pull it down. You get half the gold back.';
-    return `<b>${SG.PIECES[tool].name}</b>: ${SG.PIECES[tool].desc}`;
+    if (tool === 'demolish') return 'Tap pieces to sell them. Half back in battle, full price in daylight on the Fortify screen.';
+    return `<b>${SG.PIECES[tool].name}</b>: ${SG.PIECES[tool].desc} Tap to plan, then Confirm.`;
   }
   function tutorialHint() {
     const archers = sg.units.filter(u => u.type === 'archer').length, swords = sg.units.filter(u => u.type === 'sword').length;
@@ -827,19 +944,8 @@ function runSiege(S, n, done) {
     setHint(h);
   }
   function buildAt(w) {
-    if (tool === 'demolish') {
-      const { c, r } = SG.cellOf(w.x, w.y);
-      if (SG.demolish(S, c, r)) { sg.syncPieces(); P.burst(w.x, w.y, 12, { col: ['#a8a49c', '#7a766e'], speed: 9, life: 0.5, size: 0.7, grav: 25 }); }
-      else banner('Nothing there to pull down.', 'warn');
-      buildCards(); return;
-    }
-    const { c, r } = pieceCell(tool, w.x, w.y);
-    const err = SG.canBuild(S, tool, c, r) || (sg.standingIn(tool, c, r) ? 'Someone is standing there.' : null);
-    if (err) { banner(err, 'warn'); return; }
-    SG.build(S, tool, c, r); sg.syncPieces();
-    const d = SG.PIECES[tool];
-    AUD().sfx('place');
-    P.burst((c + d.size / 2) * G.CELL, (r + d.size / 2) * G.CELL, 14, { col: ['#c8b890', '#a89870'], speed: 8, life: 0.5, size: 0.7 });
+    const err = plan.tap(tool, w.x, w.y);
+    if (err) banner(err, 'warn');
     buildCards();
   }
   function tap(w) {
@@ -936,6 +1042,7 @@ function runSiege(S, n, done) {
     drawGate(ctx, V, sg.gate, S.buildings.walls || 0, true);
     drawPieces(ctx, V, sg.pieces, { night: true, t });
     for (const l of sg.ladders) drawLadder(ctx, V, l, true);
+    if (plan.list.length) drawPlan(ctx, V, plan, t);
     // selected troops and where they're heading
     for (const u of sg.units) if (u.hp > 0 && sg.selected.includes(u.uid)) {
       ctx.strokeStyle = 'rgba(122,216,255,.9)'; ctx.lineWidth = 2;

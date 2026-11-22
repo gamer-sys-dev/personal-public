@@ -585,6 +585,165 @@ for (const base in SKILL_EVO) SKILL_EVO[base] = SKILL_EVO[base].map(([name, desc
   return { id, name, desc };
 });
 
-const DATA = { SKILL_EVO, STATS, HEROES, PARTY, ROSTER, SURGE, TALENT_REQ, TALENT_COST, TREES, SKILLS, GEAR, ITEMS, MATS, FORGE, ENEMIES, AREAS, STORY };
+// Talent paths: once a tree has all six ranks, the hero picks one of two paths for it (permanent),
+// opening three more ranks. Paths give the hero a title.
+const PATH_REQ = [15, 18, 21];
+const PATH_COST = [3, 3, 4];
+const PATHS = {
+  blade: [
+    { name: 'Warlord', desc: 'Sweeping blows that break whole lines.', ranks: [
+      { skill: 'ruin_sweep' }, { stats: { str: 6, hp: 40 }, text: '+6 Strength, +40 HP' }, { skill: 'warlords_rage' }] },
+    { name: 'Duellist', desc: 'One opponent, one perfect cut.', ranks: [
+      { skill: 'heartseeker' }, { stats: { crit: 12, spd: 3 }, flags: { counter: 0.25 }, text: '+12% critical chance, +3 Speed, 25% more counters' }, { skill: 'deathblow' }] },
+  ],
+  guard: [
+    { name: 'Bastion', desc: 'Nothing gets past. Nothing.', ranks: [
+      { skill: 'iron_wall' }, { stats: { hp: 80, def: 6 }, text: '+80 HP, +6 Defence' }, { flags: { bulwark: 0.15 }, stats: { res: 6 }, text: 'Take 15% less damage again, +6 Resistance' }] },
+    { name: 'Avenger', desc: 'Every blow taken is paid back.', ranks: [
+      { skill: 'payback' }, { flags: { counter: 0.35 }, stats: { str: 5 }, text: '35% chance to counter when hit, +5 Strength' }, { skill: 'retribution' }] },
+  ],
+  hunt: [
+    { name: 'Marksman', desc: 'Long shots that never miss what matters.', ranks: [
+      { skill: 'eagle_shot' }, { stats: { crit: 15, str: 4 }, text: '+15% critical chance, +4 Strength' }, { skill: 'rain_of_arrows' }] },
+    { name: 'Stalker', desc: 'Poison, traps and patience.', ranks: [
+      { skill: 'black_venom' }, { stats: { spd: 5 }, flags: { firstStrike: 1 }, text: '+5 Speed, start fights fully ready' }, { skill: 'crippling_trap' }] },
+  ],
+  fire: [
+    { name: 'Pyromancer', desc: 'More fire. Then more.', ranks: [
+      { skill: 'firestorm' }, { stats: { mag: 8 }, flags: { boost_fire: 0.2 }, text: '+8 Magic, fire damage +20% more' }, { skill: 'phoenix_flame' }] },
+    { name: 'Emberheart', desc: 'Fire that warms friends as it burns foes.', ranks: [
+      { skill: 'kindle' }, { stats: { mag: 5, res: 5 }, flags: { burnChance: 0.3 }, text: '+5 Magic, +5 Resistance, burns more often' }, { skill: 'hearthfire' }] },
+  ],
+  frost: [
+    { name: 'Glacier', desc: 'Stops armies in their tracks.', ranks: [
+      { skill: 'deep_freeze' }, { stats: { mag: 6, mp: 20 }, text: '+6 Magic, +20 MP' }, { skill: 'absolute_zero' }] },
+    { name: 'Winterward', desc: 'Ice as armour for the whole party.', ranks: [
+      { skill: 'rime_shield' }, { stats: { res: 8, def: 4 }, flags: { mpCut: 0.1 }, text: '+8 Resistance, +4 Defence, spells cost 10% less' }, { skill: 'winters_embrace' }] },
+  ],
+  wild: [
+    { name: 'Packlord', desc: 'Your beast becomes a terror.', ranks: [
+      { skill: 'alpha_call' }, { flags: { beastBond: 0.3 }, stats: { hp: 40 }, text: 'Creature damage +30% more, +40 HP' }, { skill: 'stampede' }] },
+    { name: 'Berserker', desc: 'The beast inside, let out.', ranks: [
+      { skill: 'blood_frenzy' }, { stats: { str: 8, spd: 3 }, text: '+8 Strength, +3 Speed' }, { skill: 'rampage' }] },
+  ],
+  shadow: [
+    { name: 'Assassin', desc: 'Finish them before they know you\'re there.', ranks: [
+      { skill: 'shadowstep' }, { stats: { crit: 15, str: 4 }, text: '+15% critical chance, +4 Strength' }, { skill: 'killing_stroke' }] },
+    { name: 'Rogue', desc: 'Dirty tricks and deep pockets.', ranks: [
+      { skill: 'smoke_bomb' }, { stats: { spd: 6 }, flags: { stealPlus: 1, goldBonus: 0.25 }, text: '+6 Speed, steal even better, +25% gold from fights' }, { skill: 'thousand_cuts' }] },
+  ],
+  oath: [
+    { name: 'Paladin', desc: 'Holy steel and a shield for everyone.', ranks: [
+      { skill: 'holy_charge' }, { stats: { str: 5, res: 6 }, text: '+5 Strength, +6 Resistance' }, { skill: 'final_vow' }] },
+    { name: 'Templar', desc: 'The vow that will not let you fall.', ranks: [
+      { skill: 'martyrs_ward' }, { stats: { hp: 80, def: 5 }, flags: { undying: 1 }, text: '+80 HP, +5 Defence, survive a second killing blow' }, { skill: 'consecration' }] },
+  ],
+  hex: [
+    { name: 'Plaguebringer', desc: 'Rot everything, slowly.', ranks: [
+      { skill: 'plague' }, { stats: { mag: 6 }, flags: { boost_dark: 0.2 }, text: '+6 Magic, dark damage +20% more' }, { skill: 'black_death' }] },
+    { name: 'Soulreaver', desc: 'Every curse feeds the caster.', ranks: [
+      { skill: 'soul_drain' }, { stats: { mag: 5, hp: 50 }, text: '+5 Magic, +50 HP' }, { skill: 'harvest' }] },
+  ],
+  light: [
+    { name: 'Saint', desc: 'No one dies on your watch.', ranks: [
+      { skill: 'miracle' }, { stats: { res: 6, mp: 25 }, flags: { healBoost: 0.2 }, text: '+6 Resistance, +25 MP, healing +20%' }, { skill: 'resurrection' }] },
+    { name: 'Lightbringer', desc: 'Healing turned into a weapon.', ranks: [
+      { skill: 'radiance' }, { stats: { mag: 7 }, flags: { boost_light: 0.25 }, text: '+7 Magic, light damage +25%' }, { skill: 'judgement_day' }] },
+  ],
+};
+// Combo arts: a hero with two trees at rank four or more learns a move that only that pair can make.
+const COMBO_RANK = 4;
+const COMBOS = [
+  { trees: ['blade', 'fire'], skill: 'flame_blade' },
+  { trees: ['blade', 'frost'], skill: 'frost_edge' },
+  { trees: ['blade', 'shadow'], skill: 'blade_dance' },
+  { trees: ['blade', 'oath'], skill: 'righteous_charge' },
+  { trees: ['blade', 'guard'], skill: 'shield_breaker' },
+  { trees: ['guard', 'light'], skill: 'aegis' },
+  { trees: ['guard', 'oath'], skill: 'last_bastion' },
+  { trees: ['guard', 'wild'], skill: 'iron_pack' },
+  { trees: ['hunt', 'frost'], skill: 'frost_volley' },
+  { trees: ['hunt', 'wild'], skill: 'pack_hunt' },
+  { trees: ['hunt', 'shadow'], skill: 'pinning_shot' },
+  { trees: ['hunt', 'fire'], skill: 'fire_arrows' },
+  { trees: ['fire', 'frost'], skill: 'thermal_shock' },
+  { trees: ['fire', 'light'], skill: 'sunfire' },
+  { trees: ['fire', 'hex'], skill: 'hellfire' },
+  { trees: ['frost', 'hex'], skill: 'black_ice' },
+  { trees: ['frost', 'light'], skill: 'aurora' },
+  { trees: ['shadow', 'hex'], skill: 'hexblade' },
+  { trees: ['oath', 'light'], skill: 'dawns_promise' },
+  { trees: ['light', 'hex'], skill: 'eclipse' },
+  { trees: ['wild', 'shadow'], skill: 'ambush' },
+  { trees: ['wild', 'light'], skill: 'wild_bloom' },
+];
+Object.assign(SKILLS, {
+  // Path skills
+  ruin_sweep:     { name: 'Ruinous Sweep', type: 'phys', power: 1.3, target: 'enemies', mp: 16, status: { defDown: 2 }, chance: 0.5, desc: 'Hits every enemy hard, may break armour.' },
+  warlords_rage:  { name: 'Warlord\'s Rage', type: 'phys', power: 1.9, target: 'enemies', mp: 28, after: { strUp: 3 }, desc: 'A storm of steel on every enemy, then the party\'s strength rises.' },
+  heartseeker:    { name: 'Heartseeker', type: 'phys', power: 2.6, target: 'enemy', mp: 14, execute: 0.3, desc: '2.6x damage, doubled on anyone below 30% health.' },
+  deathblow:      { name: 'Deathblow', type: 'phys', power: 3.6, target: 'enemy', mp: 24, status: { defDown: 3 }, chance: 1, desc: '3.6x damage and shatters their armour.' },
+  iron_wall:      { name: 'Iron Wall', type: 'buff', target: 'allies', mp: 12, status: { defUp: 4, resUp: 4 }, desc: 'The whole party\'s defence and resistance rise for 4 turns.' },
+  payback:        { name: 'Payback', type: 'phys', power: 2.0, target: 'enemy', mp: 8, drain: 0.3, desc: '2x damage. Heals you for 30% of it.' },
+  retribution:    { name: 'Retribution', type: 'phys', power: 1.5, target: 'enemies', mp: 20, after: { defUp: 3 }, desc: 'Hits every enemy, then the party braces.' },
+  eagle_shot:     { name: 'Eagle Shot', type: 'phys', power: 2.5, target: 'enemy', mp: 12, desc: '2.5x damage from range.' },
+  rain_of_arrows: { name: 'Rain of Arrows', type: 'phys', power: 0.6, hits: 6, target: 'random', mp: 22, desc: 'Six arrows at random enemies.' },
+  black_venom:    { name: 'Black Venom', type: 'phys', power: 1.5, target: 'enemy', mp: 10, status: { poison: 6, slow: 3 }, chance: 1, desc: 'Poisons and slows for a long time.' },
+  crippling_trap: { name: 'Crippling Trap', type: 'buff', target: 'enemies', mp: 16, status: { slow: 3, defDown: 3, poison: 3 }, foe: true, desc: 'Every enemy slows, weakens and bleeds.' },
+  firestorm:      { name: 'Firestorm', type: 'mag', el: 'fire', power: 2.0, target: 'enemies', mp: 32, desc: 'The sky burns over every enemy.' },
+  phoenix_flame:  { name: 'Phoenix Flame', type: 'mag', el: 'fire', power: 3.0, target: 'enemy', mp: 26, status: { burn: 4 }, chance: 1, desc: '3x fire damage and a burn that lingers.' },
+  kindle:         { name: 'Kindle', type: 'heal', power: 0.8, target: 'allies', mp: 14, status: { strUp: 3 }, desc: 'Warms the party: a heal and more strength.' },
+  hearthfire:     { name: 'Hearthfire', type: 'mag', el: 'fire', power: 1.5, target: 'enemies', mp: 26, after: { regen: 3 }, desc: 'Fire on every enemy; the party regenerates after.' },
+  deep_freeze:    { name: 'Deep Freeze', type: 'mag', el: 'frost', power: 2.4, target: 'enemy', mp: 16, status: { slow: 4 }, chance: 1, desc: '2.4x frost and the target barely moves.' },
+  absolute_zero:  { name: 'Absolute Zero', type: 'mag', el: 'frost', power: 2.0, target: 'enemies', mp: 34, status: { slow: 3 }, chance: 0.8, desc: 'Every enemy freezes over.' },
+  rime_shield:    { name: 'Rime Shield', type: 'buff', target: 'allies', mp: 12, status: { resUp: 4, defUp: 3 }, desc: 'Ice armour on the whole party.' },
+  winters_embrace:{ name: 'Winter\'s Embrace', type: 'heal', power: 1.2, target: 'allies', mp: 24, status: { resUp: 3, regen: 3 }, desc: 'Heals the party and wraps them in frost.' },
+  alpha_call:     { name: 'Alpha Call', type: 'buff', target: 'allies', mp: 10, status: { strUp: 4, regen: 2 }, desc: 'The pack answers. Strength and regeneration for all.' },
+  stampede:       { name: 'Stampede', type: 'phys', power: 1.8, target: 'enemies', mp: 26, status: { slow: 2 }, chance: 0.6, desc: 'Everything with legs runs them down.' },
+  blood_frenzy:   { name: 'Blood Frenzy', type: 'phys', power: 0.7, hits: 4, target: 'enemy', mp: 12, drain: 0.25, desc: 'Four savage hits. Heals you a little.' },
+  rampage:        { name: 'Rampage', type: 'phys', power: 0.8, hits: 6, target: 'random', mp: 22, desc: 'Six wild blows at anything in reach.' },
+  shadowstep:     { name: 'Shadowstep', type: 'phys', power: 2.2, target: 'enemy', mp: 10, execute: 0.5, desc: '2.2x damage, doubled below half health.' },
+  killing_stroke: { name: 'Killing Stroke', type: 'phys', power: 3.4, target: 'enemy', mp: 22, execute: 0.5, desc: '3.4x damage, doubled below half health.' },
+  smoke_bomb:     { name: 'Smoke Bomb', type: 'buff', target: 'enemies', mp: 8, status: { slow: 3 }, foe: true, desc: 'Every enemy chokes and slows.' },
+  thousand_cuts:  { name: 'Thousand Cuts', type: 'phys', power: 0.45, hits: 8, target: 'random', mp: 20, status: { poison: 2 }, chance: 0.4, desc: 'Eight cuts at random enemies. Some fester.' },
+  holy_charge:    { name: 'Holy Charge', type: 'phys', el: 'light', power: 2.3, target: 'enemy', mp: 12, drain: 0.25, desc: '2.3x holy damage. Heals you for a quarter.' },
+  final_vow:      { name: 'Final Vow', type: 'phys', el: 'light', power: 1.8, target: 'enemies', mp: 28, after: { defUp: 3, resUp: 3 }, desc: 'Light on every enemy; the party is warded after.' },
+  martyrs_ward:   { name: 'Martyr\'s Ward', type: 'buff', target: 'allies', mp: 14, status: { defUp: 4, resUp: 4, regen: 2 }, desc: 'Takes the party under the vow: defence, resistance, regeneration.' },
+  consecration:   { name: 'Consecration', type: 'heal', power: 1.4, target: 'allies', mp: 26, status: { regen: 3 }, desc: 'Holy ground. A big heal and regeneration.' },
+  plague:         { name: 'Plague', type: 'mag', el: 'dark', power: 1.1, target: 'enemies', mp: 16, status: { poison: 5 }, chance: 1, desc: 'Poisons every enemy for a long time.' },
+  black_death:    { name: 'Black Death', type: 'mag', el: 'dark', power: 2.0, target: 'enemies', mp: 32, status: { poison: 4, defDown: 3 }, chance: 1, desc: 'Darkness that rots armour and flesh.' },
+  soul_drain:     { name: 'Soul Drain', type: 'mag', el: 'dark', power: 2.2, target: 'enemy', mp: 14, drain: 0.6, desc: 'Takes life and gives most of it to you.' },
+  harvest:        { name: 'Harvest', type: 'mag', el: 'dark', power: 1.6, target: 'enemies', mp: 28, drain: 0.3, desc: 'Drains every enemy at once.' },
+  miracle:        { name: 'Miracle', type: 'heal', power: 2.0, target: 'allies', mp: 30, desc: 'A full heal for the whole party.' },
+  resurrection:   { name: 'Resurrection', type: 'revive', pct: 1, target: 'deadAlly', mp: 28, desc: 'Brings a fallen ally back at full health.' },
+  radiance:       { name: 'Radiance', type: 'mag', el: 'light', power: 1.5, target: 'enemies', mp: 18, desc: 'Light over every enemy.' },
+  judgement_day:  { name: 'Judgement Day', type: 'mag', el: 'light', power: 2.4, target: 'enemies', mp: 36, after: { regen: 3 }, desc: 'The sky opens on every enemy. The party regenerates after.' },
+  // Combo arts
+  flame_blade:    { name: 'Flame Blade', type: 'phys', el: 'fire', power: 2.0, target: 'enemy', mp: 12, status: { burn: 3 }, chance: 0.6, combo: true, desc: 'A burning sword stroke. May set them alight.' },
+  frost_edge:     { name: 'Frost Edge', type: 'phys', el: 'frost', power: 1.9, target: 'enemy', mp: 11, status: { slow: 3 }, chance: 0.8, combo: true, desc: 'An ice cold cut that slows.' },
+  blade_dance:    { name: 'Blade Dance', type: 'phys', power: 0.7, hits: 5, target: 'random', mp: 14, combo: true, desc: 'Five cuts at random enemies.' },
+  righteous_charge:{ name: 'Righteous Charge', type: 'phys', el: 'light', power: 2.4, target: 'enemy', mp: 13, drain: 0.2, combo: true, desc: '2.4x holy steel. Heals a little.' },
+  shield_breaker: { name: 'Shield Breaker', type: 'phys', power: 1.7, target: 'enemy', mp: 9, status: { defDown: 3, slow: 2 }, chance: 1, combo: true, desc: 'A shield rush that wrecks their guard.' },
+  aegis:          { name: 'Aegis', type: 'buff', target: 'allies', mp: 16, status: { defUp: 3, resUp: 3, regen: 3 }, combo: true, desc: 'Defence, resistance and regeneration for the whole party.' },
+  last_bastion:   { name: 'Last Bastion', type: 'buff', target: 'self', mp: 6, status: { taunt: 3, defUp: 4, resUp: 4, regen: 3 }, combo: true, desc: 'Take every hit for the party, and keep standing.' },
+  iron_pack:      { name: 'Iron Pack', type: 'buff', target: 'allies', mp: 12, status: { defUp: 3, strUp: 3 }, combo: true, desc: 'Strength and defence for the whole pack.' },
+  frost_volley:   { name: 'Frost Volley', type: 'phys', el: 'frost', power: 0.95, target: 'enemies', mp: 15, status: { slow: 2 }, chance: 0.5, combo: true, desc: 'Frozen arrows over every enemy.' },
+  pack_hunt:      { name: 'Pack Hunt', type: 'phys', power: 1.2, target: 'enemies', mp: 15, status: { poison: 3 }, chance: 0.5, combo: true, desc: 'You and the beasts run them all down.' },
+  pinning_shot:   { name: 'Pinning Shot', type: 'phys', power: 2.2, target: 'enemy', mp: 13, status: { slow: 3, defDown: 3 }, chance: 1, combo: true, desc: 'Pins them in place and opens their guard.' },
+  fire_arrows:    { name: 'Fire Arrows', type: 'phys', el: 'fire', power: 0.7, hits: 4, target: 'random', mp: 14, status: { burn: 2 }, chance: 0.4, combo: true, desc: 'Four burning arrows at random enemies.' },
+  thermal_shock:  { name: 'Thermal Shock', type: 'mag', power: 1.6, target: 'enemies', mp: 22, status: { defDown: 2 }, chance: 0.6, combo: true, desc: 'Fire then frost. Armour cracks across every enemy.' },
+  sunfire:        { name: 'Sunfire', type: 'mag', el: 'light', power: 1.4, target: 'enemies', mp: 22, status: { burn: 2 }, chance: 0.5, combo: true, desc: 'Holy fire over every enemy.' },
+  hellfire:       { name: 'Hellfire', type: 'mag', el: 'dark', power: 2.3, target: 'enemy', mp: 16, drain: 0.3, status: { burn: 3 }, chance: 0.7, combo: true, desc: 'Black flame. Burns them and feeds you.' },
+  black_ice:      { name: 'Black Ice', type: 'mag', el: 'frost', power: 1.2, target: 'enemies', mp: 20, status: { slow: 3 }, chance: 0.8, combo: true, desc: 'Cursed ice under every enemy.' },
+  aurora:         { name: 'Aurora', type: 'heal', power: 1.0, target: 'allies', mp: 18, status: { resUp: 3 }, combo: true, desc: 'Cold light heals the party and wards them.' },
+  hexblade:       { name: 'Hexblade', type: 'phys', el: 'dark', power: 1.7, target: 'enemy', mp: 11, status: { poison: 4, defDown: 3 }, chance: 0.9, combo: true, desc: 'A cursed knife. Poisons and weakens.' },
+  dawns_promise:  { name: 'Dawn\'s Promise', type: 'heal', power: 1.1, target: 'allies', mp: 20, status: { regen: 3, defUp: 2 }, combo: true, desc: 'Heals the party, then regenerates and guards them.' },
+  eclipse:        { name: 'Eclipse', type: 'mag', el: 'dark', power: 1.1, target: 'enemies', mp: 22, drain: 0.3, combo: true, desc: 'Light and dark together. Drains every enemy.' },
+  ambush:         { name: 'Ambush', type: 'phys', power: 2.8, target: 'enemy', mp: 12, execute: 0.4, combo: true, desc: 'You and the beast strike from cover. Brutal on the wounded.' },
+  wild_bloom:     { name: 'Wild Bloom', type: 'heal', power: 0.9, target: 'allies', mp: 14, status: { regen: 4 }, combo: true, desc: 'The forest heals the party for a long while.' },
+});
+for (const tk in PATHS) TREES[tk].paths = PATHS[tk];
+
+const DATA = { SKILL_EVO, PATH_REQ, PATH_COST, COMBOS, COMBO_RANK, STATS, HEROES, PARTY, ROSTER, SURGE, TALENT_REQ, TALENT_COST, TREES, SKILLS, GEAR, ITEMS, MATS, FORGE, ENEMIES, AREAS, STORY };
 if (typeof module !== 'undefined' && module.exports) module.exports = DATA; else root.DATA = DATA;
 })(this);
