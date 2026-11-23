@@ -95,6 +95,10 @@ Helps with whatever you're working on with your puppy. It opens on Today, built 
 - Progress counts only what was logged, so gaps never count against him. When the logs say a goal is done (for example 5 nights with no trips and no accidents, a week with no biting logged, firm poos for 7 days, a week outside with no indoor accidents, the last five good) the card offers to stop tracking. Keep going hides that for a week. Stopping a goal keeps all its logs.
 - Suggestions for his age (socialising, recall, biting, toilet) appear while there's room for another goal.
 
+## Walks guide (23 November 2026)
+
+- Today shows a walks line under his age: about 5 minutes of lead walking per month of age, up to twice a day (the common UK rule, labelled as a rough guide), until he's grown (growth() from expected adult weight). Notes underneath: check with the vet before walking on the ground if the puppy course isn't marked done and he's under 16 weeks, garden play doesn't count, no long runs, lots of stairs or car jumping while growing, sniffing over distance under 6 months, and for sighthounds: short bursts then sleep, lead or long line unless fully fenced, and a coat in the cold. Guidance only, no tracking.
+
 ## Ideas for later
 
 - Summary tab that analyses all the data and suggests causes and things to try. Needs an AI step, so data would leave the phone: make it opt in, and never put an API key in this public repo (use the user's own key stored on the device, or a small private backend).

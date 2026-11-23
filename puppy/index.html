@@ -90,6 +90,7 @@
   <div class="card">
     <p class="hello" id="tdHello"></p>
     <div class="muted" id="tdAge"></div>
+    <div id="tdWalk"></div>
   </div>
   <div id="tdDue"></div>
   <div id="tdGoals"></div>
@@ -2497,10 +2498,32 @@ function answerCard(g) {
     body: `<div class="muted" style="margin-top:6px">${q[0]}</div><div class="gbtns"><button class="good" data-glog="${g.id}|good">${q[1]}</button><button data-glog="${g.id}|ok">${q[2]}</button><button class="bad" data-glog="${g.id}|bad">${q[3]}</button></div>` };
 }
 const CARD = { sleep: sleepCard, biting: bitingCard, toilet: toiletCard, tummy: tummyCard, social: socialCard };
+// Walks for his age: the common UK rule of about 5 minutes of lead walking per month of age, up to twice a day, until he's grown
+function walkGuide() {
+  if (!S.dob) return null;
+  const mo = monthsAt(Date.now()), wk = ageWeeks(Date.now()), grownAt = growth([0, expectedAdult() || 25])[0], sight = SIGHT.test(S.breed + ' ' + S.breed2);
+  const cleared = S.vax.some(v => v.final) || wk >= 16;
+  const mins = Math.max(5, Math.floor(mo) * 5), next = (Math.floor(mo) + 1) * 5;
+  const head = mo >= grownAt ? "He's around fully grown, so build walks up gradually to what suits him."
+    : `About <strong>${mins} minutes</strong> of lead walking, up to twice a day.`;
+  const notes = [
+    mo < grownAt && `That's the usual guide of about 5 minutes per month of age, up to twice a day. At ${Math.floor(mo + 1)} months it's about ${next} minutes. It's a rough guide for structured walks, not a limit on everything he does.`,
+    !cleared && 'Check with your vet that his jabs have taken effect before he walks on the ground or meets unknown dogs. Until then, carry him out to see the world.',
+    'Play in the garden and pottering about at his own pace don\'t count towards it. Let him stop and rest when he wants.',
+    mo < grownAt && `Until he's grown, at about ${grownAt} months, avoid long runs alongside you, lots of stairs and jumping in and out of the car. His joints are still developing.`,
+    mo < 6 && 'A walk at his age is as much about sniffing and seeing the world as distance. A slow 15 minutes with lots of sniffing tires him out more than a fast one.',
+    sight && 'Lurchers and other sighthounds tend to do short bursts of speed, then sleep for hours. They usually need less long walking than people expect.',
+    sight && 'Keep him on the lead or a long line except in fully fenced areas. Sighthounds can be out of sight in seconds if something runs.',
+    sight && 'Thin coats and little body fat mean they feel the cold. A coat on cold or wet days is worth it.'
+  ].filter(Boolean);
+  return { head, notes };
+}
 function renderToday() {
   const h = new Date().getHours(), name = S.name || 'your puppy';
   $('tdHello').textContent = `${h < 12 ? 'Morning' : h < 18 ? 'Afternoon' : 'Evening'}. What are we working on with ${name}?`;
   $('tdAge').innerHTML = S.dob ? (ageLine() || '').replace(/^.*? is /, 'He is ') : '<button class="linkbtn" data-go="more">Add his date of birth</button>';
+  const wg = walkGuide(), wopen = $('tdWalkMore') && $('tdWalkMore').open;
+  $('tdWalk').innerHTML = wg ? `<div class="tip"><b>Walks:</b> ${wg.head}<details id="tdWalkMore"${wopen ? ' open' : ''} style="margin-top:4px"><summary class="muted">More about walks at his age</summary><ul style="margin-top:4px">${wg.notes.map(n => `<li style="display:block;font-size:.88rem;padding:5px 0">${n}</li>`).join('')}</ul></details></div>` : '';
   // Health jobs due in the next 3 days or overdue, whatever the goals
   const due = upcomingItems().filter(x => x.t < Date.now() + 3 * DAY && x.t > Date.now() - 14 * DAY);
   $('tdDue').innerHTML = due.length ? `<div class="card" style="border-color:var(--warn)"><strong style="color:var(--warn)">${due.some(x => x.t < Date.now()) ? 'Due now' : 'Due soon'}</strong>${due.map(x => `<div class="muted">${esc(x.name)}: ${fmt(x.t)}</div>`).join('')}<div class="gbtns"><button data-go="health">Open Health</button></div></div>` : '';
