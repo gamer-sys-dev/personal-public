@@ -122,12 +122,14 @@ E.heroStats = function (S, id) {
 };
 
 // ---------- Creatures ----------
-E.creatureName = c => c.final ? W.EVO2[c.sp][c.form] : c.form ? W.CREATURES[c.sp].evo[c.form] : W.CREATURES[c.sp].name;
+E.creatureName = c => (c.alpha ? 'Alpha ' : '') + E.creatureBase(c);
+E.creatureBase = c => c.final ? W.EVO2[c.sp][c.form] : c.form ? W.CREATURES[c.sp].evo[c.form] : W.CREATURES[c.sp].name;
 E.creatureSprite = c => W.CREATURES[c.sp].sprite + (c.form ? '@' + c.form + (c.final ? '2' : '') : '');
 E.creatureStats = function (c) {
   const sp = W.CREATURES[c.sp], L = c.lvl, m = Object.assign({}, sp.m);
   if (c.form) for (const k in W.EVO_MULT[c.form]) m[k] = (m[k] || 1) * W.EVO_MULT[c.form][k];
   if (c.final) for (const k in m) m[k] *= 1.25;
+  if (c.alpha) for (const k in m) m[k] *= 1.2;
   const skills = sp.attack.slice();
   if (c.form === 'attack') skills.push(c.final ? 'ravage' : 'rend');
   skills.push(c.form === 'support' ? (c.final ? 'greater_mend' : 'mend') : sp.support, 'guard_ally', 'howl');
@@ -188,6 +190,7 @@ E.restParty = function (S) {
   for (const c of S.creatures) c.hp = E.creatureStats(c).maxHp;
   for (const id in S.maps) S.maps[id].used = {};
   S.spar = {};
+  S.hunt = null; S.apexDown = {};
 };
 // Heals everyone without touching foraging spots or sparring (used by the arena healers).
 E.healParty = function (S) {
@@ -384,7 +387,75 @@ E.randomFight = function (S, id, n, rng) {
   const size = a.size[0] + Math.floor(rng() * (a.size[1] - a.size[0] + 1));
   const out = [];
   for (let i = 0; i < size; i++) out.push({ t: a.pool[Math.floor(rng() * a.pool.length)], lvl: clamp(base + Math.round(rng() - 0.3), a.lvl[0], a.lvl[1] + 1) });
+  // From the Mill Road on, some fights have an elite: one enemy made tougher with a twist.
+  const idx = D.AREAS.findIndex(x => x.id === id);
+  if (idx >= 1 && rng() < (S.areas[id].cleared ? 0.2 : 0.12)) {
+    const keys = Object.keys(D.ELITES);
+    out[Math.floor(rng() * out.length)].elite = keys[Math.floor(rng() * keys.length)];
+  }
   return out;
+};
+// ---------- Hunting grounds ----------
+E.huntChain = (S, id) => (S.hunt && S.hunt.area === id ? S.hunt.chain : 0);
+E.huntMult = (S, id) => Math.min(2, 1 + 0.2 * E.huntChain(S, id));
+// Always above the party, so the grounds stay a risk however far you've come.
+E.partyLevel = S => Math.round(S.party.reduce((t, h) => t + S.heroes[h].lvl, 0) / S.party.length);
+E.huntLevel = (S, id) => Math.max(E.area(id).boss[0].lvl + 1, E.partyLevel(S)) + Math.floor(E.huntChain(S, id) / 2);
+E.huntFight = function (S, id, rng) {
+  rng = rng || Math.random;
+  const a = E.area(id), L = E.huntLevel(S, id), size = Math.min(4, a.size[1]), keys = Object.keys(D.ELITES);
+  const out = [];
+  for (let i = 0; i < size; i++) out.push({ t: a.pool[Math.floor(rng() * a.pool.length)], lvl: L + (rng() < 0.3 ? 1 : 0) });
+  const elites = E.huntChain(S, id) >= 5 ? 2 : rng() < 0.35 ? 1 : 0;
+  for (let i = 0; i < elites; i++) out[i].elite = keys[Math.floor(rng() * keys.length)];
+  return out;
+};
+E.apexSpec = (S, id) => {
+  const ap = W.APEX[id];
+  return [{ t: ap.t, lvl: Math.max(E.area(id).boss[0].lvl + 4, E.partyLevel(S) + 3), name: ap.name, hpx: 5.5, pow: 1.4, apex: id,
+    mech: { windup: { every: 3, skill: 'apex_fury', text: ap.name + ' gathers itself to strike the whole party. Defend!' } } }];
+};
+E.apexUp = (S, id) => !!(S.areas[id] && S.areas[id].cleared && !(S.apexDown || {})[id]);
+// After a hunting ground fight: the chain grows on a win and breaks on a loss. Returns what the apex paid, if it fell.
+E.huntResult = function (S, id, res) {
+  if (!res.won) { S.hunt = null; return null; }
+  S.hunt = { area: id, chain: E.huntChain(S, id) + 1 };
+  // A short breather after each win: everyone standing gets back a fifth of their health.
+  for (const h of S.party) { const st = E.heroStats(S, h), x = S.heroes[h]; if (x.hp > 0) x.hp = Math.min(st.maxHp, x.hp + Math.round(st.maxHp * 0.2)); }
+  if (!res.apex) return null;
+  S.apexDown = S.apexDown || {}; S.apexDown[id] = true;
+  S.apexKills = S.apexKills || {};
+  const first = !S.apexKills[id];
+  S.apexKills[id] = (S.apexKills[id] || 0) + 1;
+  const r = first ? { gear: W.APEX[id].trophy, tome: true } : { gold: 150 + 40 * E.area(id).boss[0].lvl, mats: { shard: 2, ore: 2 } };
+  return { first, got: E.applyReward(S, r), gearUid: r._uid };
+};
+// Bounties: up to two at a time, in cleared areas. Every third one paid also gives a Tome of Insight.
+E.bounties = function (S, rng) {
+  rng = rng || Math.random;
+  S.bounties = S.bounties || [];
+  const cleared = D.AREAS.filter(a => S.areas[a.id] && S.areas[a.id].cleared);
+  for (let tries = 0; S.bounties.length < 2 && cleared.length && tries < 30; tries++) {
+    const a = cleared[Math.floor(rng() * cleared.length)], t = a.pool[Math.floor(rng() * a.pool.length)];
+    if (S.bounties.some(b => b.area === a.id && b.t === t)) continue;
+    const need = W.BOUNTY_N[Math.floor(rng() * W.BOUNTY_N.length)];
+    S.bounties.push({ area: a.id, t, need, have: 0, gold: Math.round((40 + 18 * a.boss[0].lvl) * need / 4) });
+  }
+  return S.bounties;
+};
+E.bountyKills = function (S, id, kills) {
+  const done = [];
+  for (const b of (S.bounties || [])) {
+    if (b.area !== id) continue;
+    b.have = Math.min(b.need, b.have + kills.filter(k => k === b.t).length);
+    if (b.have >= b.need) {
+      S.bountiesDone = (S.bountiesDone || 0) + 1;
+      const r = { gold: b.gold, mats: { [E.area(id).mat]: 2 }, tome: S.bountiesDone % 3 === 0 };
+      done.push({ b, got: E.applyReward(S, r) });
+    }
+  }
+  S.bounties = (S.bounties || []).filter(b => b.have < b.need);
+  return done;
 };
 // Moves along the map. May return an ambush to fight before arriving.
 E.move = function (S, id, nid, rng) {
@@ -572,10 +643,19 @@ class Battle {
     const tpl = D.ENEMIES[t], st = enemyStats(tpl, lvl);
     if (o.hpx) st.maxHp = Math.round(st.maxHp * o.hpx);
     if (o.pow) { st.str *= o.pow; st.mag *= o.pow; }
-    const name = o.name || tpl.name;
+    let name = o.name || tpl.name;
+    const el = o.elite && D.ELITES[o.elite];
+    if (el) {
+      st.maxHp = Math.round(st.maxHp * 2.6); st.str *= 1.15; st.mag *= 1.15;
+      if (o.elite === 'swift') st.spd *= 1.5;
+      if (o.elite === 'spellward') st.res *= 2.2;
+      if (o.elite === 'bloodthirsty') st.str *= 1.1;
+      name = el.name + ' ' + name;
+    }
     const a = Object.assign(st, { side: 'e', t, tpl, key: 'e' + (this.enemies.length), name, sprite: tpl.sprite, lvl,
       hp: st.maxHp, mp: 999, maxMp: 999, statuses: {}, gauge: this.rng() * 30, weak: tpl.weak || {}, flags: { immune: [] },
-      isBoss: !!tpl.boss || !!o.boss, used: {}, base: name, big: !!o.hpx || !!o.boss });
+      isBoss: !!tpl.boss || !!o.boss, used: {}, base: name, big: !!o.hpx || !!o.boss || !!el,
+      elite: el ? o.elite : null, apex: o.apex || null, mech: o.mech || tpl.mech || null, plated: !!(tpl.mech && tpl.mech.plated) || o.elite === 'ironhide', turnsTaken: 0 });
     this.enemies.push(a);
     return a;
   }
@@ -635,6 +715,7 @@ class Battle {
       a.hp = Math.max(0, a.hp - n);
       ev.push({ t: 'dmg', who: a, n, dot: label });
     };
+    if (a.mirror) { a.mirror--; if (!a.mirror) ev.push({ t: 'say', text: 'The black mirror shatters' }); }
     if (s.poison) tickDmg(0.07, 'poison');
     if (s.burn && a.hp > 0) tickDmg(0.06, 'burn');
     if (s.regen && a.hp > 0) { const n = Math.round(a.maxHp * 0.08); a.hp = Math.min(a.maxHp, a.hp + n); ev.push({ t: 'heal', who: a, n }); }
@@ -649,7 +730,18 @@ class Battle {
   ko(a, ev) {
     a.hp = 0; a.statuses = {}; a.gauge = 0; a.defending = false;
     ev.push({ t: 'ko', who: a });
-    if (a.side === 'e' && !this.dead.includes(a)) { this.dead.push(a); this.addSurge(4); }
+    if (a.side === 'e' && !this.dead.includes(a)) {
+      this.dead.push(a); this.addSurge(4);
+      if (a.elite === 'vengeful') {
+        ev.push({ t: 'say', text: a.name + ' bursts!' });
+        for (const h of this.alive(this.heroes)) {
+          const n = Math.max(1, Math.round(h.maxHp * 0.14));
+          h.hp = Math.max(0, h.hp - n);
+          ev.push({ t: 'dmg', who: h, n, el: 'dark' });
+          if (h.hp <= 0) this.ko(h, ev);
+        }
+      }
+    }
   }
   check() {
     if (this.over) return;
@@ -661,6 +753,14 @@ class Battle {
     if (t.flags && t.flags.immune && t.flags.immune.includes(s)) { ev.push({ t: 'immune', who: t, s }); return; }
     t.statuses[s] = Math.max(t.statuses[s] || 0, dur);
     ev.push({ t: 'status', who: t, s });
+    if (s === 'defDown' && t.plated) { t.plated = false; ev.push({ t: 'warn', who: t, good: true, text: t.name + '\'s armour shatters!' }); }
+  }
+  // Damage taken through a boss's defences: plate until broken, a ward while its minions stand.
+  shield(t) {
+    let k = 1;
+    if (t.plated) k *= 0.35;
+    if (t.mech && t.mech.warded && this.alive(this.enemies).some(o => o !== t)) k *= 0.35;
+    return k;
   }
   baseDmg(a, t, sk) {
     const phys = sk.type === 'phys';
@@ -681,7 +781,9 @@ class Battle {
     n *= 0.9 + this.rng() * 0.2;
     if (t.flags && t.flags.bulwark) n *= 1 - t.flags.bulwark;
     if (t.defending) n *= 0.5;
-    return { n: Math.max(1, Math.round(n)), crit, weak: el > 1, resist: el < 1 };
+    const sh = t.side === 'e' ? this.shield(t) : 1;
+    n *= sh;
+    return { n: Math.max(1, Math.round(n)), crit, weak: el > 1, resist: el < 1 || sh < 1 };
   }
   expect(a, t, sk, mult) {
     let n = this.baseDmg(a, t, sk) * (sk.hits || 1) * (mult || 1);
@@ -690,10 +792,19 @@ class Battle {
   }
   hit(a, t, sk, mult, ev, noCounter) {
     if (t.hp <= 0) return;
+    // A black mirror sends magic back at whoever cast it.
+    if (t.mirror && sk.type === 'mag' && a.side === 'h') {
+      const r = this.calc(a, a, sk, mult), n = Math.max(1, Math.round(r.n * 0.6));
+      a.hp = Math.max(0, a.hp - n);
+      ev.push({ t: 'dmg', who: a, n, el: sk.el || 'mag', by: a, reflect: true });
+      if (a.hp <= 0) this.ko(a, ev);
+      return;
+    }
     const r = this.calc(a, t, sk, mult);
     t.hp = Math.max(0, t.hp - r.n);
-    ev.push({ t: 'dmg', who: t, n: r.n, crit: r.crit, weak: r.weak, resist: r.resist, el: sk.el || (sk.type === 'phys' ? 'phys' : 'mag'), by: a, big: r.n > t.maxHp * 0.25 });
+    ev.push({ t: 'dmg', who: t, n: r.n, crit: r.crit, weak: r.weak, resist: r.resist, el: sk.el || (sk.type === 'phys' ? 'phys' : 'mag'), by: a, big: r.n > t.maxHp * 0.25, special: this.surging ? 'surge' : sk.combo ? 'combo' : null });
     if (a.side === 'h') this.addSurge(2); else this.addSurge(3);
+    if (a.elite === 'bloodthirsty' && a.hp > 0) { const h = Math.round(r.n * 0.5); a.hp = Math.min(a.maxHp, a.hp + h); ev.push({ t: 'heal', who: a, n: h }); }
     if (sk.drain && a.hp > 0) { const h = Math.round(r.n * sk.drain); a.hp = Math.min(a.maxHp, a.hp + h); ev.push({ t: 'heal', who: a, n: h }); }
     if (t.hp <= 0 && t.flags && t.flags.undying && !t.usedUndying) {
       t.usedUndying = true; t.hp = 1;
@@ -737,6 +848,19 @@ class Battle {
     a.gauge = 0; this.turns++;
     if (a.hp <= 0) return ev;
     if (c.kind === 'defend') { a.defending = true; ev.push({ t: 'say', text: a.name + ' braces' }); return ev; }
+    if (c.kind === 'windup') {
+      const w = a.mech.windup;
+      let tgt = null;
+      if (w.mark) { const hs = this.alive(this.heroes.filter(h => !h.isCreature)); tgt = hs[Math.floor(this.rng() * hs.length)]; }
+      a.charge = { skill: w.skill, target: tgt };
+      ev.push({ t: 'warn', who: a, mark: tgt, text: w.text.replace('{t}', tgt ? tgt.name : '') });
+      return ev;
+    }
+    if (c.kind === 'mirror') {
+      a.mirror = a.mech.mirror.turns;
+      ev.push({ t: 'warn', who: a, text: a.mech.mirror.text });
+      return ev;
+    }
     if (c.kind === 'flee') {
       if (this.boss) { ev.push({ t: 'say', text: 'No running from this one' }); return ev; }
       const hs = this.alive(this.heroes), es = this.alive(this.enemies);
@@ -761,7 +885,7 @@ class Battle {
     const cost = this.mpCost(a, sk);
     if (a.mp < cost) { ev.push({ t: 'say', text: 'Not enough MP' }); return ev; }
     a.mp -= cost;
-    if (c.id !== 'attack') ev.push({ t: 'say', text: sk.name, who: a });
+    if (c.id !== 'attack') ev.push({ t: 'say', text: sk.name, who: a, combo: !!sk.combo });
     let mult = 1;
     if (a.side === 'h' && !a.isCreature && c.id !== 'attack' && sk.type !== 'tame' && sk.type !== 'steal') {
       const h = this.S.heroes[a.id];
@@ -784,6 +908,7 @@ class Battle {
     if (sk.type === 'tame') { this.tame(a, c.target, ev); this.check(); return ev; }
     if (sk.type === 'steal') { this.steal(a, c.target, ev); return ev; }
     this.perform(a, sk, c.target, mult, ev);
+    if (sk.replate && !a.plated) { a.plated = true; ev.push({ t: 'warn', who: a, text: a.name + ' is armoured again. Break it!' }); }
     this.check();
     return ev;
   }
@@ -820,7 +945,7 @@ class Battle {
   tameOdds(t, a) {
     const tamer = a || this.heroes.find(h => h.skills && h.skills.includes('tame'));
     const gap = tamer ? tamer.lvl - t.lvl : 0;
-    return clamp(0.08 + 0.85 * Math.pow(1 - t.hp / t.maxHp, 1.3) + (this.opts.tameBonus || 0) + clamp(gap * 0.07, -0.2, 0.5), 0.05, 0.95);
+    return clamp(0.08 + 0.85 * Math.pow(1 - t.hp / t.maxHp, 1.3) + (this.opts.tameBonus || 0) + clamp(gap * 0.07, -0.2, 0.5), 0.05, 0.95) * (t.apex ? 0.5 : 1);
   }
   tame(a, t, ev) {
     if (!t || t.hp <= 0) t = this.alive(this.enemies)[0];
@@ -830,7 +955,7 @@ class Battle {
     const p = this.tameOdds(t, a);
     if (this.rng() < p) {
       t.tamed = true;
-      this.tamed.push({ sp: t.tpl.tame, lvl: t.lvl });
+      this.tamed.push({ sp: t.tpl.tame, lvl: t.lvl, alpha: !!t.apex });
       ev.push({ t: 'tamed', who: t });
       this.ko(t, ev);
     } else ev.push({ t: 'say', text: t.name + ' shakes free (' + Math.round(p * 100) + '% chance)' });
@@ -866,6 +991,7 @@ class Battle {
       if (this.boss) { ev.push({ t: 'say', text: 'The smoke does nothing here' }); return ev; }
       this.over = true; this.fled = true; ev.push({ t: 'say', text: 'Got away' }); return ev;
     }
+    if (it.foeStatus) for (const t of this.alive(this.enemies)) for (const s in it.foeStatus) this.addStatus(t, s, it.foeStatus[s], ev);
     if (it.bomb) {
       for (const t of this.alive(this.enemies)) {
         const n = Math.round(it.bomb * (t.weak[it.el] || 1) * (0.9 + this.rng() * 0.2));
@@ -885,7 +1011,21 @@ class Battle {
     return ev;
   }
   enemyChoice(e) {
-    const tpl = e.tpl;
+    const tpl = e.tpl, m = e.mech || {};
+    // A wind-up announced last turn lands now, on the marked hero unless someone is taunting.
+    if (e.charge) {
+      const ch = e.charge, sk = D.SKILLS[ch.skill];
+      e.charge = null;
+      let target = null;
+      if (sk.target === 'enemy') {
+        const hs = this.alive(this.heroes), taunt = hs.find(h => h.statuses.taunt);
+        target = taunt || (ch.target && ch.target.hp > 0 ? ch.target : hs[Math.floor(this.rng() * hs.length)]);
+      }
+      return { kind: 'skill', id: ch.skill, target, unleash: true };
+    }
+    if (m.mirror && !e.mirrorUsed && e.hp / e.maxHp <= m.mirror.at) { e.mirrorUsed = true; return { kind: 'mirror' }; }
+    e.turnsTaken++;
+    if (m.windup && e.turnsTaken % m.windup.every === 0) return { kind: 'windup' };
     for (const s of tpl.skills) {
       if (s.phase && !e.used[s.id] && e.hp / e.maxHp <= s.phase) { e.used[s.id] = true; return this.withTarget(e, s.id); }
     }
@@ -984,8 +1124,10 @@ E.finishBattle = function (S, B) {
   const rng = B.rng;
   let xp = 0, gold = 0, lsum = 0;
   for (const e of B.dead) {
-    xp += e.tpl.xp * (8 + 5 * e.lvl);
-    gold += e.tpl.gold * (5 + 3 * e.lvl);
+    const ek = e.apex ? 8 : e.elite ? 3 : 1;
+    xp += e.tpl.xp * (8 + 5 * e.lvl) * ek;
+    gold += e.tpl.gold * (5 + 3 * e.lvl) * ek;
+    if (e.elite) { out.mats.ore = (out.mats.ore || 0) + 1; if (rng() < 0.35) out.items.hi_potion = (out.items.hi_potion || 0) + 1; out.elites = (out.elites || 0) + 1; }
     lsum += e.lvl;
     if (e.tamed) continue;
     for (const d of (e.tpl.drops || [])) {
@@ -995,6 +1137,12 @@ E.finishBattle = function (S, B) {
       if (d.gear && !(d.once && S.flags.got[d.gear])) { out.gear.push(d.gear); S.flags.got[d.gear] = true; }
     }
   }
+  // Hunting ground chain: more XP, gold and drops the longer the run.
+  const hm = B.opts.huntMult || 1;
+  xp *= hm; gold *= hm;
+  if (hm > 1) for (const m in out.mats) out.mats[m] = Math.round(out.mats[m] * hm);
+  out.kills = B.dead.filter(e => !e.tamed).map(e => e.t);
+  out.apex = B.dead.find(e => e.apex) ? B.dead.find(e => e.apex).apex : null;
   const avgL = lsum / Math.max(1, B.dead.length);
   const goldBonus = Math.max(0, ...B.heroes.map(h => (h.flags && h.flags.goldBonus) || 0));
   out.gold = Math.round(gold * (1 + goldBonus));
@@ -1003,20 +1151,23 @@ E.finishBattle = function (S, B) {
   for (const i in out.items) S.bag[i] = (S.bag[i] || 0) + out.items[i];
   for (const g of out.gear) E.addGear(S, g);
   out.xp = Math.round(xp);
-  const top = Math.max(...S.roster.map(id => S.heroes[id].lvl));
+  // Catching up: party heroes catch up with the rest of the party, bench heroes with the whole roster.
+  // So a hard boss can't be closed on by the catch-up bonus alone; only real levels do that.
+  const top = Math.max(...S.roster.map(id => S.heroes[id].lvl)), ptop = Math.max(...S.party.map(id => S.heroes[id].lvl));
   const factor = L => clamp(1 + 0.12 * (avgL - L), 0.2, 1.5);
-  const catchUp = L => 1 + 0.25 * clamp(top - L, 0, 4);
+  out.before = {};
+  for (const id of S.roster) out.before[id] = E.heroStats(S, id);
   for (const id of S.roster) {
     const hs = S.heroes[id], actor = B.heroes.find(h => h.id === id && !h.isCreature);
     let gain = 0;
     if (actor) {
       if (actor.hp <= 0) continue;
-      gain = xp * factor(hs.lvl) * catchUp(hs.lvl) * (1 + (actor.flags.xpBonus || 0));
+      gain = xp * factor(hs.lvl) * (1 + 0.25 * clamp(ptop - hs.lvl, 0, 4)) * (1 + (actor.flags.xpBonus || 0));
       out.heroXp[id] = Math.max(1, Math.round(gain));
     } else {
       const rate = W.YARD_RATE[S.buildings.yard || 0];
       if (!rate) continue;
-      gain = xp * factor(hs.lvl) * catchUp(hs.lvl) * rate;
+      gain = xp * factor(hs.lvl) * (1 + 0.25 * clamp(top - hs.lvl, 0, 4)) * rate;
       out.bench[id] = Math.max(1, Math.round(gain));
     }
     const lv = E.gainXp(S, id, Math.max(1, Math.round(gain)));
@@ -1036,9 +1187,49 @@ E.finishBattle = function (S, B) {
   for (const t of B.tamed) {
     if (S.creatures.length >= E.capacity(S)) break;
     const c = E.addCreature(S, t.sp, t.lvl);
+    if (t.alpha) { c.alpha = true; c.hp = E.creatureStats(c).maxHp; }
     out.tamed.push(E.creatureName(c));
   }
   return out;
+};
+
+// What's close for a hero: things one or two levels or a rank away, to give a reason for one more fight.
+E.nextUp = function (S, id) {
+  const h = S.heroes[id], L = h.lvl, out = [];
+  const lv = n => n <= L ? (h.points ? 'Ready to learn' : 'Unlocked') : n - L === 1 ? 'Next level' : (n - L) + ' levels';
+  for (const tk in h.talents) {
+    const r = h.talents[tk] || 0, n = E.talentNext(S, id, tk);
+    if (!r || n.max || n.req - L > 2) continue;
+    const rk = E.treeRanks(h, tk)[r];
+    if (!rk) continue;
+    out.push({ when: n.req - L, text: `${lv(n.req)}: ${D.TREES[tk].name} rank ${r + 1}${rk.skill ? ' (' + D.SKILLS[rk.skill].name + ')' : ''}` });
+  }
+  for (const tk of E.pathsReady(S, id)) out.push({ when: 0, text: `Now: ${D.TREES[tk].name} is mastered. Choose its path` });
+  for (const c of D.COMBOS) {
+    if (E.combosOf(h).includes(c)) continue;
+    const short = c.trees.map(t => Math.max(0, D.COMBO_RANK - (h.talents[t] || 0)));
+    const need = short[0] + short[1];
+    if (need === 1 || (need === 2 && short.every(x => x === 1))) {
+      const t = c.trees[short[0] ? 0 : 1];
+      out.push({ when: 1, text: `${need === 1 ? '1 more rank of ' + D.TREES[t].name : 'A rank each in ' + c.trees.map(x => D.TREES[x].name).join(' and ')}: combo art ${D.SKILLS[c.skill].name}` });
+    }
+  }
+  for (const s of E.heroStats(S, id).skills) {
+    if (!D.SKILL_EVO[s] || (h.evolved || {})[s]) continue;
+    const left = E.MASTERY[3] - (h.mastery[s] || 0);
+    if (left > 0 && left <= 12) out.push({ when: 1, text: `${left} more use${left > 1 ? 's' : ''}: ${D.SKILLS[s].name} can evolve` });
+    if (left <= 0) out.push({ when: 0, text: `Now: ${D.SKILLS[s].name} can evolve` });
+  }
+  return out.sort((a, b) => a.when - b.when);
+};
+// The companion's next evolution, if it's close.
+E.creatureNextUp = function (S) {
+  const c = E.creatureOf(S, S.companion);
+  if (!c) return null;
+  const at = !c.form ? W.EVO_LVL : !c.final ? W.EVO2_LVL : null;
+  if (!at || at - c.lvl > 2) return null;
+  const n = Math.max(0, at - c.lvl);
+  return `${n <= 1 ? 'Next level' : n + ' levels'}: ${E.creatureName(c)} evolves`;
 };
 
 E.gainXp = function (S, id, n) {

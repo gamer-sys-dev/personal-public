@@ -539,6 +539,18 @@ const STORY4 = {
   ],
 };
 
-const WORLD = { HABITAT, DEX_REWARDS, EVO2_LVL, EVO2, STORY4, ARENA, STORY3, CREATURES, EVO_LVL, EVO_MULT, STANCES, BUILDINGS, YARD_RATE, KENNEL_CAP, MAPS, genMap, EVENTS, STORY2, BOARD };
+// Hunting grounds: in a cleared area, tougher fights above the boss's level. Winning in a row builds a chain
+// (+20% XP, gold and drops per win, up to double); losing or resting at the keep breaks it.
+// Each area has one apex beast that returns after every rest: first kill pays a trophy and a tome, and Hesk can tame it as an Alpha.
+const APEX = {
+  thornwood: { t: 'wolf', name: 'Greymane', trophy: 'greymane_fang', desc: 'A grey wolf the size of a pony. The pack follows it.' },
+  millroad:  { t: 'crows', name: 'The Murder King', trophy: 'murder_crown', desc: 'A storm of crows with one red eye in the middle of it.' },
+  barrows:   { t: 'bat', name: 'Old Night', trophy: 'night_wing', desc: 'It has hung in the king\'s tomb since before the king.' },
+  fenmire:   { t: 'lurker', name: 'Mother Lurker', trophy: 'lurker_heart', desc: 'The thing every lurker in the fen crawled out of.' },
+  tower:     { t: 'hound', name: 'The Black Hound', trophy: 'black_collar', desc: 'Morvane\'s own hound, loose and hungry.' },
+};
+// Bounties posted on the noticeboard: kill so many of a kind anywhere in that area.
+const BOUNTY_N = [4, 5, 6];
+const WORLD = { APEX, BOUNTY_N, HABITAT, DEX_REWARDS, EVO2_LVL, EVO2, STORY4, ARENA, STORY3, CREATURES, EVO_LVL, EVO_MULT, STANCES, BUILDINGS, YARD_RATE, KENNEL_CAP, MAPS, genMap, EVENTS, STORY2, BOARD };
 if (typeof module !== 'undefined' && module.exports) module.exports = WORLD; else root.WORLD = WORLD;
 })(this);

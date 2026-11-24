@@ -254,6 +254,16 @@ const SKILLS = {
   shadow_bolt:  { name: 'Shadow Bolt', type: 'mag', el: 'dark', power: 1.15, target: 'enemy' },
   grave_chill:  { name: 'Grave Chill', type: 'mag', el: 'frost', power: 0.75, target: 'enemies' },
   raise_dead:   { name: 'Raise Dead', type: 'summon', summon: ['skeleton', 'skeleton'] },
+  raise_dead_again: { name: 'Raise Dead', type: 'summon', summon: ['skeleton', 'wight'] },
+  // Boss moves that are announced a turn ahead (see mech.windup)
+  apex_fury:    { name: 'Apex Fury', type: 'phys', power: 1.7, target: 'enemies' },
+  tusk_charge:  { name: 'Tusk Charge', type: 'phys', power: 1.5, target: 'enemies' },
+  execution:    { name: 'Execution', type: 'phys', power: 3.4, target: 'enemy' },
+  hollow_rend:  { name: 'Hollow Rend', type: 'phys', power: 1.7, target: 'enemies', status: { defDown: 2 }, chance: 0.5 },
+  grave_toll:   { name: 'Grave Toll', type: 'mag', el: 'dark', power: 1.8, target: 'enemies' },
+  drowning_tide:{ name: 'Drowning Tide', type: 'mag', el: 'frost', power: 1.9, target: 'enemies', status: { slow: 2 }, chance: 0.6 },
+  warden_doom:  { name: 'Hollow Doom', type: 'mag', el: 'dark', power: 2.1, target: 'enemies' },
+  rust_plate:   { name: 'Rust Plate', type: 'buff', target: 'self', status: { defUp: 3 }, replate: true },
   spit:         { name: 'Bog Spit', type: 'phys', power: 0.8, target: 'enemy', status: { poison: 4 }, chance: 0.8 },
   drag:         { name: 'Drag Under', type: 'phys', power: 1.25, target: 'enemy' },
   hex:          { name: 'Hex', type: 'mag', el: 'dark', power: 0.6, target: 'enemy', status: { defDown: 3 }, chance: 0.9 },
@@ -323,6 +333,12 @@ const GEAR = {
   crowd_favour:   { name: 'Crowd\'s Favour', slot: 'charm', stats: { spd: 2 }, flags: { goldBonus: 0.3, xpBonus: 0.1 }, price: 700, unique: true, desc: '+30% gold and +10% XP for the wearer' },
   beastqueen_lash:{ name: 'Beastqueen\'s Lash', slot: 'weapon', stats: { str: 13, mag: 6, spd: 2 }, flags: { beastBond: 0.3 }, price: 1200, unique: true, desc: 'Creature damage +30% while the wearer is in the party' },
   champion_band:  { name: 'Champion\'s Band', slot: 'charm', stats: { hp: 40, str: 4, mag: 4, def: 3, res: 3, spd: 2 }, price: 2000, unique: true },
+  // Apex trophies, first kill of each area's apex beast
+  greymane_fang:  { name: 'Greymane\'s Fang', slot: 'charm', stats: { str: 6, spd: 3, crit: 6 }, price: 900, unique: true },
+  murder_crown:   { name: 'Crown of the Murder', slot: 'charm', stats: { spd: 7, crit: 4 }, flags: { firstStrike: 1 }, price: 1100, unique: true, desc: 'Start every fight half ready' },
+  night_wing:     { name: 'Old Night\'s Wing', slot: 'charm', stats: { mag: 8, res: 5, mp: 25 }, price: 1200, unique: true },
+  lurker_heart:   { name: 'Mother Lurker\'s Heart', slot: 'charm', stats: { hp: 110, def: 7 }, price: 1300, unique: true },
+  black_collar:   { name: 'The Black Collar', slot: 'charm', stats: { str: 8, mag: 8, spd: 3 }, flags: { beastBond: 0.25 }, price: 1600, unique: true, desc: 'Creature damage +25% while the wearer is in the party' },
   iron_heart:     { name: 'Iron Heart', slot: 'charm', stats: { hp: 40, def: 3 }, price: 600, tier: 3 },
 };
 
@@ -332,6 +348,7 @@ const ITEMS = {
   ether:      { name: 'Mana Tonic', price: 70, tier: 1, target: 'ally', mpHeal: 30, desc: 'Restores 30 MP' },
   feather:    { name: 'Ember Feather', price: 150, tier: 1, target: 'deadAlly', revive: 0.3, desc: 'Revives a fallen ally with 30% HP' },
   antidote:   { name: 'Antidote', price: 12, tier: 1, target: 'ally', cure: ['poison', 'burn', 'slow', 'defDown'], desc: 'Cures poison, burns, slow and broken armour' },
+  rust_acid:  { name: 'Rust Acid', price: 45, tier: 1, target: 'enemies', foeStatus: { defDown: 3 }, desc: 'Eats through armour: breaks every enemy\'s defence, and shatters boss plate' },
   firebomb:   { name: 'Firebomb', price: 55, tier: 2, target: 'enemies', bomb: 80, el: 'fire', desc: '80 fire damage to every enemy' },
   smoke_bomb: { name: 'Smoke Bomb', price: 40, tier: 1, target: 'none', flee: true, desc: 'Escape any fight except a boss' },
   tonic:      { name: 'Camp Stew', price: 120, tier: 2, target: 'none', field: true, partyHeal: 0.5, desc: 'Out of battle only. Restores half HP and MP to the whole party' },
@@ -355,6 +372,14 @@ const FORGE = [
 
 // Enemies. Stats scale with level; multipliers shape each type.
 // weak: damage taken multiplier by element. tags: undead, hollow.
+// Elite enemies: a tougher version of a normal enemy with one twist and better drops.
+const ELITES = {
+  ironhide:     { name: 'Ironhide', desc: 'Armour turns most blows until something breaks it.' },
+  bloodthirsty: { name: 'Bloodthirsty', desc: 'Heals from every wound it deals.' },
+  swift:        { name: 'Swift', desc: 'Acts far more often.' },
+  spellward:    { name: 'Spellward', desc: 'Magic barely touches it.' },
+  vengeful:     { name: 'Vengeful', desc: 'Bursts when it falls, hurting the whole party.' },
+};
 const ENEMIES = {
   boarling: { name: 'Wild Boar', sprite: 'boarling', tame: 'boarling', m: { hp: 1.25, str: 1.1, mag: .5, def: 1.1, res: .7, spd: .9 }, xp: 1.1, gold: .8,
               skills: [{ id: 'gore', w: 1 }, { id: 'bite', w: 1 }], drops: [{ mat: 'pelt', c: .5 }] },
@@ -364,7 +389,8 @@ const ENEMIES = {
               skills: [{ id: 'bite', w: 3 }, { id: 'savage_bite', w: 1 }], drops: [{ mat: 'pelt', c: .5 }] },
   briar:    { name: 'Briar Sprite', tame: 'briar', sprite: 'briar', m: { hp: .8, str: .5, mag: 1, def: .6, res: 1, spd: 1 }, xp: 1, gold: 1, weak: { fire: 1.6 },
               skills: [{ id: 'thorn_lash', w: 1 }], drops: [{ item: 'potion', c: .15 }] },
-  old_tusk: { name: 'Old Tusk', sprite: 'boar', boss: true, m: { hp: 11.7, str: 1.51, mag: .5, def: 1.3, res: .9, spd: .85 }, xp: 6, gold: 6,
+  old_tusk: { name: 'Old Tusk', sprite: 'boar', boss: true,
+              mech: { windup: { every: 4, skill: 'tusk_charge', text: 'Old Tusk paws the ground. A huge charge is coming. Defend!' } }, m: { hp: 11.7, str: 1.51, mag: .5, def: 1.3, res: .9, spd: .85 }, xp: 6, gold: 6,
               skills: [{ id: 'gore', w: 3 }, { id: 'trample', w: 2 }, { id: 'enrage', w: 0, phase: .5 }],
               drops: [{ mat: 'pelt', c: 1, n: 3 }, { gear: 'tusk_charm', c: 1, once: true }] },
 
@@ -374,7 +400,8 @@ const ENEMIES = {
               skills: [{ id: 'arrow', w: 3 }, { id: 'volley', w: 1 }], drops: [{ mat: 'ore', c: .2 }] },
   crows:    { name: 'Crow Swarm', tame: 'crows', sprite: 'crow', m: { hp: .7, str: .85, mag: .5, def: .5, res: .6, spd: 1.4 }, xp: .9, gold: .5, weak: { fire: 1.3, frost: 1.3 },
               skills: [{ id: 'peck', w: 1 }], drops: [{ mat: 'pelt', c: .2 }] },
-  rook:     { name: 'Rook the Red', sprite: 'rook', boss: true, m: { hp: 11.7, str: 1.46, mag: .6, def: 1.1, res: 1, spd: 1.1 }, xp: 6, gold: 10,
+  rook:     { name: 'Rook the Red', sprite: 'rook', boss: true,
+              mech: { windup: { every: 4, skill: 'execution', mark: true, text: 'Rook marks {t} for execution. Defend, or draw his eye with a taunt!' } }, m: { hp: 11.7, str: 1.46, mag: .6, def: 1.1, res: 1, spd: 1.1 }, xp: 6, gold: 10,
               skills: [{ id: 'slash', w: 3 }, { id: 'volley', w: 1 }, { id: 'war_cry', w: 1 }, { id: 'whistle', w: 0, phase: .5 }],
               drops: [{ mat: 'ore', c: 1, n: 3 }, { gear: 'redcap_cutlass', c: 1, once: true }] },
 
@@ -384,9 +411,10 @@ const ENEMIES = {
               weak: { light: 1.5, fire: 1.3 }, skills: [{ id: 'drain', w: 1 }], drops: [{ mat: 'pelt', c: .2 }] },
   wight:    { name: 'Barrow Wight', sprite: 'wight', tags: ['undead'], m: { hp: 1.1, str: .6, mag: 1.15, def: .8, res: 1.2, spd: 1 }, xp: 1.2, gold: 1.2,
               weak: { light: 2, fire: 1.5, frost: .5 }, skills: [{ id: 'frost_touch', w: 2 }, { id: 'shadow_bolt', w: 2 }], drops: [{ mat: 'bone', c: .3 }, { item: 'ether', c: .1 }] },
-  shade:    { name: 'The Barrow King\'s Shade', sprite: 'shade', boss: true, tags: ['undead'], m: { hp: 13.0, str: 0.9, mag: 1.35, def: 1, res: 1.3, spd: 1 }, xp: 7, gold: 10,
+  shade:    { name: 'The Barrow King\'s Shade', sprite: 'shade', boss: true, tags: ['undead'],
+              mech: { warded: 'The Shade is shielded while its dead stand. Put them down first.', windup: { every: 4, skill: 'grave_toll', text: 'The barrow bell starts to toll. Brace yourselves!' } }, m: { hp: 13.0, str: 0.9, mag: 1.35, def: 1, res: 1.3, spd: 1 }, xp: 7, gold: 10,
               weak: { light: 1.8, fire: 1.2, frost: .5 },
-              skills: [{ id: 'shadow_bolt', w: 3 }, { id: 'grave_chill', w: 2 }, { id: 'drain', w: 1 }, { id: 'raise_dead', w: 0, phase: .6 }],
+              skills: [{ id: 'shadow_bolt', w: 3 }, { id: 'grave_chill', w: 2 }, { id: 'drain', w: 1 }, { id: 'raise_dead', w: 0, phase: .6 }, { id: 'raise_dead_again', w: 0, phase: .3 }],
               drops: [{ mat: 'bone', c: 1, n: 3 }, { gear: 'barrow_blade', c: 1, once: true }] },
 
   lurker:   { name: 'Bog Lurker', tame: 'lurker', sprite: 'lurker', m: { hp: 1.3, str: 1.1, mag: .5, def: 1.1, res: .8, spd: .8 }, xp: 1.1, gold: 1,
@@ -395,9 +423,10 @@ const ENEMIES = {
               weak: { fire: 1.4 }, skills: [{ id: 'hex', w: 2 }, { id: 'frost_touch', w: 2 }, { id: 'mend', w: 2, when: 'allyHurt' }], drops: [{ mat: 'moss', c: .3 }, { item: 'ether', c: .15 }] },
   slime:    { name: 'Mire Slime', tame: 'slime', sprite: 'slime', m: { hp: 1.2, str: .9, mag: .5, def: 1.7, res: .5, spd: .8 }, xp: 1, gold: .9,
               weak: { fire: 1.6, frost: 1.4 }, skills: [{ id: 'engulf', w: 1 }], drops: [{ mat: 'moss', c: .3 }, { item: 'potion', c: .2 }] },
-  drowned:  { name: 'The Drowned Knight', sprite: 'drowned', boss: true, m: { hp: 18.2, str: 1.74, mag: .9, def: 1.5, res: .9, spd: .95 }, xp: 8, gold: 12,
+  drowned:  { name: 'The Drowned Knight', sprite: 'drowned', boss: true,
+              mech: { plated: 'Rusted plate turns most blows. Break his armour first.', windup: { every: 4, skill: 'drowning_tide', text: 'The water rises around the Drowned Knight. Brace!' } }, m: { hp: 18.2, str: 1.74, mag: .9, def: 1.5, res: .9, spd: .95 }, xp: 8, gold: 12,
               weak: { fire: 1.3, light: 1.3 },
-              skills: [{ id: 'slash', w: 3 }, { id: 'tidal_sweep', w: 2 }, { id: 'rust_curse', w: 1 }, { id: 'brace', w: 0, phase: .5 }],
+              skills: [{ id: 'slash', w: 3 }, { id: 'tidal_sweep', w: 2 }, { id: 'rust_curse', w: 1 }, { id: 'rust_plate', w: 0, phase: .5 }],
               drops: [{ mat: 'moss', c: 1, n: 3 }, { gear: 'drowned_plate', c: 1, once: true }] },
 
   soldier:  { name: 'Hollow Soldier', sprite: 'soldier', tags: ['hollow'], m: { hp: 1.2, str: 1.15, mag: .5, def: 1.3, res: 1, spd: .95 }, xp: 1.2, gold: 1.2,
@@ -414,11 +443,14 @@ const ENEMIES = {
               skills: [{ id: 'slash', w: 3 }, { id: 'shield_bash', w: 2 }, { id: 'brace', w: 1 }], drops: [] },
   beastmaster: { name: 'Beastmaster', sprite: 'beastmaster', m: { hp: 1.1, str: 1.15, mag: .7, def: 1, res: 1, spd: 1.1 }, xp: 1.3, gold: 1.4,
               skills: [{ id: 'arrow', w: 3 }, { id: 'rally_cry', w: 1 }, { id: 'whistle_beasts', w: 0, phase: .6 }], drops: [] },
-  hand:     { name: 'Morvane\'s Hand', sprite: 'hand', boss: true, tags: ['hollow'], m: { hp: 5.5, str: 1.15, mag: 0.95, def: 1.2, res: 1.1, spd: 0.95 }, xp: 7, gold: 10,
+  hand:     { name: 'Morvane\'s Hand', sprite: 'hand', boss: true, tags: ['hollow'],
+              mech: { windup: { every: 4, skill: 'hollow_rend', text: 'The Hand raises its blade high. Defend!' } }, m: { hp: 5.5, str: 1.15, mag: 0.95, def: 1.2, res: 1.1, spd: 0.95 }, xp: 7, gold: 10,
               weak: { light: 1.3 }, skills: [{ id: 'slash', w: 3 }, { id: 'hollow_cleave', w: 2 }, { id: 'shadow_bolt', w: 2 }, { id: 'call_hollow', w: 0, phase: .5 }], drops: [{ mat: 'shard', c: 1, n: 3 }] },
   hwren:    { name: 'Hollowed Wren', sprite: 'hwren', boss: true, tags: ['hollow'], m: { hp: 7, str: 1.45, mag: .8, def: 1.1, res: 1.1, spd: 1.5 }, xp: 6, gold: 0,
               skills: [{ id: 'arrow', w: 3 }, { id: 'volley', w: 2 }, { id: 'pounce', w: 1 }], drops: [] },
-  warden:   { name: 'Warden Morvane', sprite: 'warden', boss: true, tags: ['hollow'], m: { hp: 18.2, str: 1.46, mag: 1.3, def: 1.3, res: 1.3, spd: 1 }, xp: 12, gold: 25,
+  warden:   { name: 'Warden Morvane', sprite: 'warden', boss: true, tags: ['hollow'],
+              mech: { warded: 'Morvane is shielded while his Hollow stand.', mirror: { at: .6, turns: 2, text: 'Morvane raises a mirror of black glass. Magic will turn back on its caster!' },
+                      windup: { every: 5, skill: 'warden_doom', text: 'Darkness gathers in Morvane\'s hands. Brace!' } }, m: { hp: 18.2, str: 1.46, mag: 1.3, def: 1.3, res: 1.3, spd: 1 }, xp: 12, gold: 25,
               weak: { light: 1.3 },
               skills: [{ id: 'slash', w: 2 }, { id: 'hollow_cleave', w: 2 }, { id: 'shadow_bolt', w: 2 }, { id: 'soul_drain', w: 1 },
                        { id: 'call_hollow', w: 0, phase: .6 }, { id: 'ember_hunger', w: 0, phase: .3 }],
@@ -744,6 +776,6 @@ Object.assign(SKILLS, {
 });
 for (const tk in PATHS) TREES[tk].paths = PATHS[tk];
 
-const DATA = { SKILL_EVO, PATH_REQ, PATH_COST, COMBOS, COMBO_RANK, STATS, HEROES, PARTY, ROSTER, SURGE, TALENT_REQ, TALENT_COST, TREES, SKILLS, GEAR, ITEMS, MATS, FORGE, ENEMIES, AREAS, STORY };
+const DATA = { ELITES, SKILL_EVO, PATH_REQ, PATH_COST, COMBOS, COMBO_RANK, STATS, HEROES, PARTY, ROSTER, SURGE, TALENT_REQ, TALENT_COST, TREES, SKILLS, GEAR, ITEMS, MATS, FORGE, ENEMIES, AREAS, STORY };
 if (typeof module !== 'undefined' && module.exports) module.exports = DATA; else root.DATA = DATA;
 })(this);
