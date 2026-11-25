@@ -1181,6 +1181,8 @@ function startBattle(specs, c) {
     try { BFX.paint(el.querySelector('#bgc'), c.area || 'thornwood'); } catch (e) { /* plain gradient stays */ }
     try { FX = BFX.fx(el.querySelector('.field')); } catch (e) { FX = null; }
   }
+  // Taming fights start holding back, so nobody kills the beast before Hesk gets a go.
+  B.holdBack = !!(c.hunt || c.apex) && B.heroes.some(h => h.skills && h.skills.includes('tame'));
   drawUnits(); drawBars(); drawCmd();
   if (c.ambush) banner('Ambush!');
   if (c.hunt) banner('Beast hunt: weaken one, then Tame it', true);
@@ -1303,6 +1305,7 @@ async function play(evs) {
         if (ev.crit) floatText(ev.who, 'CRITICAL', 'label crit');
         if (ev.weak) floatText(ev.who, 'WEAK!', 'label weak');
         if (ev.resist) floatText(ev.who, ev.who.plated ? 'armour holds' : 'resisted', 'label');
+        if (B && B.holdingBack(ev.who) && ev.who.hp <= 1) floatText(ev.who, 'held back', 'label');
         if (ev.reflect) floatText(ev.who, 'reflected!', 'label weak');
         if (ev.dot) floatText(ev.who, STATUS[ev.dot], 'label');
         pulse(ev.who, 'hit'); pulse(ev.who, 'flash');
@@ -1379,7 +1382,8 @@ function surgeHTML() {
 function drawCmd() {
   const el = document.getElementById('cmd');
   if (!el) return;
-  const autoBtn = `<button class="sm autobtn ${S.opts.auto ? 'on' : ''}" data-a="bAuto">Auto ${S.opts.auto ? 'on' : 'off'}</button>`;
+  const canHold = B && B.heroes.some(h => h.skills && h.skills.includes('tame')) && B.enemies.some(e => e.hp > 0 && e.tpl.tame && !e.isBoss);
+  const autoBtn = (canHold ? `<button class="sm holdbtn ${B.holdBack ? 'on' : ''}" data-a="bHold">Hold back ${B.holdBack ? 'on' : 'off'}</button>` : '') + `<button class="sm autobtn ${S.opts.auto ? 'on' : ''}" data-a="bAuto">Auto ${S.opts.auto ? 'on' : 'off'}</button>`;
   if (!pending) { el.innerHTML = `<div class="cmdtop"><span class="muted small">${ctx && ctx.arena ? 'Arena' : B && B.boss ? 'Boss fight' : ''}</span>${surgeHTML()}${autoBtn}</div>`; return; }
   const a = pending.a;
   if (pending.mode === 'main') {
@@ -1452,6 +1456,7 @@ ACT.bItem = k => {
   if (it.target === 'ally' || it.target === 'deadAlly') startTargeting(it.target, c, it.name);
   else resolve(c);
 };
+ACT.bHold = () => { B.holdBack = !B.holdBack; toast(B.holdBack ? 'Holding back: blows leave beasts on 1 HP so Hesk can tame them.' : 'No holding back.', 2200); drawCmd(); };
 ACT.bAuto = () => {
   S.opts.auto = !S.opts.auto; save();
   if (S.opts.auto && pending) resolve(B.autoChoice(pending.a));

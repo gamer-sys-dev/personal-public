@@ -738,7 +738,8 @@ class Battle {
     a.defending = false;
     const s = a.statuses;
     const tickDmg = (pct, label) => {
-      const n = Math.max(1, Math.round(a.maxHp * (a.isBoss ? pct / 2.5 : pct)));
+      let n = Math.max(1, Math.round(a.maxHp * (a.isBoss ? pct / 2.5 : pct)));
+      if (this.holdingBack(a)) n = Math.max(0, Math.min(n, a.hp - 1));
       a.hp = Math.max(0, a.hp - n);
       ev.push({ t: 'dmg', who: a, n, dot: label });
     };
@@ -828,6 +829,7 @@ class Battle {
       return;
     }
     const r = this.calc(a, t, sk, mult);
+    if (this.holdingBack(t)) r.n = Math.max(0, Math.min(r.n, t.hp - 1));
     t.hp = Math.max(0, t.hp - r.n);
     ev.push({ t: 'dmg', who: t, n: r.n, crit: r.crit, weak: r.weak, resist: r.resist, el: sk.el || (sk.type === 'phys' ? 'phys' : 'mag'), by: a, big: r.n > t.maxHp * 0.25, special: this.surging ? 'surge' : sk.combo ? 'combo' : null });
     if (a.side === 'h') this.addSurge(2); else this.addSurge(3);
@@ -972,7 +974,13 @@ class Battle {
   tameOdds(t, a) {
     const tamer = a || this.heroes.find(h => h.skills && h.skills.includes('tame'));
     const gap = tamer ? tamer.lvl - t.lvl : 0;
-    return clamp(0.08 + 0.85 * Math.pow(1 - t.hp / t.maxHp, 1.3) + (this.opts.tameBonus || 0) + clamp(gap * 0.07, -0.2, 0.5), 0.05, 0.95) * (t.apex ? 0.5 : 1);
+    // Apex beasts: harder, but a beast worn right down is still a fair chance. Each failed try tires it a little more.
+    const lo = t.apex ? -0.1 : -0.2, tries = (t.tameTries || 0) * 0.08;
+    return clamp(0.08 + 0.85 * Math.pow(1 - t.hp / t.maxHp, 1.3) + (this.opts.tameBonus || 0) + clamp(gap * 0.07, lo, 0.5) + tries, 0.05, 0.95) * (t.apex ? 0.75 : 1);
+  }
+  // Holding back: while on and someone who can tame is standing, blows and wounds leave tameable beasts on 1 HP.
+  holdingBack(t) {
+    return !!(this.holdBack && t.side === 'e' && t.tpl.tame && !t.isBoss && this.alive(this.heroes).some(h => h.skills && h.skills.includes('tame')));
   }
   tame(a, t, ev) {
     if (!t || t.hp <= 0) t = this.alive(this.enemies)[0];
@@ -984,7 +992,7 @@ class Battle {
       this.tamed.push({ sp: t.tpl.tame, lvl: t.lvl, alpha: !!t.apex });
       ev.push({ t: 'tamed', who: t });
       this.ko(t, ev);
-    } else ev.push({ t: 'say', text: t.name + ' shakes free (' + Math.round(p * 100) + '% chance)' });
+    } else { t.tameTries = (t.tameTries || 0) + 1; ev.push({ t: 'say', text: t.name + ' shakes free (' + Math.round(p * 100) + '% chance). It\'s tiring' }); }
   }
   steal(a, t, ev) {
     if (!t || t.hp <= 0) t = this.alive(this.enemies)[0];
@@ -1095,6 +1103,10 @@ class Battle {
   autoChoice(a) {
     const S = this.S;
     if (a.isCreature) return this.creatureChoice(a);
+    if (this.holdBack && a.skills.includes('tame')) {
+      const t = this.alive(this.enemies).filter(e => this.holdingBack(e) && e.hp / e.maxHp < 0.35).sort((x, y) => this.tameOdds(y, a) - this.tameOdds(x, a))[0];
+      if (t) return { kind: 'skill', id: 'tame', target: t };
+    }
     const friends = this.heroes, live = this.alive(friends), foes = this.alive(this.enemies);
     const can = id => a.skills.includes(id) && a.mp >= this.mpCost(a, D.SKILLS[id]);
     if (this.surgeReady() && (this.boss || foes.reduce((s, f) => s + f.hp, 0) > a.maxHp * 2)) return { kind: 'surge', target: foes.sort((x, y) => y.hp - x.hp)[0] };

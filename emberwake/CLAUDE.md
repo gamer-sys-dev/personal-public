@@ -111,6 +111,12 @@ Player feedback: kennels stuck at 8/8 with no way to make room for better beasts
 - E.releaseAdvice: weaker copies of a kind you already have first, then the lowest potential when the kennels are full. The companion is never suggested. Suggested cards are outlined in red with the reason.
 - Taming no longer fails on full kennels. After the fight a "kennels are full" screen lists everyone (new arrival marked, suggestions first) to release one, or expand the kennels there and then. Release now uses an in-game confirm, not the browser one.
 
+## Taming fixes (25 November 2026)
+
+Player feedback: apex tame odds felt too low for a beast on its last legs (25 to 30%), and the party and creature kept killing beasts before Hesk could try.
+- Hold back (battle toggle beside Auto, shown when Hesk is fighting and a tameable beast stands): blows and poison or burn leave tameable non-boss beasts on 1 HP. On by default in den hunts and apex fights. Switches itself off in effect if nobody who can tame is standing. On auto, Hesk tames anything holding back below 35%.
+- Apex odds: x0.75 instead of x0.5, and the level gap can only cost 10% (not 20%). Each failed try adds 8% (the beast tires). Bot: about 80% of Thornwood apex fights end in a tame, 1.5 tries on average. Taming an apex still counts as bringing it down (trophy on the first).
+
 ## Next layers
 
 - War campaigns (agreed as the next big piece): a territory map, Hollow held villages and forts, battles with the soldiers trained for the siege plus heroes, captured ground paying out daily.
