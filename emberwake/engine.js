@@ -748,7 +748,8 @@ class Battle {
     const a = Object.assign(st, { side: 'e', t, tpl, key: 'e' + (this.enemies.length), name, sprite: tpl.sprite, lvl,
       hp: st.maxHp, mp: 999, maxMp: 999, statuses: {}, gauge: this.rng() * 30, weak: tpl.weak || {}, flags: { immune: [] },
       isBoss: !!tpl.boss || !!o.boss, used: {}, base: name, big: !!o.hpx || !!o.boss || !!el,
-      elite: el ? o.elite : null, apex: o.apex || null, mech: o.mech || tpl.mech || null, plated: !!(tpl.mech && tpl.mech.plated) || o.elite === 'ironhide', turnsTaken: 0 });
+      elite: el ? o.elite : null, apex: o.apex || null, learned: o.resist || null, mech: o.mech || tpl.mech || null, plated: !!(tpl.mech && tpl.mech.plated) || o.elite === 'ironhide', turnsTaken: 0 });
+    if (o.resist) a.weak = Object.assign({}, a.weak, { [o.resist]: 0.4 });
     this.enemies.push(a);
     return a;
   }
@@ -895,6 +896,7 @@ class Battle {
       if (a.hp <= 0) this.ko(a, ev);
       return;
     }
+    if (a.side === 'h' && sk.el && sk.el !== 'phys' && this.S.war && this.S.war.on) { this.S.adapt = this.S.adapt || {}; this.S.adapt[sk.el] = (this.S.adapt[sk.el] || 0) + 1; }
     const r = this.calc(a, t, sk, mult);
     if (this.holdingBack(t)) r.n = Math.max(0, Math.min(r.n, t.hp - 1));
     t.hp = Math.max(0, t.hp - r.n);
@@ -945,6 +947,17 @@ class Battle {
     a.gauge = 0; this.turns++;
     if (a.hp <= 0) return ev;
     if (c.kind === 'defend') { a.defending = true; ev.push({ t: 'say', text: a.name + ' braces' }); return ev; }
+    if (c.kind === 'kindle') {
+      // Isolde opens her hand all the way: the surge fills and the party is healed and steeled. It is counted.
+      if (this.kindled) return ev;
+      this.kindled = true; this.surge = 100; this.S.toll = (this.S.toll || 0) + 1;
+      ev.push({ t: 'surge', who: a, text: 'Kindle the Ember' });
+      for (const h of this.alive(this.heroes)) {
+        const n = Math.round(h.maxHp * 0.3); h.hp = Math.min(h.maxHp, h.hp + n); ev.push({ t: 'heal', who: h, n });
+        this.addStatus(h, 'strUp', 3, ev); this.addStatus(h, 'resUp', 3, ev);
+      }
+      return ev;
+    }
     if (c.kind === 'windup') {
       const w = a.mech.windup;
       let tgt = null;

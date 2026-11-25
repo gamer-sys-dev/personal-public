@@ -5,6 +5,92 @@
 'use strict';
 
 const STORY5 = {
+  // ---------- Chapter two ----------
+  kindle_first: [
+    ['isolde', 'There\'s more in the stone than I\'ve ever let out. I can feel it. If I open my hand all the way...'],
+    ['bram', 'Then do it. We need it.'],
+    ['isolde', 'It burns hotter every time. Like it\'s hungry.'],
+    ['', 'In battle Isolde can now Kindle the Ember: once a fight, the surge fills, the party is healed and steeled. Each kindling is counted.'],
+  ],
+  grieve_corner: [
+    ['', 'In the keep of Greyfort a knight waits on a throne of shields. His armour is old royal plate. There is nothing inside the helm but dark.'],
+    ['', '"Smith\'s boy," says the voice in the helm. "I knew your grandfather. He made this plate. He was proud of the hinges."'],
+    ['bram', 'Then you know it\'s got weak spots.'],
+    ['', '"Everything has," says Marshal Grieve, and rises.'],
+  ],
+  grieve_dies: [
+    ['', 'The plate falls apart at the hinges, just as Bram said it would. Inside, a little grey ash, and a soldier\'s token: Ashby militia.'],
+    ['bram', 'He was one of ours. Before.'],
+    ['isolde', 'They all were. Before something.'],
+  ],
+  cinder_corner: [
+    ['', 'Kingsbridge burns and does not burn down. On the crown of the bridge a woman stands in a dress of embers.'],
+    ['', '"Little apprentice," says Lady Cinder. "Do you know how many times your master opened his hand? I counted. I was one of them."'],
+    ['isolde', 'What does that mean?'],
+    ['', '"Ask the Saint," she laughs, and the bridge catches.'],
+  ],
+  cinder_dies: [
+    ['', 'Lady Cinder gutters like a candle at the end of the wick. For a moment there is a girl\'s face in the smoke, a baker\'s girl with flour on her cheek.'],
+    ['', '"Kingsbridge, the winter of the long siege," she whispers. "He needed one more fire. I was the fire." Then nothing.'],
+    ['isolde', '...Bram. I think I know what the Hollow are.'],
+  ],
+  saint_corner: [
+    ['', 'Under the drowned temple the water is black and still. The Drowned Saint kneels in it, a priestess in rotted white, praying to something that is not there.'],
+    ['', '"You carry it," she says without turning. "The Ember. The king\'s stone. Shall I tell you what it eats?"'],
+    ['isolde', 'Tell me.'],
+    ['', '"People. Every time it is kindled, someone, somewhere, goes out. The fire has to come from somewhere, child. The Hollow are the ones it burned. We are what is left when the Ember has had what it wants."'],
+    ['', '"King Vael kindled it a thousand times to win his war. He won. And then his whole kingdom was Hollow, and he with it."'],
+    ['morwen', 'The fen has a word for that kind of bargain. It isn\'t a nice word.', 'has:morwen'],
+    ['bram', 'Isolde. How many times have you...'],
+    ['isolde', 'I don\'t know. I didn\'t count. I didn\'t know I had to.'],
+    ['', '"Kill me, then," says the Saint, rising from the water. "I have been tired for four hundred years."'],
+  ],
+  saint_dies: [
+    ['', 'The Saint sinks into the black water and does not come up. The temple is very quiet.'],
+    ['isolde', 'Every time I kindled it. Somebody.'],
+    ['bram', 'Somebody Hollow. Somebody already gone.'],
+    ['isolde', 'You don\'t know that. Neither do I.'],
+    ['', 'The Ember is warm in her hand. It always is. It has never felt like this before: like something breathing.'],
+  ],
+  gate_open: [
+    ['', 'With the three marshals gone, the north goes quiet. Then the Hollow Gate opens, all on its own, like a door left for a guest.'],
+    ['isolde', 'He wants me to come. He wants the stone back.'],
+    ['bram', 'Then he can come and get it through me.'],
+    ['', 'The Hollow Gate is open on the war map. Take it, then face what waits inside.'],
+  ],
+  vael_meet: [
+    ['', 'Beyond the Gate is a hall that was a palace once. On the throne sits a king made of cinders, with a crown of black iron and a hole in his chest the size of a hen\'s egg.'],
+    ['', '"You brought it back," says Vael. "Do you know, I have been cold for four hundred years."'],
+    ['isolde', 'You burned your whole kingdom with it.'],
+    ['', '"I saved my whole kingdom with it. The bill came afterwards. It always does. You have been paying it too, girl. I felt every one."'],
+    ['', '"Give it to me and it ends. The Hollow will sleep. No one need ever kindle it again."'],
+    ['bram', 'And you?'],
+    ['', '"I will be warm," says the Hollow King, and stands.'],
+  ],
+  end_out: [
+    ['', 'Isolde closes her hand around the Ember, and for the first time, she squeezes.'],
+    ['isolde', 'No more. Not for you, not for me. Not for anyone.'],
+    ['', 'The stone cracks. Light comes out of it, more light than anything has a right to hold, and goes up and out through the broken roof of the hall like a flock of birds.'],
+    ['', 'All across the north, the Hollow stop where they stand. Some fall to ash. Some, here and there, sit down in the road and weep, because they remember their names.', 'flag:toll_low'],
+    ['', 'All across the north, the Hollow stop where they stand, and fall to ash. Nobody comes back. Too many were burned for too long.', '!flag:toll_low'],
+    ['bram', 'Isolde?'],
+    ['isolde', 'It\'s gone. It\'s really gone. My hand\'s cold.'],
+    ['bram', 'Here. Mine isn\'t.'],
+  ],
+  end_crown: [
+    ['', 'Isolde holds the Ember up, and Vael reaches for it, and she does not let go.'],
+    ['isolde', 'You\'re right. It doesn\'t have to be kindled again. Not if it has someone to keep it.'],
+    ['', 'She presses the stone into her own chest. The fire goes in.'],
+    ['', 'Vael crumbles into cinders at her feet. Across the north, every Hollow turns its head the same way at the same moment, towards the hall. Towards her.'],
+    ['isolde', 'They\'ll do as I say now. They\'ll sleep. I can make them sleep.', 'flag:toll_low'],
+    ['', 'Her voice is still her own. Mostly.', 'flag:toll_low'],
+    ['', 'When she turns round, her eyes are two coals.', '!flag:toll_low'],
+    ['isolde', 'Bram. Go home. Please. While I still want you to.', '!flag:toll_low'],
+    ['bram', 'I\'m not leaving you here.'],
+  ],
+  chapter2_end: [
+    ['', 'End of Chapter Two. The war goes on as long as you want it to: hold the land, raise your Legends, finish what you started.'],
+  ],
   // Chapter two opens: the war.
   war_begins: [
     ['', 'Three weeks after the tower fell, the beacons on the northern hills are lit, one after another, all the way to the sea.'],
@@ -229,6 +315,17 @@ const STORY5 = {
 
 // Choices inside the story. Each option sets flags, may run an action and plays a scene after.
 const CHOICES = {
+  vael_choice: {
+    lines: [
+      ['', 'Vael lies broken on the steps of his throne, a heap of cinders still shaped like a man. The Ember beats in Isolde\'s hand like a second heart.'],
+      ['', '"Either way, it ends," he whispers. "Break it, and everything it ever burned is let go. Keep it, and they are yours to rule."'],
+    ],
+    prompt: 'What does Isolde do with the Ember?',
+    choices: [
+      { label: 'Break it. No one should carry this.', flags: { ember_fate: 'broken', ember_out: true }, scene: 'end_out' },
+      { label: 'Keep it. Someone has to hold the Hollow.', flags: { ember_fate: 'kept' }, scene: 'end_crown' },
+    ],
+  },
   wren_choice: {
     lines: STORY5.millroad_out,
     prompt: 'What does Isolde decide?',

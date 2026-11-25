@@ -422,6 +422,23 @@ const ELITES = {
   vengeful:     { name: 'Vengeful', desc: 'Bursts when it falls, hurting the whole party.' },
 };
 const ENEMIES = {
+  // Chapter two: the Hollow marshals and the king
+  grieve:   { name: 'Marshal Grieve', sprite: 'hand', boss: true, tags: ['hollow'], weak: { light: 1.3 },
+              mech: { plated: 'Royal plate turns most blows. Break it.', windup: { every: 4, skill: 'execution', mark: true, text: 'Grieve raises his headsman\'s axe at {t}. Defend, or draw him off!' } },
+              m: { hp: 15, str: 1.6, mag: .6, def: 1.5, res: 1.1, spd: .9 }, lvl: 21, xp: 14, gold: 30,
+              skills: [{ id: 'slash', w: 3 }, { id: 'hollow_cleave', w: 2 }, { id: 'rust_plate', w: 0, phase: .5 }, { id: 'call_hollow', w: 0, phase: .4 }], drops: [{ mat: 'emberglass', c: 1, n: 2 }, { mat: 'starsteel', c: 1, n: 3 }] },
+  cinder:   { name: 'Lady Cinder', sprite: 'pitmage', boss: true, tags: ['hollow'],
+              mech: { mirror: { at: .6, turns: 2, text: 'Lady Cinder wraps herself in a mirror of flame. Magic will turn back on its caster!' }, windup: { every: 4, skill: 'firestorm', text: 'The bridge catches fire around Lady Cinder. Brace!' } },
+              m: { hp: 11, str: .7, mag: 1.6, def: 1.1, res: 1.4, spd: 1.1 }, lvl: 23, xp: 14, gold: 30,
+              skills: [{ id: 'firebolt', w: 3 }, { id: 'fire_rain', w: 2 }, { id: 'inferno', w: 1 }], drops: [{ mat: 'emberglass', c: 1, n: 2 }] },
+  saint:    { name: 'The Drowned Saint', sprite: 'drowned', boss: true, tags: ['hollow', 'undead'], weak: { light: 1.4, fire: 1.2 },
+              mech: { warded: 'The Saint is shielded while her drowned stand. Put them down first.', windup: { every: 4, skill: 'drowning_tide', text: 'Black water rises around the Saint. Brace!' } },
+              m: { hp: 15, str: .8, mag: 1.6, def: 1.2, res: 1.4, spd: .95 }, lvl: 25, xp: 14, gold: 30,
+              skills: [{ id: 'shadow_bolt', w: 3 }, { id: 'drain', w: 2 }, { id: 'mend', w: 2, when: 'allyHurt' }, { id: 'raise_dead', w: 0, phase: .7 }, { id: 'raise_dead_again', w: 0, phase: .35 }], drops: [{ mat: 'emberglass', c: 1, n: 2 }] },
+  vael:     { name: 'Vael, the Hollow King', sprite: 'warden', boss: true, tags: ['hollow'], weak: { light: 1.2 },
+              mech: { warded: 'Vael is shielded while his Hollow stand.', mirror: { at: .5, turns: 2, text: 'Vael raises the black mirror of his crown. Magic will turn back on its caster!' }, windup: { every: 4, skill: 'warden_doom', text: 'Vael draws the cold out of the hall into his hands. Brace!' } },
+              m: { hp: 11, str: 1.35, mag: 1.35, def: 1.3, res: 1.3, spd: 1.05 }, lvl: 28, xp: 30, gold: 80,
+              skills: [{ id: 'hollow_cleave', w: 2 }, { id: 'shadow_bolt', w: 2 }, { id: 'soul_drain', w: 1 }, { id: 'call_hollow', w: 0, phase: .75 }, { id: 'raise_dead_again', w: 0, phase: .4 }, { id: 'ember_hunger', w: 0, phase: .25 }], drops: [] },
   boarling: { name: 'Wild Boar', sprite: 'boarling', tame: 'boarling', m: { hp: 1.25, str: 1.1, mag: .5, def: 1.1, res: .7, spd: .9 }, xp: 1.1, gold: .8,
               skills: [{ id: 'gore', w: 1 }, { id: 'bite', w: 1 }], drops: [{ mat: 'pelt', c: .5 }] },
   rat:      { name: 'Thorn Rat', tame: 'rat', sprite: 'rat', m: { hp: .7, str: .8, mag: .5, def: .7, res: .6, spd: 1.2 }, xp: .8, gold: .7,

@@ -1211,5 +1211,5 @@ function runSiege(S, n, done) {
   return sg;
 }
 
-root.SIEGEUI = { runSiege, runFortify, mountKeep, Particles };
+root.SIEGEUI = { runSiege, runFortify, mountKeep, Particles, Camera, zoomButtons, drawSprite };
 })(this);

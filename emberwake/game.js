@@ -1190,7 +1190,7 @@ const warOn = () => WAR && WAR.active(S);
 const pctTxt = p => Math.round(p * 100) + '%';
 function regionState(id) {
   const r = S.war.regions[id], R = WAR.REGIONS[id];
-  if (R.locked) return { txt: 'Sealed', cls: '' };
+  if (WAR.locked(S, id)) return { txt: 'Sealed', cls: '' };
   if (r.owner === 'p' && r.lost) return { txt: 'Ruins', cls: '' };
   if (r.owner === 'p') return { txt: r.siege ? 'Under siege!' : 'Yours', cls: r.siege ? 'bad' : 'good' };
   return { txt: r.lost ? 'Lost' : 'Hollow', cls: 'bad' };
@@ -1207,7 +1207,7 @@ function warMapSVG() {
   for (const id in WAR.REGIONS) {
     const R = WAR.REGIONS[id], r = w.regions[id];
     const reach = army && WAR.canMove(S, army, id);
-    const col = R.locked ? '#22222c' : r.lost && r.owner === 'p' ? '#5a5560' : OWN_COL[r.owner];
+    const col = WAR.locked(S, id) ? '#22222c' : r.lost && r.owner === 'p' ? '#5a5560' : OWN_COL[r.owner];
     const shape = R.kind === 'fort' || R.kind === 'citadel' ? `<rect x="-3.6" y="-3.6" width="7.2" height="7.2" rx="1" fill="${col}" stroke="${sel === id ? '#fff' : '#00000088'}" stroke-width="${sel === id ? 0.9 : 0.5}"/>`
       : `<circle r="${R.kind === 'keep' || R.kind === 'town' ? 4.2 : 3.4}" fill="${col}" stroke="${sel === id ? '#fff' : '#00000088'}" stroke-width="${sel === id ? 0.9 : 0.5}"/>`;
     g += `<g transform="translate(${R.x} ${R.y})" data-a="wRegion" data-v="${id}" style="cursor:pointer">
@@ -1237,13 +1237,16 @@ SCREENS.war = () => {
     const R = WAR.REGIONS[sel], r = w.regions[sel], st = regionState(sel), foe = WAR.foePower(S, sel), here = w.armies.filter(a => a.at === sel);
     const movers = w.armies.filter(a => WAR.canMove(S, a, sel) && a.squads.length && !a.broken);
     card = `<div class="card"><div class="spread"><b class="serif" style="font-size:1.1rem">${R.name}</b><span class="pill ${st.cls}">${st.txt}</span></div>
-      <div class="small muted" style="margin-top:4px">${r.lost ? `${R.people ? R.people.replace(/^./, c => c.toUpperCase()) + ' are gone. ' : ''}Only ruins left. Holding it gives nothing now.` : R.desc}</div>
+      <div class="small muted" style="margin-top:4px">${sel === 'hollowgate' && S.flags.gate_open ? 'The Gate stands open. Whatever is inside is waiting for Isolde.' : r.lost ? `${R.people ? R.people.replace(/^./, c => c.toUpperCase()) + ' are gone. ' : ''}Only ruins left. Holding it gives nothing now.` : R.desc}</div>
       ${!r.lost && R.bonus ? `<div class="small" style="margin-top:4px;color:var(--gold)">Holding it: ${bonusText(R.bonus)}.</div>` : ''}
       ${!r.lost && R.yields ? `<div class="small muted">Pays ${yieldText(R.yields)}.</div>` : ''}
       ${foe ? `<div class="small" style="margin-top:4px;color:#ffb0a0">Hollow strength here: ${foe}</div>` : ''}
       ${here.length ? `<div class="small" style="margin-top:4px">Here: ${here.map(a => a.name).join(', ')}</div>` : ''}
-      ${movers.map(a => { const f = foe ? WAR.forecast(S, a, sel) : null; return `<button class="big ${a.target === sel ? 'gold' : ''}" data-a="wOrder" data-v="${a.id}:${sel}">${a.target === sel ? '✓ ' : ''}${foe ? 'Attack' : 'March'} with ${a.name}${f ? ` · ${pctTxt(f.p)} · about ${f.lossWin} fall` : ''}</button>`; }).join('')}
-      ${R.locked ? '' : !movers.length && r.owner !== 'p' ? '<div class="small muted" style="margin-top:6px">No army is next to it. Armies march one region a day along the roads.</div>' : ''}</div>`;
+      ${movers.map(a => { const f = foe ? WAR.forecast(S, a, sel) : null; return `<button class="big ${a.target === sel ? 'gold' : ''}" data-a="wOrder" data-v="${a.id}:${sel}">${a.target === sel ? '✓ ' : ''}${foe ? 'Attack at dawn' : 'March'} with ${a.name}${f ? ` · ${pctTxt(f.p)} · about ${f.lossWin} fall` : ''}</button>`; }).join('')}
+      ${w.armies.filter(a => WAR.canLead(S, a, sel)).map(a => `<button class="big primary" data-a="wLead" data-v="${a.id}:${sel}">⚔ Lead ${a.name} yourself, now</button>`).join('')}
+      ${w.armies.some(a => WAR.canLead(S, a, sel)) ? '<div class="small muted">Leading it yourself uses that army\'s move for today. Squads that go down may survive wounded.</div>' : ''}
+      ${chapter2Buttons(sel)}
+      ${WAR.locked(S, sel) ? '' : !movers.length && r.owner !== 'p' ? '<div class="small muted" style="margin-top:6px">No army is next to it. Armies march one region a day along the roads.</div>' : ''}</div>`;
   }
   const threats = w.hollow.map(h => { const route = WAR.path(h.at, h.to); return `<div class="spread small" style="margin-top:4px"><span><b style="color:#ffb0a0">${h.name}</b> (${h.power}) at ${WAR.REGIONS[h.at].name}</span><span class="muted">→ ${WAR.REGIONS[h.to].name}, ${route.length ? route.length + ' day' + (route.length > 1 ? 's' : '') : 'there now'}</span></div>`; }).join('');
   return `<div class="topbar"><h1>The war · Day ${w.day}</h1><button class="sm" data-a="keep">Keep</button></div>
@@ -1269,6 +1272,62 @@ ACT.wOrder = v => {
   const [aid, rid] = v.split(':'), err = WAR.order(S, +aid, rid || null);
   if (err) toast(err); else { save(); toast(rid ? `${S.war.armies.find(a => a.id === +aid).name} will march at dawn. End the day to go.` : 'Holding.'); }
   render();
+};
+// ---------- Chapter two: the marshals, the Gate and the king ----------
+// A marshal still alive leads his fort's garrison in person when you storm it.
+function chapter2Boss(rid) {
+  const l = WAR.LIEUTENANTS[rid];
+  if (l && !S.flags[l.flag] && S.war.regions[rid].owner === 'h') return { name: D.ENEMIES[l.t].name, sprite: l.sprite, mult: 1.3 };
+  if (rid === 'hollowgate') return { name: 'The Gatewarden', sprite: 'hand', mult: 1.6 };
+  return null;
+}
+// The element the Hollow have learned from you: whichever you've used most in the war, once it's been used a lot.
+function learnedEl() {
+  const a = S.adapt || {}, top = Object.keys(a).sort((x, y) => a[y] - a[x])[0];
+  return top && a[top] >= 20 ? top : null;
+}
+function chapter2Buttons(rid) {
+  if (!S.war.regions[rid] || S.war.regions[rid].owner !== 'p') return '';
+  const l = WAR.LIEUTENANTS[rid];
+  if (l && !S.flags[l.flag]) return `<button class="big primary" data-a="corner" data-v="${rid}">Corner ${D.ENEMIES[l.t].name} in the keep · ${bossGap(D.ENEMIES[l.t].lvl)}</button><div class="small muted">The fort is yours, but its marshal has dug in. While any marshal lives, every Hollow army is stronger and the Gate stays sealed.</div>`;
+  if (rid === 'hollowgate' && !S.flags.vael_dead) return `<button class="big primary" data-a="faceVael">Go into the Hollow Gate · ${bossGap(D.ENEMIES.vael.lvl)}</button>`;
+  return '';
+}
+// Story bosses have set levels, so training for them pays off. Their escorts are two levels below.
+function storyFight(specs, onWin) {
+  const L = D.ENEMIES[specs[0].t].lvl, el = learnedEl();
+  startBattle(specs.map((sp, i) => Object.assign({ lvl: i === 0 ? L : L - 2, resist: i === 0 ? el : null }, sp)), { area: 'tower', boss: true, story: true, learned: el, onWin });
+}
+ACT.corner = rid => {
+  const l = WAR.LIEUTENANTS[rid];
+  scene(l.scene, () => storyFight(l.t === 'saint' ? [{ t: l.t }, { t: 'acolyte' }] : l.t === 'grieve' ? [{ t: l.t }, { t: 'soldier' }, { t: 'soldier' }] : [{ t: l.t }, { t: 'soldier' }], () => {
+    S.flags[l.flag] = true; save();
+    scene(l.after, () => {
+      if (!WAR.marshalsAlive(S) && !S.flags.gate_open) { S.flags.gate_open = true; save(); scene('gate_open', () => go('war', { region: 'hollowgate' })); }
+      else go('war', { region: rid });
+    });
+  }));
+};
+ACT.faceVael = () => scene('vael_meet', () => storyFight([{ t: 'vael' }, { t: 'soldier' }], () => {
+  S.flags.vael_dead = true; S.flags.toll_low = (S.toll || 0) <= 5; save();
+  scene('vael_choice', () => scene('chapter2_end', () => { S.flags.chapter2_done = true; save(); go('keep'); }));
+}));
+// Fight a war battle yourself, on the field battle screen.
+ACT.wLead = v => {
+  const [aid, rid] = v.split(':'), a = S.war.armies.find(x => x.id === +aid), spec = WAR.fieldSpec(S, rid);
+  if (!a || !WAR.canLead(S, a, rid)) { toast('That army can\'t fight there today.'); return; }
+  const boss = chapter2Boss(rid);
+  window.FIELD.runField(S, a, spec.Q, { fort: spec.fort, title: `${a.name} at ${WAR.REGIONS[rid].name}`, boss }, out => {
+    const rep = WAR.fieldResult(S, a, rid, out);
+    save();
+    overlay(`<div class="sheet levelup"><h2>${rep.won ? (rep.captured ? `${WAR.REGIONS[rid].name} is yours!` : 'Victory') : out.retreat ? 'You fall back' : 'Beaten'}</h2>
+      ${rep.fallen.length ? `<p class="small" style="color:#ffb0a0">Fallen: ${rep.fallen.map(s => `${WAR.title(s)} ${esc(s.name)}`).join(', ')}</p>` : '<p class="small" style="color:var(--good)">Every squad came home.</p>'}
+      ${out.dead.length > rep.fallen.length ? `<p class="small muted">${out.dead.length - rep.fallen.length} squad${out.dead.length - rep.fallen.length > 1 ? 's' : ''} went down but limped home wounded.</p>` : ''}
+      ${rep.promoted.length ? `<p class="small" style="color:var(--gold)">Promoted: ${rep.promoted.map(p => `${esc(p.s.name)} to ${WAR.RANKS[p.rank - 1]}`).join(', ')}</p>` : ''}
+      ${rep.heroXp ? `<p class="small">${heroName(a.general)} +${rep.heroXp} XP${rep.heroLevels ? ' <b style="color:var(--gold)">Level up!</b>' : ''}</p>` : ''}
+      <button class="primary big" data-a="closeOv">Back to the war</button></div>`, 'center');
+    go('war', { region: rid, army: a.id });
+  });
 };
 ACT.wNewArmy = () => { const a = WAR.newArmy(S); save(); go('army', { id: a.id }); };
 ACT.wArmy = v => go('army', { id: +v });
@@ -1328,7 +1387,7 @@ ACT.wSoldier = v => {
 };
 ACT.wPerk = v => { const [sid, k] = v.split(':'); if (WAR.buyPerk(S.war.soldiers[+sid], k)) { save(); render(); ACT.wSoldier(sid); } };
 // Starting the war after chapter one.
-ACT.warBegin = () => scene('war_begins', () => { WAR.start(S); S.shopTier = Math.max(S.shopTier, 4); save(); ACT.war(); });
+ACT.warBegin = () => scene('war_begins', () => scene('kindle_first', () => { WAR.start(S); S.shopTier = Math.max(S.shopTier, 4); save(); ACT.war(); }));
 function warCard() {
   if (!WAR) return '';
   if (!warOn()) return S.areas.tower && S.areas.tower.cleared ? `<div class="card defend alert"><b class="serif" style="font-size:1.1rem;color:var(--bad)">The beacons are lit</b>
@@ -1399,6 +1458,7 @@ function startBattle(specs, c) {
   drawUnits(); drawBars(); drawCmd();
   if (c.ambush) banner('Ambush!');
   if (c.hunt) banner('Beast hunt: weaken one, then Tame it', true);
+  if (c.learned) warnBanner(`They have learned your ${c.learned}. ${B.enemies[0].name} resists it now. Try something else.`);
   if (c.apex) warnBanner(`${W.APEX[c.area].name}, the apex of ${E.area(c.area).name}!`);
   else if (c.ground && B.enemies.some(e => e.elite)) warnBanner(B.enemies.filter(e => e.elite).map(e => `${e.name}: ${D.ELITES[e.elite].desc}`).join(' '), false);
   else if (B.enemies.some(e => e.elite)) warnBanner(B.enemies.filter(e => e.elite).map(e => `Elite! ${e.name}: ${D.ELITES[e.elite].desc}`).join(' '), false);
@@ -1604,7 +1664,8 @@ function drawCmd() {
     const beasts = a.skills.includes('tame') ? B.enemies.filter(e => e.hp > 0 && e.tpl.tame && !e.isBoss) : [];
     const best = beasts.sort((x, y) => B.tameOdds(y, a) - B.tameOdds(x, a))[0];
     const tameBtn = best ? `<button class="gold" style="width:100%;margin-bottom:8px" data-a="bSkill" data-v="tame">Tame · best odds ${Math.round(B.tameOdds(best, a) * 100)}% (${esc(best.name)})</button>` : '';
-    el.innerHTML = `<div class="cmdtop"><b class="serif">${a.name}'s turn</b>${surgeHTML()}${autoBtn}</div>${surge}${tameBtn}
+    const kindle = a.id === 'isolde' && warOn() && !B.kindled ? `<button class="kindlebtn" data-a="bKindle">Kindle the Ember <span class="small">(${S.toll || 0} so far)</span></button>` : '';
+    el.innerHTML = `<div class="cmdtop"><b class="serif">${a.name}'s turn</b>${surgeHTML()}${autoBtn}</div>${surge}${kindle}${tameBtn}
       <div class="grid2"><button class="primary" data-a="bAttack">Attack</button><button data-a="bSkills">Skills</button>
       <button data-a="bItems">Items</button><button data-a="bDefend">Defend</button></div>
       ${B.boss ? '' : '<button class="link" style="width:100%;margin-top:6px" data-a="bFlee">Try to run</button>'}`;
@@ -1647,6 +1708,7 @@ ACT.bItems = () => { pending.mode = 'items'; drawCmd(); };
 ACT.bBack = () => { pending.mode = 'main'; clearTargets(); drawCmd(); };
 ACT.bDefend = () => resolve({ kind: 'defend' });
 ACT.bFlee = () => resolve({ kind: 'flee' });
+ACT.bKindle = () => resolve({ kind: 'kindle' });
 ACT.bSurge = () => {
   const sk = D.SKILLS[D.SURGE[pending.a.id]];
   if (sk.target === 'enemy') startTargeting('enemy', { kind: 'surge' }, sk.name);

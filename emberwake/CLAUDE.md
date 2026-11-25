@@ -127,6 +127,15 @@ Player asked for chapter two with a war campaign and higher stakes: be able to g
 - Bot (simwar.js): a naive bot loses some villages early, then pulls ahead; soldiers reach Legend around day 35 to 45.
 - Party power: Awakening at level 20 (2500g, 6 shards): +10% every stat and a signature move per hero (Iron Tempest, Thousand Arrows, Emberfall, Pack Storm, Death's Door, Last Light, Blackwater). Creatures: Elder third evolution at 24 (+25%, Cataclysm, Bulwark Roar or Renewal), training (a point per level: Fangs, Hide, Instinct to 5, Signature to 3), beast gear slot (collars and barding, tiers 2 to 5, forgeable; stats cached on c.gearStats). Forge to +10 with starsteel and emberglass. Tier 4 shop when chapter one ends, tier 5 from Kingsbridge.
 
+## Chapter two, part two: field battles and the story (25 November 2026)
+
+- fieldbattle.js (FIELD): war battles you fight yourself, from "Lead it yourself, now" on the war map (uses that army's move for the day; WAR.canLead, WAR.fieldSpec, WAR.fieldResult). One unit per squad plus the general (Rally: +40% for 8s, 30s cooldown). Open field against a Hollow army, or storming a Hollow-held fort, mine, temple or the Gate: wall segments and a weaker gate to batter, bowmen on top, take the banner (stand by it 5s) or kill them all. Uses the siege camera (SIEGEUI exports Camera, zoomButtons, drawSprite), tap to select, Box, Everyone, tap ground or an enemy. Squads that go down die 60% of the time (less with Armour and rank), otherwise limp home. Bot with no orders: open field roughly matches the auto odds; forts are a bit harder, the gate is the way in. Soldiers earn more XP than in auto battles.
+SPOILERS (keep them from the player):
+- Kindle the Ember: Isolde's battle command in chapter two, once a fight: surge full, party healed 30%, Fury and Ward. Counted in S.toll. The Drowned Saint reveals that every kindling burns someone: the Hollow are the people the Ember burned, King Vael's kingdom.
+- Three marshals hold Greyfort (Marshal Grieve, plated, Ashby militia once), Kingsbridge (Lady Cinder, fire and mirror, a baker's girl burned for the long siege) and the Temple (the Drowned Saint, warded, healer escort). Take the fort, then "Corner X in the keep" for the story fight (set levels 21, 23, 25). While any marshal lives every Hollow army is 10% stronger each and the Gate stays sealed. All three dead opens the Gate (gate_open); take it (Gatewarden), then face Vael (level 28, warded, mirror, wind-up).
+- Enemies learn: elemental damage used in the war counts in S.adapt; once one element is used 20 times, the story bosses resist it (0.4) and say so.
+- Ending choice (vael_choice): break the Ember (everything it burned is let go; if the toll is 5 or less some Hollow remember their names) or keep it (Isolde rules the Hollow; with a high toll her eyes are coals). Then End of Chapter Two; the war carries on as a sandbox.
+
 ## Next layers
 
 - War campaigns (agreed as the next big piece): a territory map, Hollow held villages and forts, battles with the soldiers trained for the siege plus heroes, captured ground paying out daily.

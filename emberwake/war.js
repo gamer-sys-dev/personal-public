@@ -217,8 +217,50 @@ W2.battle = function (S, a, Q, mode, rng) {
   return { won, P: Math.round(P), Q: Math.round(Q), p, fallen, promoted, heroXp, heroLevels };
 };
 
+// ---------- battles you fight yourself (fieldbattle.js) ----------
+// What you'd face leading an attack on a region now, or riding out against a Hollow army in it.
+W2.fieldSpec = function (S, rid) {
+  const r = S.war.regions[rid], R = REGIONS[rid];
+  const fort = r.owner === 'h' && r.garrison > 0 && ['fort', 'citadel', 'mine', 'temple'].includes(R.kind);
+  return { Q: W2.foePower(S, rid), fort, hollowHere: S.war.hollow.filter(h => h.at === rid) };
+};
+W2.canLead = (S, a, rid) => !a.broken && a.squads.length && a.acted !== S.war.day && (a.at === rid || W2.canMove(S, a, rid)) && W2.foePower(S, rid) > 0;
+// Books the result of a battle you fought yourself. out: { won, dead: [sid], Q, retreat }.
+W2.fieldResult = function (S, a, rid, out, rng) {
+  rng = rng || Math.random;
+  const w = S.war, fallen = [], promoted = [];
+  a.acted = w.day; a.target = null;
+  for (const sid of a.squads.slice()) {
+    const s = w.soldiers[sid];
+    if (out.dead.includes(sid) && rng() < 0.6 * (1 - 0.2 * (s.perks.armour || 0)) * (1 - 0.04 * (s.rank - 1))) {
+      fallen.push(s); a.squads = a.squads.filter(x => x !== sid); delete w.soldiers[sid]; continue;
+    }
+    s.battles++;
+    if (out.retreat && !out.won) continue;
+    const ups = W2.soldierXp(S, s, (out.won ? 35 : 12) + out.Q / 7);
+    if (ups.length) promoted.push({ s, rank: s.rank });
+  }
+  let heroXp = 0, heroLevels = 0;
+  if (a.general) { heroXp = Math.round((out.won ? 1.2 : 0.4) * out.Q * 3 * (1 + (W2.mods(S).heroXp || 0))); heroLevels = E.gainXp(S, a.general, heroXp); }
+  const rep = { army: a.name, where: REGIONS[rid].name, won: out.won, fallen, promoted, heroXp, heroLevels, captured: false };
+  if (out.won) {
+    w.hollow = w.hollow.filter(h => h.at !== rid);
+    a.at = rid;
+    const r = w.regions[rid];
+    if (r.owner === 'h') { r.owner = 'p'; r.garrison = 0; r.taken++; rep.captured = true; }
+    r.siege = 0;
+  } else {
+    a.broken = out.retreat ? 1 : 3;
+    if (a.general && !out.retreat) { w.wounded = w.wounded || {}; w.wounded[a.general] = 3; }
+  }
+  return rep;
+};
 // ---------- orders ----------
-W2.canMove = (S, a, rid) => a.at !== rid && (NEAR[a.at] || []).includes(rid) && !(REGIONS[rid].locked);
+// The Hollow Gate stays sealed until all three marshals are dead.
+W2.LIEUTENANTS = { greyfort: { t: 'grieve', flag: 'grieve_dead', scene: 'grieve_corner', after: 'grieve_dies', sprite: 'hand' }, kingsbridge: { t: 'cinder', flag: 'cinder_dead', scene: 'cinder_corner', after: 'cinder_dies', sprite: 'pitmage' }, temple: { t: 'saint', flag: 'saint_dead', scene: 'saint_corner', after: 'saint_dies', sprite: 'drowned' } };
+W2.locked = (S, rid) => !!REGIONS[rid].locked && !(S.flags && S.flags.gate_open);
+W2.marshalsAlive = S => Object.values(W2.LIEUTENANTS).filter(l => !(S.flags && S.flags[l.flag])).length;
+W2.canMove = (S, a, rid) => a.at !== rid && (NEAR[a.at] || []).includes(rid) && !W2.locked(S, rid);
 W2.order = function (S, armyId, rid) {
   const a = S.war.armies.find(x => x.id === armyId);
   if (!a) return 'No such army.';
@@ -239,7 +281,7 @@ W2.path = function (from, to) {
   return out;
 };
 // The Hollow grow with time and with how much you've taken from them.
-W2.hollowPower = S => Math.round(50 + 6 * S.war.day + 30 * Object.values(S.war.regions).reduce((t, r) => t + (r.taken ? 1 : 0), 0));
+W2.hollowPower = S => Math.round((50 + 6 * S.war.day + 30 * Object.values(S.war.regions).reduce((t, r) => t + (r.taken ? 1 : 0), 0)) * (1 + 0.1 * W2.marshalsAlive(S)));
 W2.spawn = function (S, rng) {
   rng = rng || Math.random;
   const forts = Object.keys(S.war.regions).filter(id => S.war.regions[id].owner === 'h' && S.war.regions[id].garrison > 0);
@@ -265,6 +307,7 @@ W2.day = function (S, rng) {
   // 1. your armies march and attack
   for (const a of w.armies) {
     if (a.broken) { a.broken--; continue; }
+    if (a.acted === w.day) { a.target = null; continue; }
     if (!a.target) continue;
     const rid = a.target; a.target = null;
     const r = w.regions[rid];
