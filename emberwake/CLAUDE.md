@@ -103,6 +103,14 @@ Player feedback: battles need more punch; some fights are too easy to coast thro
 - Apex beasts (W.APEX): one per area, party level +3 (or boss +4), 5.5x HP, a party-wide wind-up every three turns, 8x XP. Returns after every rest. First kill: a unique charm (Greymane's Fang, Crown of the Murder, Old Night's Wing, Mother Lurker's Heart, the Black Collar) and a Tome of Insight; later kills gold, shards and iron. Hesk can tame it at half odds as an Alpha (+20% stats). Bot: about 1 in 4 on auto, 9 in 10 defending against the wind-up.
 - Bounties: two at a time from cleared areas (kill 4 to 6 of a kind there), on the keep and the hunting card. Gold and the area's material; every third adds a Tome of Insight.
 
+## Kennels and release advice (25 November 2026)
+
+Player feedback: kennels stuck at 8/8 with no way to make room for better beasts (Alphas); wants a recommendation on who to release, by potential rather than level.
+- Kennels go to 12 (900g, iron, pelts, bone dust; kennelled creatures earn 75% XP) and 16 (1800g, iron, moss, shards). Expand from the Creatures screen.
+- E.potential: the creature's final form at level 20 (its current form, or the best one still open), Alpha counted, as 1 to 5 stars and the name it tops out as. Crows lowest, the Ember Fox and Alphas highest.
+- E.releaseAdvice: weaker copies of a kind you already have first, then the lowest potential when the kennels are full. The companion is never suggested. Suggested cards are outlined in red with the reason.
+- Taming no longer fails on full kennels. After the fight a "kennels are full" screen lists everyone (new arrival marked, suggestions first) to release one, or expand the kennels there and then. Release now uses an in-game confirm, not the browser one.
+
 ## Next layers
 
 - War campaigns (agreed as the next big piece): a territory map, Hollow held villages and forts, battles with the soldiers trained for the siege plus heroes, captured ground paying out daily.

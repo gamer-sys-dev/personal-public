@@ -362,7 +362,7 @@ SCREENS.area = () => {
   if (n.t === 'den' && st.done[n.id]) {
     const kinds = [...new Set(n.hunt)].filter(k => D.ENEMIES[k].tame);
     const why = !S.party.includes('hesk') ? 'Hesk has to be in the party to tame anything. Swap her in from Party, Line-up.'
-      : S.creatures.length >= E.capacity(S) ? `Your kennels are full (${S.creatures.length}/${E.capacity(S)}). Build or expand them on the noticeboard, or release a creature.` : '';
+      : '';
     acts.push(`<div class="card"><b>Beast hunt</b><div class="small muted" style="margin-top:4px">Lives here: ${kinds.map(k => D.ENEMIES[k].name + (S.dex && S.dex[D.ENEMIES[k].tame] ? ' (tamed before)' : ' <b style="color:var(--gold)">(new!)</b>')).join(', ')}.</div>
       <div class="small" style="margin-top:4px">Wear a beast down, then use Hesk's <b>Tame</b> button. The more hurt it is and the higher Hesk's level above it, the better the odds. Hunting here adds 15%.</div>
       ${why ? `<div class="small" style="color:var(--bad);margin-top:4px">${why}</div>` : ''}
@@ -525,24 +525,37 @@ function slotPicker(heroId, slot) {
     <button class="link" data-a="slot" data-v="">Close</button></div>`;
 }
 
+const stars = n => `<span class="pot">${'★'.repeat(n)}<span class="off">${'★'.repeat(5 - n)}</span></span>`;
+function kennelUpgrade() {
+  const c = E.buildCost(S, 'kennels');
+  if (!c || !S.buildings.kennels) return '';
+  const next = W.KENNEL_CAP[S.buildings.kennels + 1];
+  return `<div class="card"><div class="spread"><b>Expand the kennels</b><span class="pill">${E.capacity(S)} → ${next} places</span></div>
+    <div class="small muted" style="margin-top:4px">${c.text} Costs ${costText(c)}.</div>
+    <button class="sm gold" style="margin-top:6px" data-a="kennelUp" ${E.canAfford(S, c) ? '' : 'disabled'}>Expand</button></div>`;
+}
 SCREENS.creatures = () => {
-  const cap = E.capacity(S);
+  const cap = E.capacity(S), advice = E.releaseAdvice(S);
   const list = S.creatures.map(c => {
+    const pot = E.potential(c);
     const st = E.creatureStats(c), t = c.tally, total = t.attack + t.guard + t.support;
     const lean = ['attack', 'guard', 'support'].sort((a, b) => t[b] - t[a])[0];
     const evo = c.final ? `<div class="small" style="color:var(--gold)">Final form reached.</div>` : c.form ? `<div class="small" style="color:var(--gold)">Evolved: ${W.STANCES[c.form].name} form. Evolves once more at level ${W.EVO2_LVL} into a <b>${W.EVO2[c.sp][c.form]}</b>.</div>`
       : `<div class="small muted">Evolves twice: at level ${W.EVO_LVL}, then again at ${W.EVO2_LVL}. ${total ? `Leaning ${W.STANCES[lean].name} (${t.attack} attack, ${t.guard} guard, ${t.support} support turns), which would make it a <b>${W.CREATURES[c.sp].evo[lean]}</b>.` : 'Its stance in battle decides what it becomes.'}</div>`;
-    return `<div class="card"><div class="spread"><div class="row">${img(E.creatureSprite(c), 3)}<div><b>${E.creatureName(c)}</b><div class="small muted">Lv ${c.lvl} · HP ${c.hp}/${st.maxHp} · STR ${st.str} · MAG ${st.mag} · DEF ${st.def}</div></div></div>
+    return `<div class="card ${advice[c.cid] ? 'advise' : ''}"><div class="spread"><div class="row">${img(E.creatureSprite(c), 3)}<div><b>${E.creatureName(c)}</b><div class="small muted">Lv ${c.lvl} · HP ${c.hp}/${st.maxHp} · STR ${st.str} · MAG ${st.mag} · DEF ${st.def}</div>
+      <div class="small">Potential ${stars(pot.stars)} <span class="muted">${c.final ? 'at its peak form' : 'tops out as ' + (c.form ? '' : 'up to ') + (/^[AEIOU]/.test(pot.tops) ? 'an ' : 'a ') + pot.tops}</span></div></div></div>
       ${S.companion === c.cid ? '<span class="pill good">With you</span>' : `<button class="sm gold" data-a="companion" data-v="${c.cid}">Take along</button>`}</div>
       <div class="bar xp" style="margin:8px 0 4px"><i style="width:${pct(c.xp, E.xpNext(c.lvl))}%"></i></div>${evo}
       <div class="row" style="margin-top:8px">${Object.keys(W.STANCES).map(s => `<button class="sm ${c.stance === s ? 'gold' : ''}" data-a="stance" data-v="${c.cid}:${s}">${W.STANCES[s].name}</button>`).join('')}
-      <button class="link small" data-a="release" data-v="${c.cid}">Release</button></div>
-      <div class="small muted" style="margin-top:4px">${W.STANCES[c.stance].desc}</div></div>`;
+      <button class="sm ${advice[c.cid] ? 'bad' : ''}" data-a="release" data-v="${c.cid}" ${S.companion === c.cid ? 'disabled' : ''}>Release</button></div>
+      <div class="small muted" style="margin-top:4px">${W.STANCES[c.stance].desc}</div>
+      ${advice[c.cid] ? `<div class="small advice">Suggested to release. ${advice[c.cid]}</div>` : ''}</div>`;
   }).join('');
   return `<div class="topbar"><h1>Creatures</h1><button class="sm" data-a="back">Back</button></div>
-    <p class="muted">${S.creatures.length} of ${cap} places. Hesk can tame a beast in battle once it's badly hurt. One creature fights beside you and earns XP. ${S.buildings.kennels >= 2 ? 'The rest earn half XP in the kennels.' : ''}</p>
+    <p class="muted">${S.creatures.length} of ${cap} places. Hesk can tame a beast in battle once it's badly hurt, even with the kennels full: you choose who to let go after. One creature fights beside you and earns XP. ${S.buildings.kennels >= 3 ? 'The rest earn three quarters XP in the kennels.' : S.buildings.kennels >= 2 ? 'The rest earn half XP in the kennels.' : ''} Potential is how strong a creature can end up, not how strong it is now.</p>
+    ${kennelUpgrade()}
     ${list || '<div class="card muted">No creatures yet.</div>'}
-    ${S.buildings.kennels < 2 ? '<button class="big" data-a="board">More room: build kennels on the noticeboard</button>' : ''}
+    ${!S.buildings.kennels ? '<button class="big" data-a="board">More room: build kennels on the noticeboard</button>' : ''}
     <div class="card"><h2>Beast book</h2><p class="muted small">${Object.keys(S.dex || {}).length} of ${Object.keys(W.CREATURES).length} kinds tamed. Rewards at 3, 5, 8 and 10.</p>
       <div class="list">${Object.keys(W.CREATURES).map(k => { const has = S.dex && S.dex[k]; return `<div class="row">${has ? img(W.CREATURES[k].sprite, 2) : `<span style="opacity:.25;filter:brightness(0)">${img(W.CREATURES[k].sprite, 2)}</span>`}<div class="grow"><b>${has ? W.CREATURES[k].name : '???'}</b><div class="small muted">${W.HABITAT[k]}</div></div></div>`; }).join('')}</div></div>`;
 };
@@ -805,12 +818,38 @@ ACT.swapDo = v => {
 ACT.companion = v => { S.companion = +v; toast(E.creatureName(E.creatureOf(S, +v)) + ' comes with you.'); render(); };
 ACT.stance = v => { const [cid, s] = v.split(':'); E.creatureOf(S, +cid).stance = s; render(); };
 ACT.release = v => {
+  const c = E.creatureOf(S, +v), pot = E.potential(c);
+  overlay(`<div class="sheet" style="text-align:center"><h2>Release ${esc(E.creatureName(c))}?</h2>${img(E.creatureSprite(c), 4)}
+    <p>Level ${c.lvl} · Potential ${stars(pot.stars)}</p><p class="muted small">It goes back to the wild. This can't be undone.</p>
+    <button class="primary big" data-a="releaseGo" data-v="${c.cid}">Release</button><button class="big" data-a="closeOv">Keep it</button></div>`, 'center');
+};
+ACT.releaseGo = v => {
   const c = E.creatureOf(S, +v);
-  if (!confirm(`Release ${E.creatureName(c)} back into the wild? This can't be undone.`)) return;
+  closeOverlay();
+  if (!c) return;
   S.creatures = S.creatures.filter(x => x !== c);
   if (S.companion === c.cid) S.companion = S.creatures[0] ? S.creatures[0].cid : null;
+  toast(`${E.creatureName(c)} runs off into the trees.`);
+  save();
+  if (ACT.afterRoom) { const f = ACT.afterRoom; if (S.creatures.length <= E.capacity(S)) { ACT.afterRoom = null; f(); } else makeRoom(f); return; }
   render();
 };
+ACT.kennelUp = () => { if (E.build(S, 'kennels')) { toast(`Kennels expanded: room for ${E.capacity(S)}.`); save(); render(); } };
+// Over capacity after a tame: pick who goes, new arrival included. The suggested ones are marked.
+function makeRoom(then) {
+  ACT.afterRoom = then;
+  const advice = E.releaseAdvice(S), cap = E.capacity(S);
+  overlay(`<div class="sheet levelup"><h2>The kennels are full</h2><p class="muted">${S.creatures.length} creatures, room for ${cap}. Let one go.</p>
+    ${S.creatures.slice().sort((a, b) => (advice[b.cid] ? 1 : 0) - (advice[a.cid] ? 1 : 0) || E.potential(a).score - E.potential(b).score).map(c => {
+      const pot = E.potential(c), isNew = c === S.creatures[S.creatures.length - 1];
+      return `<div class="lvcard ${advice[c.cid] ? 'advise' : ''}"><div class="spread"><div class="row">${img(E.creatureSprite(c), 3)}<div><b>${esc(E.creatureName(c))}</b>${isNew ? ' <span class="pill good">New</span>' : ''}${S.companion === c.cid ? ' <span class="pill">With you</span>' : ''}
+        <div class="small">Lv ${c.lvl} · ${stars(pot.stars)}</div></div></div>
+        <button class="sm ${advice[c.cid] ? 'bad' : ''}" data-a="releaseGo" data-v="${c.cid}" ${S.companion === c.cid ? 'disabled' : ''}>Release</button></div>
+        ${advice[c.cid] ? `<div class="small advice">${advice[c.cid]}</div>` : ''}</div>`;
+    }).join('')}
+    ${E.buildCost(S, 'kennels') && E.canAfford(S, E.buildCost(S, 'kennels')) && S.buildings.kennels ? `<button class="big gold" data-a="roomUp">Expand the kennels instead (${costText(E.buildCost(S, 'kennels'))})</button>` : ''}</div>`, 'center');
+}
+ACT.roomUp = () => { E.build(S, 'kennels'); save(); closeOverlay(); toast(`Kennels expanded: room for ${E.capacity(S)}.`); const f = ACT.afterRoom; ACT.afterRoom = null; if (S.creatures.length > E.capacity(S)) makeRoom(f); else f(); };
 ACT.build = b => {
   if (E.build(S, b)) { toast(`${W.BUILDINGS[b].name} built. ${W.BUILDINGS[b].levels[S.buildings[b] - 1].text}`, 3200); render(); }
 };
@@ -1498,6 +1537,7 @@ function endBattle() {
     closeOverlay(); close();
     const queue = [];
     if (anyLevel) queue.push(() => levelUpScreen(res, next));
+    if (S.creatures.length > E.capacity(S)) queue.push(() => makeRoom(next));
     for (const ev of (res.evolved || [])) queue.push(() => evolveScreen(ev, next));
     for (const g of res.gear) { const inst = S.gear.slice().reverse().find(x => x.id === g); if (inst) queue.push(() => { equipPrompt(inst); ACT.closeOv = () => { closeOverlay(); ACT.closeOv = () => closeOverlay(); next(); }; }); }
     if (huntOut && huntOut.gearUid) queue.push(() => { equipPrompt(E.gearOf(S, huntOut.gearUid)); ACT.closeOv = () => { closeOverlay(); ACT.closeOv = () => closeOverlay(); next(); }; });

@@ -79,6 +79,8 @@ const BUILDINGS = {
     levels: [
       { gold: 120, mats: { pelt: 2 }, text: 'Room for 4 creatures.' },
       { gold: 400, mats: { ore: 3, pelt: 3 }, text: 'Room for 8 creatures. Creatures in kennels earn half XP.' },
+      { gold: 900, mats: { ore: 6, pelt: 6, bone: 3 }, text: 'Room for 12 creatures. Creatures in kennels earn three quarters XP.' },
+      { gold: 1800, mats: { ore: 10, moss: 6, shard: 4 }, text: 'Room for 16 creatures.' },
     ] },
   barracks: { name: 'Barracks', desc: 'Drills the militia and trains new kinds of soldier for the defence of the keep.',
     levels: [
@@ -92,7 +94,7 @@ const BUILDINGS = {
     ] },
 };
 const YARD_RATE = [0, 0.5, 0.8];
-const KENNEL_CAP = [2, 4, 8];
+const KENNEL_CAP = [2, 4, 8, 12, 16];
 
 // ---------- Maps ----------
 // Grid: x 0 to 4 across, y 0 (far end) to 7 (entrance).

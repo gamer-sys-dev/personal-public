@@ -141,6 +141,33 @@ E.creatureStats = function (c) {
   };
 };
 E.capacity = S => W.KENNEL_CAP[S.buildings.kennels || 0];
+// Potential: how strong a creature ends up, not how strong it is now. Its final form at level 20,
+// following the form it has (or the best one it could still take), with Alpha counted.
+E.potential = function (c) {
+  const score = f => { const st = E.creatureStats({ sp: c.sp, lvl: 20, form: f, final: true, alpha: c.alpha }); return Math.round(st.maxHp / 8 + st.str + st.mag + st.def + st.res + st.spd); };
+  const forms = c.form ? [c.form] : ['attack', 'guard', 'support'];
+  let best = forms[0], bs = -1;
+  for (const f of forms) { const v = score(f); if (v > bs) { bs = v; best = f; } }
+  const stars = bs >= 430 ? 5 : bs >= 395 ? 4 : bs >= 360 ? 3 : bs >= 330 ? 2 : 1;
+  return { score: bs, stars, form: best, tops: (c.alpha ? 'Alpha ' : '') + W.EVO2[c.sp][best] };
+};
+// Which creatures to let go, and why: weaker copies of a kind first, then the lowest potential when the kennels are full.
+E.releaseAdvice = function (S) {
+  const out = {}, cap = E.capacity(S);
+  const rank = (a, b) => E.potential(b).score - E.potential(a).score || b.lvl - a.lvl;
+  const bySp = {};
+  for (const c of S.creatures) (bySp[c.sp] = bySp[c.sp] || []).push(c);
+  for (const sp in bySp) {
+    const list = bySp[sp].slice().sort(rank);
+    for (const c of list.slice(1)) if (c.cid !== S.companion) out[c.cid] = `You have ${list.length} of this kind. Your level ${list[0].lvl} ${E.creatureName(list[0])} has more in it.`;
+  }
+  if (S.creatures.length >= cap) {
+    const pool = S.creatures.filter(c => c.cid !== S.companion && !out[c.cid]).sort(rank).reverse();
+    const need = Math.max(1, S.creatures.length - cap) - Object.keys(out).length;
+    for (const c of pool.slice(0, Math.max(0, need))) out[c.cid] = `Lowest potential in your kennels: a ${W.CREATURES[c.sp].name} tops out well below the rest.`;
+  }
+  return out;
+};
 E.addCreature = function (S, sp, lvl) {
   const c = { cid: S.nextCid++, sp, lvl: lvl || 1, xp: 0, hp: 0, stance: 'attack', tally: { attack: 0, guard: 0, support: 0 }, form: null };
   c.hp = E.creatureStats(c).maxHp;
@@ -951,7 +978,6 @@ class Battle {
     if (!t || t.hp <= 0) t = this.alive(this.enemies)[0];
     if (!t) return;
     if (!t.tpl.tame || t.isBoss) { ev.push({ t: 'say', text: t.name + ' can\'t be tamed' }); return; }
-    if (this.S.creatures.length + this.tamed.length >= E.capacity(this.S)) { ev.push({ t: 'say', text: 'No room. Build or expand the kennels' }); return; }
     const p = this.tameOdds(t, a);
     if (this.rng() < p) {
       t.tamed = true;
@@ -1177,15 +1203,15 @@ E.finishBattle = function (S, B) {
   for (const c of S.creatures) {
     const fighting = comp && comp.cid === c.cid;
     if (fighting && comp.hp <= 0) continue;
-    const rate = fighting ? 1 : (S.buildings.kennels >= 2 ? 0.5 : 0);
+    const rate = fighting ? 1 : (S.buildings.kennels >= 3 ? 0.75 : S.buildings.kennels >= 2 ? 0.5 : 0);
     if (!rate) continue;
     const gain = Math.max(1, Math.round(xp * factor(c.lvl) * rate));
     const r = E.creatureXp(S, c, gain);
     if (fighting) out.creature = { name: E.creatureName(c), xp: gain, ups: r.ups, lvl: c.lvl };
     if (r.evolved.length) out.evolved = (out.evolved || []).concat(r.evolved);
   }
+  // Taming works even with full kennels; the screen then asks which creature to let go.
   for (const t of B.tamed) {
-    if (S.creatures.length >= E.capacity(S)) break;
     const c = E.addCreature(S, t.sp, t.lvl);
     if (t.alpha) { c.alpha = true; c.hp = E.creatureStats(c).maxHp; }
     out.tamed.push(E.creatureName(c));
