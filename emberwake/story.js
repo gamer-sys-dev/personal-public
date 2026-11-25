@@ -5,6 +5,19 @@
 'use strict';
 
 const STORY5 = {
+  // Chapter two opens: the war.
+  war_begins: [
+    ['', 'Three weeks after the tower fell, the beacons on the northern hills are lit, one after another, all the way to the sea.'],
+    ['', 'A rider from Brightwater comes up the hill at a gallop, her horse lathered white. "They\'re marching," she says. "Not raiders. Columns. With banners."'],
+    ['bram', 'Banners. They never had banners.'],
+    ['isolde', 'They never had anyone giving them orders. Somebody is now. I can feel it in the stone. It pulls north, like a tide going out.'],
+    ['aldric', 'Then we do what the old kingdom did. Raise companies. Hold the roads. Take the forts back one at a time.', 'has:aldric'],
+    ['morwen', 'And the villages in between? The fen folk won\'t last a week on their own.', 'has:morwen'],
+    ['bram', 'Ashby first. I want to stand where the forge was.'],
+    ['isolde', 'Every place we can\'t reach, they\'ll take. We can\'t be everywhere, Bram.'],
+    ['bram', 'Not yet. So we get strong enough that we can.'],
+    ['', 'The war has begun. The war map is open from the keep. Every rest at Emberwake is a day of war: armies march, the Hollow march, and holdings pay out.'],
+  ],
   intro: [
     ['', 'Ashby burned three nights ago. The Hollow came out of the north with no banners and no faces, and by morning the village was ash.'],
     ['', 'Three got out. Bram, the smith\'s son. Wren, who poached the lord\'s deer for years and never got caught. Isolde, apprentice to old Magister Hale, who never finished her training.'],

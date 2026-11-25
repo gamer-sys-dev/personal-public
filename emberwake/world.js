@@ -28,7 +28,7 @@ const CREATURES = {
   hound:    { name: 'Shadow Hound', sprite: 'hound', m: { hp: 1, str: 1.15, mag: .6, def: .9, res: .8, spd: 1.35 }, attack: ['bite', 'pounce'], support: 'lick',
               evo: { attack: 'Nightmare Hound', guard: 'Ward Hound', support: 'Shade Hound' } },
 };
-const EVO_LVL = 8, EVO2_LVL = 16;
+const EVO_LVL = 8, EVO2_LVL = 16, EVO3_LVL = 24;
 // Where each kind of beast can be found. Shown in the bestiary.
 const HABITAT = {
   rat: 'Thornwood, all over. The rat warren is thick with them.',
@@ -553,6 +553,6 @@ const APEX = {
 };
 // Bounties posted on the noticeboard: kill so many of a kind anywhere in that area.
 const BOUNTY_N = [4, 5, 6];
-const WORLD = { APEX, BOUNTY_N, HABITAT, DEX_REWARDS, EVO2_LVL, EVO2, STORY4, ARENA, STORY3, CREATURES, EVO_LVL, EVO_MULT, STANCES, BUILDINGS, YARD_RATE, KENNEL_CAP, MAPS, genMap, EVENTS, STORY2, BOARD };
+const WORLD = { EVO3_LVL, APEX, BOUNTY_N, HABITAT, DEX_REWARDS, EVO2_LVL, EVO2, STORY4, ARENA, STORY3, CREATURES, EVO_LVL, EVO_MULT, STANCES, BUILDINGS, YARD_RATE, KENNEL_CAP, MAPS, genMap, EVENTS, STORY2, BOARD };
 if (typeof module !== 'undefined' && module.exports) module.exports = WORLD; else root.WORLD = WORLD;
 })(this);

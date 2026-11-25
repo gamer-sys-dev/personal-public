@@ -30,6 +30,8 @@ E.newGame = function () {
 };
 // Fills in anything a save from an older layer is missing.
 E.ensure = function (S) {
+  for (const c of (S.creatures || [])) if (c.final && !c.mythic && c.lvl >= W.EVO3_LVL) c.mythic = true;
+  if (S.areas && S.areas.tower && S.areas.tower.cleared) S.shopTier = Math.max(S.shopTier || 1, 4);
   S.buildings = Object.assign({ yard: 0, kennels: 0, barracks: 0, walls: 0 }, S.buildings || {});
   S.siege = S.siege || { best: 0, stars: {} };
   S.arena = S.arena || { won: {} };
@@ -115,6 +117,10 @@ E.heroStats = function (S, id) {
     for (const k in gs) st[k] += gs[k];
     if (D.GEAR[g.id].flags) addFlags(D.GEAR[g.id].flags);
   }
+  if (h.awakened) { skills.push(D.AWAKEN[id]); for (const k of D.STATS) if (k !== 'crit') st[k] *= 1.1; }
+  // War: forts held raise every hero's stats
+  const wm = E.warMods ? E.warMods(S) : null;
+  if (wm && wm.stat) for (const k of D.STATS) if (k !== 'crit') st[k] *= 1 + wm.stat;
   for (const k of D.STATS) st[k] = Math.max(k === 'hp' ? 1 : 0, Math.floor(st[k]));
   st.maxHp = st.hp; st.maxMp = st.mp; delete st.hp; delete st.mp;
   st.flags = flags; st.skills = skills.map(s => (h.evolved && h.evolved[s]) || s);
@@ -123,22 +129,32 @@ E.heroStats = function (S, id) {
 
 // ---------- Creatures ----------
 E.creatureName = c => (c.alpha ? 'Alpha ' : '') + E.creatureBase(c);
-E.creatureBase = c => c.final ? W.EVO2[c.sp][c.form] : c.form ? W.CREATURES[c.sp].evo[c.form] : W.CREATURES[c.sp].name;
+E.creatureBase = c => c.mythic ? 'Elder ' + W.EVO2[c.sp][c.form] : c.final ? W.EVO2[c.sp][c.form] : c.form ? W.CREATURES[c.sp].evo[c.form] : W.CREATURES[c.sp].name;
 E.creatureSprite = c => W.CREATURES[c.sp].sprite + (c.form ? '@' + c.form + (c.final ? '2' : '') : '');
 E.creatureStats = function (c) {
   const sp = W.CREATURES[c.sp], L = c.lvl, m = Object.assign({}, sp.m);
   if (c.form) for (const k in W.EVO_MULT[c.form]) m[k] = (m[k] || 1) * W.EVO_MULT[c.form][k];
   if (c.final) for (const k in m) m[k] *= 1.25;
   if (c.alpha) for (const k in m) m[k] *= 1.2;
+  if (c.mythic) for (const k in m) m[k] *= 1.25;
+  // Training: points spent on Fangs, Hide, Instinct and the signature move
+  const tr = c.train || {};
+  m.str *= 1 + 0.1 * (tr.fang || 0);
+  m.hp *= 1 + 0.1 * (tr.hide || 0); m.def *= 1 + 0.1 * (tr.hide || 0);
+  for (const k of ['spd', 'mag', 'res']) m[k] *= 1 + 0.1 * (tr.instinct || 0);
   const skills = sp.attack.slice();
   if (c.form === 'attack') skills.push(c.final ? 'ravage' : 'rend');
   skills.push(c.form === 'support' ? (c.final ? 'greater_mend' : 'mend') : sp.support, 'guard_ally', 'howl');
-  return {
+  if (c.mythic) skills.push({ attack: 'cataclysm', guard: 'bulwark_roar', support: 'renewal' }[c.form]);
+  const out = {
     maxHp: Math.round(m.hp * (36 + 19 * L) * 0.9), maxMp: 0,
     str: Math.floor(m.str * (8 + 2.9 * L) * 0.85), mag: Math.floor(m.mag * (8 + 2.9 * L) * 0.85),
     def: Math.floor(m.def * (4 + 2.2 * L)), res: Math.floor(m.res * (4 + 2.2 * L)),
-    spd: Math.floor(m.spd * (8 + 0.8 * L)), crit: 5, skills,
+    spd: Math.floor(m.spd * (8 + 0.8 * L)), crit: 5, skills, moveMult: 1 + 0.12 * (tr.sig || 0),
   };
+  // Beast gear: its stats are cached on the creature when equipped or forged
+  for (const k in (c.gearStats || {})) { const key = k === 'hp' ? 'maxHp' : k; if (out[key] != null) out[key] += c.gearStats[k]; }
+  return out;
 };
 E.capacity = S => W.KENNEL_CAP[S.buildings.kennels || 0];
 // Potential: how strong a creature ends up, not how strong it is now. Its final form at level 20,
@@ -203,6 +219,12 @@ E.creatureXp = function (S, c, n) {
       c.final = true;
       c.hp = E.creatureStats(c).maxHp;
       evolved.push({ from, to: E.creatureName(c), form: c.form, final: true });
+    }
+    if (c.final && !c.mythic && c.lvl >= W.EVO3_LVL) {
+      const from = E.creatureName(c);
+      c.mythic = true;
+      c.hp = E.creatureStats(c).maxHp;
+      evolved.push({ from, to: E.creatureName(c), form: c.form, final: true, mythic: true });
     }
   }
   return { ups, evolved };
@@ -307,7 +329,50 @@ E.equip = function (S, id, slot, uid) {
   h.mp += Math.max(0, after.maxMp - before.maxMp);
   E.clampParty(S);
 };
-E.forgeCost = g => (g.plus >= 5 ? null : D.FORGE[g.plus]);
+E.forgeCost = g => (g.plus >= D.FORGE.length ? null : D.FORGE[g.plus]);
+// ---------- Creature training and gear ----------
+// One training point per level. Fangs, Hide and Instinct go to 5 (ranks 4 and 5 cost 2), the signature move to 3 (needs a first evolution).
+E.TRAIN = {
+  fang: { name: 'Fangs', max: 5, desc: '+10% Strength per rank' },
+  hide: { name: 'Hide', max: 5, desc: '+10% HP and Defence per rank' },
+  instinct: { name: 'Instinct', max: 5, desc: '+10% Speed, Magic and Resistance per rank' },
+  sig: { name: 'Signature', max: 3, desc: '+12% to all its moves per rank', needForm: true },
+};
+E.trainCost = r => (r >= 3 ? 2 : 1);
+E.trainSpent = c => { let n = 0; for (const k in (c.train || {})) for (let r = 0; r < c.train[k]; r++) n += E.trainCost(r); return n; };
+E.trainPoints = c => c.lvl - E.trainSpent(c);
+E.canTrain = (c, k) => { const r = (c.train || {})[k] || 0, d = E.TRAIN[k]; return r < d.max && (!d.needForm || c.form) && E.trainPoints(c) >= E.trainCost(r); };
+E.trainCreature = function (c, k) {
+  if (!E.canTrain(c, k)) return false;
+  const before = E.creatureStats(c).maxHp;
+  c.train = c.train || {}; c.train[k] = (c.train[k] || 0) + 1;
+  c.hp += E.creatureStats(c).maxHp - before;
+  return true;
+};
+E.beastGearOf = (S, c) => (c.gear != null ? E.gearOf(S, c.gear) : null);
+E.equipBeast = function (S, cid, uid) {
+  const c = S.creatures.find(x => x.cid === cid);
+  if (!c) return false;
+  for (const o of S.creatures) if (o !== c && o.gear === uid && uid != null) { o.gear = null; o.gearStats = null; }
+  const before = E.creatureStats(c).maxHp;
+  c.gear = uid;
+  const g = uid != null ? E.gearOf(S, uid) : null;
+  c.gearStats = g ? E.gearStats(g) : null;
+  c.hp = Math.max(1, Math.min(E.creatureStats(c).maxHp, c.hp + E.creatureStats(c).maxHp - before));
+  return true;
+};
+E.beastOwner = (S, uid) => S.creatures.find(c => c.gear === uid) || null;
+// ---------- Awakening ----------
+E.canAwaken = (S, id) => { const h = S.heroes[id]; return !h.awakened && h.lvl >= D.AWAKEN_LVL && E.canAfford(S, D.AWAKEN_COST); };
+E.awaken = function (S, id) {
+  if (!E.canAwaken(S, id)) return false;
+  const before = E.heroStats(S, id);
+  E.pay(S, D.AWAKEN_COST);
+  S.heroes[id].awakened = true;
+  const after = E.heroStats(S, id), h = S.heroes[id];
+  h.hp += after.maxHp - before.maxHp; h.mp += after.maxMp - before.maxMp;
+  return true;
+};
 E.canAfford = function (S, c) {
   if (!c || S.gold < c.gold) return false;
   for (const m in (c.mats || {})) if ((S.mats[m] || 0) < c.mats[m]) return false;
@@ -323,6 +388,7 @@ E.forge = function (S, uid) {
   if (!g || !E.canForge(S, g)) return false;
   E.pay(S, E.forgeCost(g));
   g.plus++;
+  for (const c of S.creatures) if (c.gear === uid) c.gearStats = E.gearStats(g);
   E.clampParty(S);
   return true;
 };
@@ -799,6 +865,7 @@ class Battle {
     if (a.flags && sk.el && a.flags['boost_' + sk.el]) n *= 1 + a.flags['boost_' + sk.el];
     if (sk.execute && t.hp / t.maxHp < sk.execute) n *= 2;
     if (a.isCreature && this.bond) n *= 1 + this.bond;
+    if (a.isCreature && a.moveMult) n *= a.moveMult;
     return n;
   }
   calc(a, t, sk, mult) {
@@ -850,6 +917,7 @@ class Battle {
   healAmount(a, sk, mult) {
     let n = sk.power * (this.stat(a, 'mag') * 2.2 + 15) * (mult || 1);
     if (a.flags && a.flags.healBoost) n *= 1 + a.flags.healBoost;
+    if (a.isCreature && a.moveMult) n *= a.moveMult;
     return Math.round(n * (0.95 + this.rng() * 0.1));
   }
   targetsFor(a, kind, chosen) {
@@ -1194,13 +1262,14 @@ E.finishBattle = function (S, B) {
   const top = Math.max(...S.roster.map(id => S.heroes[id].lvl)), ptop = Math.max(...S.party.map(id => S.heroes[id].lvl));
   const factor = L => clamp(1 + 0.12 * (avgL - L), 0.2, 1.5);
   out.before = {};
+  const wm = E.warMods ? E.warMods(S) : null;
   for (const id of S.roster) out.before[id] = E.heroStats(S, id);
   for (const id of S.roster) {
     const hs = S.heroes[id], actor = B.heroes.find(h => h.id === id && !h.isCreature);
     let gain = 0;
     if (actor) {
       if (actor.hp <= 0) continue;
-      gain = xp * factor(hs.lvl) * (1 + 0.25 * clamp(ptop - hs.lvl, 0, 4)) * (1 + (actor.flags.xpBonus || 0));
+      gain = xp * factor(hs.lvl) * (1 + 0.25 * clamp(ptop - hs.lvl, 0, 4)) * (1 + (actor.flags.xpBonus || 0) + (wm ? wm.heroXp : 0));
       out.heroXp[id] = Math.max(1, Math.round(gain));
     } else {
       const rate = W.YARD_RATE[S.buildings.yard || 0];
@@ -1217,7 +1286,7 @@ E.finishBattle = function (S, B) {
     if (fighting && comp.hp <= 0) continue;
     const rate = fighting ? 1 : (S.buildings.kennels >= 3 ? 0.75 : S.buildings.kennels >= 2 ? 0.5 : 0);
     if (!rate) continue;
-    const gain = Math.max(1, Math.round(xp * factor(c.lvl) * rate));
+    const gain = Math.max(1, Math.round(xp * factor(c.lvl) * rate * (1 + (wm ? wm.creatureXp : 0))));
     const r = E.creatureXp(S, c, gain);
     if (fighting) out.creature = { name: E.creatureName(c), xp: gain, ups: r.ups, lvl: c.lvl };
     if (r.evolved.length) out.evolved = (out.evolved || []).concat(r.evolved);
@@ -1243,6 +1312,7 @@ E.nextUp = function (S, id) {
     out.push({ when: n.req - L, text: `${lv(n.req)}: ${D.TREES[tk].name} rank ${r + 1}${rk.skill ? ' (' + D.SKILLS[rk.skill].name + ')' : ''}` });
   }
   for (const tk of E.pathsReady(S, id)) out.push({ when: 0, text: `Now: ${D.TREES[tk].name} is mastered. Choose its path` });
+  if (!h.awakened && D.AWAKEN_LVL - L <= 2) out.push({ when: Math.max(0, D.AWAKEN_LVL - L), text: `${lv(D.AWAKEN_LVL)}: Awakening (${D.SKILLS[D.AWAKEN[id]].name})` });
   for (const c of D.COMBOS) {
     if (E.combosOf(h).includes(c)) continue;
     const short = c.trees.map(t => Math.max(0, D.COMBO_RANK - (h.talents[t] || 0)));
@@ -1264,7 +1334,7 @@ E.nextUp = function (S, id) {
 E.creatureNextUp = function (S) {
   const c = E.creatureOf(S, S.companion);
   if (!c) return null;
-  const at = !c.form ? W.EVO_LVL : !c.final ? W.EVO2_LVL : null;
+  const at = !c.form ? W.EVO_LVL : !c.final ? W.EVO2_LVL : !c.mythic ? W.EVO3_LVL : null;
   if (!at || at - c.lvl > 2) return null;
   const n = Math.max(0, at - c.lvl);
   return `${n <= 1 ? 'Next level' : n + ' levels'}: ${E.creatureName(c)} evolves`;

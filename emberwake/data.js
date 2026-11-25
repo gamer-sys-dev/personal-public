@@ -340,6 +340,39 @@ const GEAR = {
   lurker_heart:   { name: 'Mother Lurker\'s Heart', slot: 'charm', stats: { hp: 110, def: 7 }, price: 1300, unique: true },
   black_collar:   { name: 'The Black Collar', slot: 'charm', stats: { str: 8, mag: 8, spd: 3 }, flags: { beastBond: 0.25 }, price: 1600, unique: true, desc: 'Creature damage +25% while the wearer is in the party' },
   iron_heart:     { name: 'Iron Heart', slot: 'charm', stats: { hp: 40, def: 3 }, price: 600, tier: 3 },
+  // Tier 4: chapter two, Brightwater's war stock
+  knight_blade:   { name: 'Knight\'s Blade', slot: 'weapon', stats: { str: 18, crit: 3 }, price: 1300, tier: 4 },
+  warbow:         { name: 'Warbow', slot: 'weapon', stats: { str: 14, spd: 4, crit: 7 }, price: 1300, tier: 4 },
+  starsteel_staff:{ name: 'Starsteel Staff', slot: 'weapon', stats: { mag: 18, mp: 25, res: 3 }, price: 1300, tier: 4 },
+  war_pike:       { name: 'War Pike', slot: 'weapon', stats: { str: 15, mag: 4, def: 3 }, price: 1300, tier: 4 },
+  nightfang:      { name: 'Nightfang Knives', slot: 'weapon', stats: { str: 13, spd: 3, crit: 9 }, price: 1300, tier: 4 },
+  plate_harness:  { name: 'Plate Harness', slot: 'armour', stats: { def: 22, hp: 70, spd: -1 }, price: 1400, tier: 4 },
+  archmage_robe:  { name: 'Archmage\'s Robe', slot: 'armour', stats: { def: 7, res: 15, mp: 35 }, price: 1300, tier: 4 },
+  stalker_coat:   { name: 'Stalker\'s Coat', slot: 'armour', stats: { def: 15, res: 8, spd: 3, crit: 3 }, price: 1350, tier: 4 },
+  guardian_amulet:{ name: 'Guardian Amulet', slot: 'charm', stats: { hp: 80, def: 5, res: 5 }, price: 1200, tier: 4 },
+  focus_gem:      { name: 'Focus Gem', slot: 'charm', stats: { mag: 8, mp: 20 }, price: 1200, tier: 4 },
+  hunters_eye:    { name: 'Hunter\'s Eye', slot: 'charm', stats: { crit: 10, spd: 3 }, price: 1200, tier: 4 },
+  tamer_whistle:  { name: 'Tamer\'s Whistle', slot: 'charm', stats: { str: 4 }, flags: { beastBond: 0.3 }, price: 1200, tier: 4, desc: 'Creature damage +30% while the wearer is in the party' },
+  // Tier 5: once Kingsbridge is held, the royal armouries open
+  kingsbane:      { name: 'Kingsbane', slot: 'weapon', stats: { str: 26, crit: 6 }, price: 2600, tier: 5 },
+  skyreaver:      { name: 'Skyreaver Bow', slot: 'weapon', stats: { str: 20, spd: 6, crit: 10 }, price: 2600, tier: 5 },
+  ember_sceptre:  { name: 'Ember Sceptre', slot: 'weapon', stats: { mag: 26, mp: 40, res: 5 }, flags: { boost_fire: 0.15 }, price: 2700, tier: 5, desc: 'Fire damage +15%' },
+  dragon_pike:    { name: 'Dragon Pike', slot: 'weapon', stats: { str: 21, mag: 6, def: 5 }, price: 2600, tier: 5 },
+  whisper_blades: { name: 'Whisper Blades', slot: 'weapon', stats: { str: 19, spd: 5, crit: 14 }, price: 2600, tier: 5 },
+  starsteel_plate:{ name: 'Starsteel Plate', slot: 'armour', stats: { def: 32, hp: 120, res: 8 }, price: 2900, tier: 5 },
+  robe_of_stars:  { name: 'Robe of Stars', slot: 'armour', stats: { def: 10, res: 22, mp: 50, mag: 4 }, price: 2700, tier: 5 },
+  phantom_coat:   { name: 'Phantom Coat', slot: 'armour', stats: { def: 22, res: 12, spd: 5, crit: 5 }, price: 2800, tier: 5 },
+  heart_of_oak:   { name: 'Heart of Oak', slot: 'charm', stats: { hp: 150, def: 8 }, price: 2400, tier: 5 },
+  sage_eye:       { name: 'Sage\'s Eye', slot: 'charm', stats: { mag: 12, res: 6, mp: 30 }, price: 2400, tier: 5 },
+  war_horn:       { name: 'War Horn', slot: 'charm', stats: { str: 8, spd: 4, crit: 6 }, price: 2400, tier: 5 },
+  // Beast gear: one piece per creature
+  leather_collar: { name: 'Leather Collar', slot: 'beast', stats: { hp: 30, def: 3 }, price: 200, tier: 2 },
+  spiked_collar:  { name: 'Spiked Collar', slot: 'beast', stats: { str: 8, spd: 2 }, price: 650, tier: 3 },
+  iron_barding:   { name: 'Iron Barding', slot: 'beast', stats: { def: 10, hp: 60 }, price: 650, tier: 3 },
+  runed_collar:   { name: 'Runed Collar', slot: 'beast', stats: { str: 12, mag: 12 }, price: 1300, tier: 4 },
+  starsteel_barding: { name: 'Starsteel Barding', slot: 'beast', stats: { def: 18, hp: 120, res: 8 }, price: 1400, tier: 4 },
+  emberbrand:     { name: 'Emberbrand', slot: 'beast', stats: { str: 18, mag: 18, spd: 4 }, price: 2600, tier: 5 },
+  wardens_chain:  { name: 'Warden\'s Chain', slot: 'beast', stats: { hp: 200, def: 22, res: 14 }, price: 2600, tier: 5 },
 };
 
 const ITEMS = {
@@ -360,6 +393,8 @@ const MATS = {
   bone:  { name: 'Bone Dust' },
   moss:  { name: 'Fen Moss' },
   shard: { name: 'Shadow Shard' },
+  starsteel: { name: 'Starsteel' },
+  emberglass: { name: 'Emberglass' },
 };
 // Forge costs to go from +n to +n+1.
 const FORGE = [
@@ -368,6 +403,12 @@ const FORGE = [
   { gold: 420, mats: { ore: 3, bone: 2 } },
   { gold: 800, mats: { bone: 3, moss: 3 } },
   { gold: 1400, mats: { moss: 3, shard: 3 } },
+  // +6 to +10: war materials. Starsteel from the Stonecut mine and fallen forts, emberglass from Hollow lieutenants and apex beasts.
+  { gold: 2200, mats: { ore: 6, starsteel: 2 } },
+  { gold: 3000, mats: { starsteel: 3, shard: 3 } },
+  { gold: 4000, mats: { starsteel: 4, emberglass: 1 } },
+  { gold: 5500, mats: { starsteel: 5, emberglass: 2 } },
+  { gold: 7500, mats: { starsteel: 6, emberglass: 3 } },
 ];
 
 // Enemies. Stats scale with level; multipliers shape each type.
@@ -776,6 +817,25 @@ Object.assign(SKILLS, {
 });
 for (const tk in PATHS) TREES[tk].paths = PATHS[tk];
 
-const DATA = { ELITES, SKILL_EVO, PATH_REQ, PATH_COST, COMBOS, COMBO_RANK, STATS, HEROES, PARTY, ROSTER, SURGE, TALENT_REQ, TALENT_COST, TREES, SKILLS, GEAR, ITEMS, MATS, FORGE, ENEMIES, AREAS, STORY };
+// Awakening: at level 20 a hero can awaken (gold and shadow shards): +10% to every stat and a signature move.
+const AWAKEN = {
+  bram: 'iron_tempest', wren: 'thousand_arrows', isolde: 'emberfall', hesk: 'pack_storm',
+  dace: 'deaths_door', aldric: 'last_light', morwen: 'blackwater',
+};
+const AWAKEN_LVL = 20, AWAKEN_COST = { gold: 2500, mats: { shard: 6 } };
+Object.assign(SKILLS, {
+  iron_tempest:   { name: 'Iron Tempest', type: 'phys', power: 2.0, target: 'enemies', mp: 24, after: { defUp: 3 }, awaken: true, desc: 'A storm of steel over every enemy, then the party braces behind him.' },
+  thousand_arrows:{ name: 'Thousand Arrows', type: 'phys', power: 0.55, hits: 9, target: 'random', mp: 22, awaken: true, desc: 'Nine arrows at random enemies.' },
+  emberfall:      { name: 'Emberfall', type: 'mag', el: 'fire', power: 2.4, target: 'enemies', mp: 34, status: { burn: 3 }, chance: 0.6, awaken: true, desc: 'The sky rains fire on every enemy.' },
+  pack_storm:     { name: 'Pack Storm', type: 'phys', power: 1.6, target: 'enemies', mp: 22, after: { strUp: 3, regen: 2 }, awaken: true, desc: 'Every beast in the land answers. The party is stronger after.' },
+  deaths_door:    { name: 'Death\'s Door', type: 'phys', power: 4.0, target: 'enemy', mp: 20, execute: 0.5, awaken: true, desc: '4x damage, doubled below half health.' },
+  last_light:     { name: 'Last Light', type: 'heal', power: 1.6, target: 'allies', mp: 30, status: { defUp: 3, resUp: 3, regen: 3 }, awaken: true, desc: 'Heals the whole party and wards them.' },
+  blackwater:     { name: 'Blackwater', type: 'mag', el: 'dark', power: 2.1, target: 'enemies', mp: 30, status: { slow: 3, defDown: 3 }, chance: 1, awaken: true, desc: 'Black water drowns every enemy. All slow and their armour rots.' },
+  // Elder creature moves (third evolution, level 24)
+  cataclysm:      { name: 'Cataclysm', type: 'phys', power: 1.5, target: 'enemies' },
+  bulwark_roar:   { name: 'Bulwark Roar', type: 'buff', target: 'allies', status: { defUp: 3, resUp: 3 } },
+  renewal:        { name: 'Renewal', type: 'heal', power: 0.9, target: 'allies', status: { regen: 3 } },
+});
+const DATA = { AWAKEN, AWAKEN_LVL, AWAKEN_COST, ELITES, SKILL_EVO, PATH_REQ, PATH_COST, COMBOS, COMBO_RANK, STATS, HEROES, PARTY, ROSTER, SURGE, TALENT_REQ, TALENT_COST, TREES, SKILLS, GEAR, ITEMS, MATS, FORGE, ENEMIES, AREAS, STORY };
 if (typeof module !== 'undefined' && module.exports) module.exports = DATA; else root.DATA = DATA;
 })(this);

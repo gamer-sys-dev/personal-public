@@ -162,6 +162,14 @@
   .advice { color:#ffb0a0; margin-top:6px; }
   button.bad { border-color:#e0574a; color:#ffb0a0; }
   .holdbtn.on { background:#2c3a24; border-color:#6ad07a; color:#d0ffd8; }
+  .beastbox { margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); }
+  .beastbox summary { cursor:pointer; margin-top:6px; }
+  .awaken { margin-top:10px; padding:8px 10px; border:1px solid #6a4a2a; border-radius:10px; background:linear-gradient(180deg,#2a2018,#1c1a20); }
+  .awaken.done { border-color:var(--gold); }
+  .warsvg { width:100%; display:block; max-height:58vh; }
+  .warmy { padding:8px 0; border-bottom:1px solid var(--line); }
+  .warmy.on { border-left:3px solid #7ad8ff; padding-left:8px; }
+  .soldier { padding:8px 0; border-bottom:1px solid var(--line); cursor:pointer; }
   .bigmove { position:absolute; inset:0; z-index:9; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(4,4,12,.62); pointer-events:none; animation:bmin .18s; }
   .bigmove small { font-size:.75rem; letter-spacing:.25em; text-transform:uppercase; color:#ffd27a; }
   .bigmove b { font-family:Georgia,serif; font-size:1.9rem; color:#fff; text-shadow:0 0 12px #ff9a3d, 0 2px 0 #000; animation:bmname .35s ease-out; }
@@ -283,6 +291,7 @@
 <script src="story.js"></script>
 <script src="engine.js"></script>
 <script src="sprites.js"></script>
+<script src="war.js"></script>
 <script src="siege.js"></script>
 <script src="siegeui.js"></script>
 <script src="battlefx.js"></script>

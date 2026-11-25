@@ -10,6 +10,7 @@ const SAD = ['raid_after', 'wren_dies', 'aldric_holds', 'hale_redeemed', 'hale_e
 document.addEventListener('pointerdown', () => AU.unlock(), { capture: true });
 const KEY = 'emberwake-save-v1';
 const app = document.getElementById('app');
+const ACT = {}; // every tap handler, by data-a name
 let S = null;          // the save
 let view = { name: 'title' };
 
@@ -253,7 +254,7 @@ SCREENS.keep = () => {
   const attack = S.areas.barrows && S.areas.barrows.cleared && !S.flags.raid_done ? `<div class="card defend alert"><b class="serif" style="font-size:1.1rem;color:var(--bad)">Emberwake is under attack!</b>
       <div class="small muted" style="margin-top:4px">Morvane's Hand is in the yard. Rest, gear up, then drive them out.</div><button class="primary big" data-a="raid">Drive them out</button></div>` : '';
   return `<div class="topbar"><h1>Emberwake Keep</h1><span class="goldtxt">${S.gold} g</span></div>
-    <canvas id="keepscene" class="keepscene"></canvas>${attack}${raid}
+    <canvas id="keepscene" class="keepscene"></canvas>${attack}${warCard()}${raid}
     <p class="muted">${S.buildings.yard || S.buildings.kennels ? 'The keep is waking up. ' + [S.buildings.yard ? 'A training yard' : '', S.buildings.kennels ? 'kennels' : ''].filter(Boolean).join(' and ') + ' where there was rubble.' : 'A ruined keep on the hill. Half a roof, a cold forge and some bedrolls.'}</p>
     <div class="card"><div class="small muted">Next</div>${objective()}</div>
     ${bountyCard()}
@@ -418,6 +419,7 @@ SCREENS.party = () => {
       </div>
       ${S.surgeTier ? `<p class="small" style="margin-top:10px"><b style="color:var(--ember)">Surge: ${D.SKILLS[D.SURGE[id]].name}</b> <span class="muted">${D.SKILLS[D.SURGE[id]].desc}</span></p>` : ''}
       ${(def.innate || []).map(s => `<p class="small"><b>${D.SKILLS[s].name}</b> <span class="muted">${D.SKILLS[s].desc}</span></p>`).join('')}
+      ${awakenCard(id)}
       <p class="muted" style="margin-top:10px">Talent points: <b style="color:var(--gold)">${h.points}</b>. Two per level, plus any Tomes of Insight you find.</p></div>`;
   } else if (tab === 'talents') {
     body = `<div class="card"><div class="spread"><b>Talent points</b><span class="pill on">${h.points}</span></div>
@@ -492,7 +494,7 @@ function lineupHTML() {
     ${S.party.map(id => `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow">${heroRow(id)}</div>
       ${bench.length ? `<button class="sm" data-a="swapOut" data-v="${id}">Swap</button>` : ''}</div>`).join('')}</div>
     ${bench.length ? `<div class="card"><h2>On the bench</h2><p class="muted small">${S.buildings.yard ? `Bench heroes earn ${Math.round(W.YARD_RATE[S.buildings.yard] * 100)}% of fight XP at the training yard.` : 'Build a training yard so bench heroes earn XP while you fight.'} Heroes behind the leader always earn bonus XP to catch up.</p>
-      ${bench.map(id => `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow">${heroRow(id)}</div><button class="sm gold" data-a="swapIn" data-v="${id}">Bring in</button></div>`).join('')}</div>` : '<div class="card muted small">Nobody on the bench yet. Recruits will join as you find them.</div>'}
+      ${bench.map(id => { const gen = warOn() && WAR.generalOf(S, id), hurt = warOn() && WAR.wounded(S, id); return `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow">${heroRow(id)}${gen ? `<div class="small" style="color:var(--gold)">Leading ${gen.name}</div>` : hurt ? `<div class="small" style="color:#ffb0a0">Wounded: ${S.war.wounded[id]} more days</div>` : ''}</div>${gen || hurt ? '' : `<button class="sm gold" data-a="swapIn" data-v="${id}">Bring in</button>`}</div>`; }).join('')}</div>` : '<div class="card muted small">Nobody on the bench yet. Recruits will join as you find them.</div>'}
     ${S.roster.includes('hesk') ? `<div class="card"><h2>Creature</h2>${c ? creatureRow(c) : '<p class="muted">None chosen.</p>'}<button class="sm" style="margin-top:8px" data-a="creatures">Change creature</button></div>` : ''}`;
 }
 
@@ -526,6 +528,52 @@ function slotPicker(heroId, slot) {
 }
 
 const stars = n => `<span class="pot">${'★'.repeat(n)}<span class="off">${'★'.repeat(5 - n)}</span></span>`;
+// Gear and training on each creature card.
+function awakenCard(id) {
+  const h = S.heroes[id], sk = D.SKILLS[D.AWAKEN[id]];
+  if (h.awakened) return `<div class="awaken done"><b>Awakened.</b> <span class="small muted">+10% to every stat. Signature move: <b>${sk.name}</b>.</span></div>`;
+  return `<div class="awaken"><div class="spread"><b>Awakening</b><span class="pill ${h.lvl >= D.AWAKEN_LVL ? 'on' : ''}">Level ${D.AWAKEN_LVL}</span></div>
+    <div class="small muted" style="margin-top:4px">+10% to every stat and a signature move: <b>${sk.name}</b>, ${sk.desc} Costs ${costText(D.AWAKEN_COST)}.</div>
+    ${h.lvl >= D.AWAKEN_LVL ? `<button class="sm gold" style="margin-top:6px" data-a="awaken" ${E.canAwaken(S, id) ? '' : 'disabled'}>Awaken ${heroName(id)}</button>` : ''}</div>`;
+}
+ACT.awaken = () => {
+  if (E.awaken(S, view.hero)) { AU.sfx('surge'); toast(`${heroName(view.hero)} awakens. <b>${D.SKILLS[D.AWAKEN[view.hero]].name}</b> learned.`, 3500); save(); render(); }
+};
+function beastBlock(c) {
+  const g = E.beastGearOf(S, c), pts = E.trainPoints(c), tr = c.train || {};
+  const lines = Object.keys(E.TRAIN).map(k => {
+    const d = E.TRAIN[k], r = tr[k] || 0, locked = d.needForm && !c.form;
+    return `<div class="spread small" style="margin-top:4px"><span><b>${d.name}</b> <span class="pot">${'●'.repeat(r)}<span class="off">${'●'.repeat(d.max - r)}</span></span> <span class="muted">${locked ? 'after its first evolution' : d.desc}</span></span>
+      ${r < d.max && !locked ? `<button class="sm ${E.canTrain(c, k) ? 'gold' : ''}" data-a="trainBeast" data-v="${c.cid}:${k}" ${E.canTrain(c, k) ? '' : 'disabled'}>+${E.trainCost(r)}</button>` : ''}</div>`;
+  }).join('');
+  return `<div class="beastbox"><div class="spread small"><span>Gear: <b>${g ? E.gearName(g) : 'none'}</b> ${g ? `<span class="muted">${statLine(E.gearStats(g))}</span>` : ''}</span><button class="sm" data-a="beastGear" data-v="${c.cid}">Change</button></div>
+    <details ${pts ? 'open' : ''}><summary class="small">Training <span class="${pts ? 'goldtxt' : 'muted'}">${pts} point${pts === 1 ? '' : 's'}</span> <span class="muted">(one per level)</span></summary>${lines}</details></div>`;
+}
+ACT.trainBeast = v => {
+  const [cid, k] = v.split(':'), c = E.creatureOf(S, +cid);
+  if (c && E.trainCreature(c, k)) { save(); render(); }
+};
+ACT.beastGear = v => {
+  const c = E.creatureOf(S, +v);
+  const list = S.gear.filter(g => D.GEAR[g.id].slot === 'beast');
+  overlay(`<div class="sheet"><h2>Gear for ${esc(E.creatureName(c))}</h2>
+    ${list.length ? list.map(g => { const o = E.beastOwner(S, g.uid); return `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow"><b>${E.gearName(g)}</b><div class="small muted">${statLine(E.gearStats(g))}${o && o !== c ? ' · on ' + esc(E.creatureName(o)) : ''}</div></div>
+      ${c.gear === g.uid ? '<span class="pill good">On</span>' : `<button class="sm gold" data-a="beastOn" data-v="${c.cid}:${g.uid}">Equip</button>`}</div>`; }).join('') : '<p class="muted">No beast gear yet. Collars and barding are sold at the market.</p>'}
+    ${c.gear != null ? `<button class="big" data-a="beastOn" data-v="${c.cid}:none">Take it off</button>` : ''}
+    <button class="big" data-a="closeOv">Done</button></div>`);
+};
+ACT.beastOn = v => {
+  const [cid, uid] = v.split(':');
+  E.equipBeast(S, +cid, uid === 'none' ? null : +uid);
+  closeOverlay(); save(); render();
+};
+// Buying beast gear: pick which creature wears it.
+function beastPicker(inst) {
+  overlay(`<div class="sheet"><h2>${E.gearName(inst)}</h2><p class="muted small">${statLine(E.gearStats(inst))}</p><p>Which creature should wear it?</p>
+    ${S.creatures.map(c => `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="row">${img(E.creatureSprite(c), 2)}<div><b>${esc(E.creatureName(c))}</b><div class="small muted">Lv ${c.lvl}${E.beastGearOf(S, c) ? ' · wearing ' + E.gearName(E.beastGearOf(S, c)) : ''}</div></div></div>
+      <button class="sm gold" data-a="beastOn" data-v="${c.cid}:${inst.uid}">Equip</button></div>`).join('') || '<p class="muted">No creatures yet.</p>'}
+    <button class="big" data-a="closeOv">Keep it for later</button></div>`);
+}
 function kennelUpgrade() {
   const c = E.buildCost(S, 'kennels');
   if (!c || !S.buildings.kennels) return '';
@@ -540,8 +588,8 @@ SCREENS.creatures = () => {
     const pot = E.potential(c);
     const st = E.creatureStats(c), t = c.tally, total = t.attack + t.guard + t.support;
     const lean = ['attack', 'guard', 'support'].sort((a, b) => t[b] - t[a])[0];
-    const evo = c.final ? `<div class="small" style="color:var(--gold)">Final form reached.</div>` : c.form ? `<div class="small" style="color:var(--gold)">Evolved: ${W.STANCES[c.form].name} form. Evolves once more at level ${W.EVO2_LVL} into a <b>${W.EVO2[c.sp][c.form]}</b>.</div>`
-      : `<div class="small muted">Evolves twice: at level ${W.EVO_LVL}, then again at ${W.EVO2_LVL}. ${total ? `Leaning ${W.STANCES[lean].name} (${t.attack} attack, ${t.guard} guard, ${t.support} support turns), which would make it a <b>${W.CREATURES[c.sp].evo[lean]}</b>.` : 'Its stance in battle decides what it becomes.'}</div>`;
+    const evo = c.mythic ? `<div class="small" style="color:var(--gold)">An Elder. Nothing left to become.</div>` : c.final ? `<div class="small" style="color:var(--gold)">Becomes an <b>Elder ${W.EVO2[c.sp][c.form]}</b> at level ${W.EVO3_LVL}: a quarter stronger and a new move.</div>` : c.form ? `<div class="small" style="color:var(--gold)">Evolved: ${W.STANCES[c.form].name} form. Evolves once more at level ${W.EVO2_LVL} into a <b>${W.EVO2[c.sp][c.form]}</b>.</div>`
+      : `<div class="small muted">Evolves three times: at levels ${W.EVO_LVL}, ${W.EVO2_LVL} and ${W.EVO3_LVL}. ${total ? `Leaning ${W.STANCES[lean].name} (${t.attack} attack, ${t.guard} guard, ${t.support} support turns), which would make it a <b>${W.CREATURES[c.sp].evo[lean]}</b>.` : 'Its stance in battle decides what it becomes.'}</div>`;
     return `<div class="card ${advice[c.cid] ? 'advise' : ''}"><div class="spread"><div class="row">${img(E.creatureSprite(c), 3)}<div><b>${E.creatureName(c)}</b><div class="small muted">Lv ${c.lvl} · HP ${c.hp}/${st.maxHp} · STR ${st.str} · MAG ${st.mag} · DEF ${st.def}</div>
       <div class="small">Potential ${stars(pot.stars)} <span class="muted">${c.final ? 'at its peak form' : 'tops out as ' + (c.form ? '' : 'up to ') + (/^[AEIOU]/.test(pot.tops) ? 'an ' : 'a ') + pot.tops}</span></div></div></div>
       ${S.companion === c.cid ? '<span class="pill good">With you</span>' : `<button class="sm gold" data-a="companion" data-v="${c.cid}">Take along</button>`}</div>
@@ -549,6 +597,7 @@ SCREENS.creatures = () => {
       <div class="row" style="margin-top:8px">${Object.keys(W.STANCES).map(s => `<button class="sm ${c.stance === s ? 'gold' : ''}" data-a="stance" data-v="${c.cid}:${s}">${W.STANCES[s].name}</button>`).join('')}
       <button class="sm ${advice[c.cid] ? 'bad' : ''}" data-a="release" data-v="${c.cid}" ${S.companion === c.cid ? 'disabled' : ''}>Release</button></div>
       <div class="small muted" style="margin-top:4px">${W.STANCES[c.stance].desc}</div>
+      ${beastBlock(c)}
       ${advice[c.cid] ? `<div class="small advice">Suggested to release. ${advice[c.cid]}</div>` : ''}</div>`;
   }).join('');
   return `<div class="topbar"><h1>Creatures</h1><button class="sm" data-a="back">Back</button></div>
@@ -709,7 +758,6 @@ SCREENS.market = () => {
 };
 
 // ---------- Actions ----------
-const ACT = {};
 ACT.newGame = () => {
   if (load() && !confirm('Start a new game? Your current save will be replaced.')) return;
   S = E.newGame(); save();
@@ -778,7 +826,15 @@ ACT.map = () => go('map');
 ACT.board = () => go('board');
 ACT.yard = () => go('yard');
 ACT.creatures = () => go('creatures', { from: view.name === 'creatures' ? view.from : view.name, fromId: view.id, fromTab: view.tab });
-ACT.rest = () => { E.restParty(S); toast('The party rests. Everyone is back to full, and foraging spots have grown back.'); render(); };
+ACT.rest = () => {
+  E.restParty(S);
+  if (!warOn()) { toast('The party rests. Everyone is back to full, and foraging spots have grown back.'); render(); return; }
+  const rep = WAR.day(S);
+  // Generals and the wounded can't fight in the party.
+  S.party = S.party.filter(id => !WAR.generalOf(S, id));
+  save();
+  dayReport(rep, () => { if (rep.siege) warSiege(rep); else render(); });
+};
 ACT.party = () => go('party', { hero: S.party[0], tab: 'stats', from: view.name === 'party' ? view.from : view.name, fromId: view.id });
 ACT.bag = () => go('bag', { from: view.name, fromId: view.id });
 ACT.back = () => {
@@ -807,7 +863,7 @@ ACT.swapIn = v => {
   overlay(`<div class="sheet"><h2>Bring in ${heroName(v)} for</h2>${S.party.map(id => `<button class="big" data-a="swapDo" data-v="${v}:${id}">${heroName(id)}</button>`).join('')}<button class="link" data-a="closeOv">Cancel</button></div>`);
 };
 ACT.swapOut = v => {
-  const bench = S.roster.filter(id => !S.party.includes(id));
+  const bench = S.roster.filter(id => !S.party.includes(id) && !(warOn() && (WAR.generalOf(S, id) || WAR.wounded(S, id))));
   overlay(`<div class="sheet"><h2>Swap ${heroName(v)} for</h2>${bench.map(id => `<button class="big" data-a="swapDo" data-v="${id}:${v}">${heroName(id)}</button>`).join('')}<button class="link" data-a="closeOv">Cancel</button></div>`);
 };
 ACT.swapDo = v => {
@@ -873,6 +929,7 @@ ACT.buyGear = k => {
 function equipPrompt(inst) {
   if (!inst) return;
   const slot = D.GEAR[inst.id].slot;
+  if (slot === 'beast') { beastPicker(inst); return; }
   overlay(`<div class="sheet"><h2>${E.gearName(inst)}</h2><p class="muted small">${gearDesc(inst)}</p><p>Who should use it?</p>
     ${S.roster.map(id => `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow"><b>${heroName(id)}</b><div class="small">${deltaFor(id, slot, inst.uid)}</div></div>
       <button class="sm gold" data-a="equipOn" data-v="${id}:${inst.uid}">Equip</button></div>`).join('')}
@@ -886,7 +943,7 @@ ACT.equipOn = v => {
 ACT.closeOv = () => closeOverlay();
 ACT.sell = v => {
   const g = E.gearOf(S, +v);
-  if (!g || E.equippedBy(S, g.uid)) return;
+  if (!g || E.equippedBy(S, g.uid) || E.beastOwner(S, g.uid)) return;
   S.gold += E.sellPrice(g);
   S.gear = S.gear.filter(x => x !== g);
   render();
@@ -1125,6 +1182,162 @@ document.addEventListener('click', e => {
   const f = ACT[el.dataset.a];
   if (f) { e.preventDefault(); f(el.dataset.v, el); }
 });
+
+// ---------- The war (chapter two) ----------
+const WAR = window.WAR;
+const OWN_COL = { p: '#d4a630', h: '#7a3ab8' };
+const warOn = () => WAR && WAR.active(S);
+const pctTxt = p => Math.round(p * 100) + '%';
+function regionState(id) {
+  const r = S.war.regions[id], R = WAR.REGIONS[id];
+  if (R.locked) return { txt: 'Sealed', cls: '' };
+  if (r.owner === 'p' && r.lost) return { txt: 'Ruins', cls: '' };
+  if (r.owner === 'p') return { txt: r.siege ? 'Under siege!' : 'Yours', cls: r.siege ? 'bad' : 'good' };
+  return { txt: r.lost ? 'Lost' : 'Hollow', cls: 'bad' };
+}
+function warMapSVG() {
+  const w = S.war, sel = view.region, army = w.armies.find(a => a.id === view.army);
+  let g = '';
+  for (const [a, b] of WAR.ROADS) { const A = WAR.REGIONS[a], B = WAR.REGIONS[b]; g += `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="#3a3d52" stroke-width="1.1"/>`; }
+  // Hollow marches: a dashed red line to their next step
+  for (const h of w.hollow) {
+    const next = WAR.path(h.at, h.to)[0], A = WAR.REGIONS[h.at];
+    if (next) { const B = WAR.REGIONS[next]; g += `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="#e0574a" stroke-width="1.4" stroke-dasharray="2 1.5"/>`; }
+  }
+  for (const id in WAR.REGIONS) {
+    const R = WAR.REGIONS[id], r = w.regions[id];
+    const reach = army && WAR.canMove(S, army, id);
+    const col = R.locked ? '#22222c' : r.lost && r.owner === 'p' ? '#5a5560' : OWN_COL[r.owner];
+    const shape = R.kind === 'fort' || R.kind === 'citadel' ? `<rect x="-3.6" y="-3.6" width="7.2" height="7.2" rx="1" fill="${col}" stroke="${sel === id ? '#fff' : '#00000088'}" stroke-width="${sel === id ? 0.9 : 0.5}"/>`
+      : `<circle r="${R.kind === 'keep' || R.kind === 'town' ? 4.2 : 3.4}" fill="${col}" stroke="${sel === id ? '#fff' : '#00000088'}" stroke-width="${sel === id ? 0.9 : 0.5}"/>`;
+    g += `<g transform="translate(${R.x} ${R.y})" data-a="wRegion" data-v="${id}" style="cursor:pointer">
+      ${reach ? '<circle r="6" fill="none" stroke="#7ad8ff" stroke-width=".7" stroke-dasharray="1.5 1"/>' : ''}
+      ${r.siege ? '<circle r="5.6" fill="none" stroke="#e0574a" stroke-width="1"><animate attributeName="r" values="5;6.5;5" dur="1s" repeatCount="indefinite"/></circle>' : ''}
+      <circle r="7" fill="transparent"/>${shape}
+      ${R.named ? '<circle cx="2.8" cy="-2.8" r="1.1" fill="#fff"/>' : ''}
+      <text y="7.6" text-anchor="middle" font-size="2.9" fill="${r.lost ? '#8a8590' : '#e8e2d0'}">${R.name}</text></g>`;
+  }
+  // armies
+  const at = {};
+  for (const a of w.armies) { const R = WAR.REGIONS[a.at], k = at[a.at] = (at[a.at] || 0) + 1; g += `<g transform="translate(${R.x - 5.5 + k * 2.4} ${R.y - 6.5})"><path d="M0 0h2.6v3.2l-1.3-.9-1.3.9z" fill="${a.id === view.army ? '#7ad8ff' : '#4a8ad8'}" stroke="#000" stroke-width=".3"/></g>`; }
+  for (const h of w.hollow) { const R = WAR.REGIONS[h.at]; g += `<g transform="translate(${R.x + 3} ${R.y - 6.5})"><path d="M0 3.2L1.5 0 3 3.2z" fill="#e0574a" stroke="#000" stroke-width=".3"/></g>`; }
+  return `<svg class="warsvg" viewBox="0 -2 100 102">${g}</svg>`;
+}
+function bonusText(b) {
+  if (!b) return '';
+  const n = { stat: 'hero stats', heroXp: 'hero XP', soldierXp: 'soldier XP', soldierPower: 'soldier strength', creatureXp: 'creature XP' };
+  return Object.keys(b).map(k => k === 'shop' ? `tier ${b[k]} gear in the shops` : k === 'armyHeal' ? 'armies mend faster' : `+${Math.round(b[k] * 100)}% ${n[k]}`).join(', ');
+}
+function yieldText(y) { return y ? Object.keys(y).map(k => `${y[k]} ${k === 'gold' ? 'gold' : k === 'levy' ? 'levy' : D.MATS[k].name}`).join(', ') + ' a day' : ''; }
+SCREENS.war = () => {
+  const w = S.war, inc = WAR.income(S), mods = WAR.mods(S);
+  const sel = view.region, army = w.armies.find(a => a.id === view.army);
+  let card = '';
+  if (sel) {
+    const R = WAR.REGIONS[sel], r = w.regions[sel], st = regionState(sel), foe = WAR.foePower(S, sel), here = w.armies.filter(a => a.at === sel);
+    const movers = w.armies.filter(a => WAR.canMove(S, a, sel) && a.squads.length && !a.broken);
+    card = `<div class="card"><div class="spread"><b class="serif" style="font-size:1.1rem">${R.name}</b><span class="pill ${st.cls}">${st.txt}</span></div>
+      <div class="small muted" style="margin-top:4px">${r.lost ? `${R.people ? R.people.replace(/^./, c => c.toUpperCase()) + ' are gone. ' : ''}Only ruins left. Holding it gives nothing now.` : R.desc}</div>
+      ${!r.lost && R.bonus ? `<div class="small" style="margin-top:4px;color:var(--gold)">Holding it: ${bonusText(R.bonus)}.</div>` : ''}
+      ${!r.lost && R.yields ? `<div class="small muted">Pays ${yieldText(R.yields)}.</div>` : ''}
+      ${foe ? `<div class="small" style="margin-top:4px;color:#ffb0a0">Hollow strength here: ${foe}</div>` : ''}
+      ${here.length ? `<div class="small" style="margin-top:4px">Here: ${here.map(a => a.name).join(', ')}</div>` : ''}
+      ${movers.map(a => { const f = foe ? WAR.forecast(S, a, sel) : null; return `<button class="big ${a.target === sel ? 'gold' : ''}" data-a="wOrder" data-v="${a.id}:${sel}">${a.target === sel ? '✓ ' : ''}${foe ? 'Attack' : 'March'} with ${a.name}${f ? ` · ${pctTxt(f.p)} · about ${f.lossWin} fall` : ''}</button>`; }).join('')}
+      ${R.locked ? '' : !movers.length && r.owner !== 'p' ? '<div class="small muted" style="margin-top:6px">No army is next to it. Armies march one region a day along the roads.</div>' : ''}</div>`;
+  }
+  const threats = w.hollow.map(h => { const route = WAR.path(h.at, h.to); return `<div class="spread small" style="margin-top:4px"><span><b style="color:#ffb0a0">${h.name}</b> (${h.power}) at ${WAR.REGIONS[h.at].name}</span><span class="muted">→ ${WAR.REGIONS[h.to].name}, ${route.length ? route.length + ' day' + (route.length > 1 ? 's' : '') : 'there now'}</span></div>`; }).join('');
+  return `<div class="topbar"><h1>The war · Day ${w.day}</h1><button class="sm" data-a="keep">Keep</button></div>
+    <div class="spread small"><span class="goldtxt">${S.gold} g</span><span>Levy <b>${w.levy}</b></span><span class="muted">+${inc.gold || 0} g, +${inc.levy || 0} levy a day</span></div>
+    <div class="mapwrap">${warMapSVG()}</div>
+    <div class="small muted" style="text-align:center;margin:-2px 0 6px">Gold: yours. Purple: Hollow. White dot: people live there and if it falls they're gone for good.</div>
+    ${card}
+    ${threats ? `<div class="card"><b>Hollow on the march</b>${threats}</div>` : ''}
+    <div class="card"><div class="spread"><b>Your armies</b><span class="muted small">${w.armies.length} of ${WAR.armySlots(S)}</span></div>
+      ${w.armies.map(a => `<div class="warmy ${a.id === view.army ? 'on' : ''}"><div class="spread"><div><b>${a.name}</b> <span class="small muted">at ${WAR.REGIONS[a.at].name}</span>
+        <div class="small">${a.general ? `Led by <b>${heroName(a.general)}</b>` : '<span class="muted">No general</span>'} · ${a.squads.length}/${WAR.SQUADS} squads · strength <b>${WAR.armyPower(S, a, 'atk')}</b>${a.broken ? ` · <span style="color:#ffb0a0">regrouping ${a.broken}d</span>` : ''}</div>
+        <div class="small muted">${a.target ? '→ ' + WAR.REGIONS[a.target].name + ' at dawn' : 'Holding'}</div></div></div>
+        <div class="row" style="margin-top:6px"><button class="sm ${a.id === view.army ? 'gold' : ''}" data-a="wSel" data-v="${a.id}">${a.id === view.army ? 'Selected' : 'Orders'}</button><button class="sm" data-a="wArmy" data-v="${a.id}">Troops</button>${a.target ? `<button class="sm" data-a="wOrder" data-v="${a.id}:">Hold</button>` : ''}</div></div>`).join('')}
+      ${w.armies.length < WAR.armySlots(S) ? `<button class="big" data-a="wNewArmy">Raise a new army (${w.armies.length + 1} of ${WAR.armySlots(S)})</button>` : `<div class="small muted" style="margin-top:6px">More armies: barracks levels, forts held and Ashby each add one.</div>`}</div>
+    <div class="card"><b>What you hold gives you</b><div class="small" style="margin-top:4px">${bonusText(Object.fromEntries(Object.entries(mods).filter(([, v]) => v))) || '<span class="muted">Nothing yet. Take forts and keep villages safe.</span>'}</div></div>
+    <button class="primary big" data-a="wDay">End the day (rest at the keep)</button>
+    ${w.reports[0] ? '<button class="link small" data-a="wLast">Yesterday\'s report</button>' : ''}`;
+};
+ACT.war = () => go('war', { region: null, army: S.war.armies[0] ? S.war.armies[0].id : null });
+ACT.wRegion = v => { view.region = v; render(); };
+ACT.wSel = v => { view.army = +v; render(); };
+ACT.wOrder = v => {
+  const [aid, rid] = v.split(':'), err = WAR.order(S, +aid, rid || null);
+  if (err) toast(err); else { save(); toast(rid ? `${S.war.armies.find(a => a.id === +aid).name} will march at dawn. End the day to go.` : 'Holding.'); }
+  render();
+};
+ACT.wNewArmy = () => { const a = WAR.newArmy(S); save(); go('army', { id: a.id }); };
+ACT.wArmy = v => go('army', { id: +v });
+ACT.wDay = () => ACT.rest();
+ACT.wLast = () => dayReport(S.war.reports[0], () => {});
+function dayReport(rep, then) {
+  const bt = rep.battles.map(b => `<div class="lvcard"><div class="spread"><b>${b.attack ? '⚔' : '🛡'} ${b.army} at ${b.where}</b><span class="pill ${b.won ? 'good' : 'bad'}">${b.won ? 'Won' : 'Lost'}</span></div>
+    <div class="small muted">${b.P} against ${b.Q} · odds were ${pctTxt(b.p)}</div>
+    ${b.fallen.length ? `<div class="small" style="color:#ffb0a0">Fallen: ${b.fallen.map(s => `${WAR.title(s)} ${esc(s.name)}`).join(', ')}</div>` : '<div class="small" style="color:var(--good)">Nobody fell.</div>'}
+    ${b.promoted.length ? `<div class="small" style="color:var(--gold)">Promoted: ${b.promoted.map(p => `${esc(p.s.name)} to ${WAR.RANKS[p.rank - 1]}`).join(', ')}</div>` : ''}
+    ${b.heroXp ? `<div class="small">General +${b.heroXp} XP${b.heroLevels ? ' <b style="color:var(--gold)">Level up!</b>' : ''}</div>` : ''}</div>`).join('');
+  const inc = rep.income || {};
+  overlay(`<div class="sheet levelup"><h2>Day ${rep.day}</h2>
+    ${rep.lines.map(l => `<p class="small ${l.cls || ''}" style="${l.cls === 'bad' ? 'color:#ffb0a0' : l.cls === 'good' ? 'color:var(--good)' : l.cls === 'warn' ? 'color:var(--gold)' : ''}">${l.t}</p>`).join('') || '<p class="muted">A quiet day.</p>'}
+    ${bt}<p class="small muted">Income: ${Object.keys(inc).map(k => `${inc[k]} ${k === 'gold' || k === 'levy' ? k : D.MATS[k].name}`).join(', ')}</p>
+    <button class="primary big" data-a="repOk">${rep.siege ? 'Man the walls!' : 'Continue'}</button></div>`, 'center');
+  ACT.repOk = () => { closeOverlay(); then(); };
+}
+// The Hollow reached Emberwake: a siege night at a strength to match the army.
+function warSiege(rep) {
+  const n = WAR.siegeNight(rep.siege.power);
+  SUI.runSiege(S, n, r => {
+    const won = r.result === 'won', lost = WAR.siegeResult(S, rep.siege.hid, won);
+    E.restParty(S); save();
+    overlay(`<div class="sheet" style="text-align:center"><h2>${won ? 'Emberwake holds' : 'They broke in'}</h2><p>${won ? 'The Hollow column breaks on your walls and scatters into the dark.' : `They burned the stores before the survivors drove them off. Lost ${lost} gold and half the levy.`}</p>
+      <button class="primary big" data-a="closeOv">Back to the keep</button></div>`, 'center');
+    go('keep');
+  });
+}
+SCREENS.army = () => {
+  const a = S.war.armies.find(x => x.id === view.id);
+  if (!a) return SCREENS.war();
+  const gens = S.roster.filter(id => !(S.flags.gone || []).includes(id));
+  return `<div class="topbar"><h1>${a.name}</h1><button class="sm" data-a="war">War map</button></div>
+    <div class="card"><div class="spread"><span>At <b>${WAR.REGIONS[a.at].name}</b></span><span>Strength <b>${WAR.armyPower(S, a, 'atk')}</b> attacking · <b>${WAR.armyPower(S, a, 'def')}</b> defending</span></div></div>
+    <div class="card"><b>General</b><div class="small muted">A hero leading an army isn't in your party. Their level makes the army stronger (+2% a level, +15% if Awakened) and they earn XP from every battle. If the army breaks they come back wounded for three days.</div>
+      <div class="row" style="flex-wrap:wrap;margin-top:6px">${gens.map(id => { const other = WAR.generalOf(S, id); return `<button class="sm ${a.general === id ? 'gold' : ''}" data-a="wGen" data-v="${a.id}:${id}" ${other && other !== a ? 'disabled' : ''}>${heroName(id)} ${S.heroes[id].lvl}${other && other !== a ? ' (leads ' + other.name + ')' : ''}${WAR.wounded(S, id) ? ' (wounded)' : ''}</button>`; }).join('')}
+      ${a.general ? `<button class="sm" data-a="wGen" data-v="${a.id}:">Nobody</button>` : ''}</div></div>
+    <div class="card"><div class="spread"><b>Recruit</b><span class="small">Levy <b>${S.war.levy}</b> · <span class="goldtxt">${S.gold} g</span></span></div>
+      <div class="small muted">Recruits join at Recruit rank. Only on your own ground.</div>
+      <div class="row" style="flex-wrap:wrap;margin-top:6px">${Object.keys(WAR.TYPES).map(t => { const d = WAR.TYPES[t], ok = WAR.unlocked(S, t); return `<button class="sm ${ok ? 'gold' : ''}" data-a="wRecruit" data-v="${a.id}:${t}" ${ok ? '' : 'disabled'}>${d.one} ${d.gold}g ${d.levy}L</button>`; }).join('')}</div>
+      <div class="small muted" style="margin-top:4px">${Object.keys(WAR.TYPES).map(t => `<b>${WAR.TYPES[t].name}</b>: ${WAR.TYPES[t].desc}${WAR.unlocked(S, t) ? '' : ' (' + (WAR.TYPES[t].req[0] === 'barracks' ? 'barracks level ' + WAR.TYPES[t].req[1] : 'hold ' + WAR.REGIONS[WAR.TYPES[t].req[1]].name) + ')'}`).join(' ')}</div></div>
+    <div class="card"><b>Soldiers</b> <span class="muted small">${a.squads.length}/${WAR.SQUADS}. Ranks come with battles; every rank and every star is a point to spend.</span>
+      ${a.squads.map(sid => { const s = S.war.soldiers[sid], pts = WAR.points(s), next = s.rank < 10 ? [0, 20, 50, 100, 170, 260, 380, 540, 750, 1000][s.rank] : null;
+        return `<div class="soldier" data-a="wSoldier" data-v="${sid}"><div class="spread"><span><b>${WAR.title(s)} ${esc(s.name)}</b> <span class="small muted">${WAR.TYPES[s.type].one}</span></span><span class="pot">${'★'.repeat(WAR.stars(s))}<span class="off">${'★'.repeat(5 - WAR.stars(s))}</span></span></div>
+          <div class="spread small"><span class="muted">${s.battles} battles · strength ${Math.round(WAR.soldierPower(S, s, 'atk'))}</span>${pts ? `<span class="goldtxt">${pts} point${pts > 1 ? 's' : ''} to spend</span>` : ''}</div>
+          ${next ? `<div class="bar xp" style="margin-top:3px"><i style="width:${Math.min(100, 100 * s.xp / next)}%"></i></div>` : '<div class="small" style="color:var(--gold)">Legend. As good as soldiers get.</div>'}</div>`; }).join('') || '<p class="muted">No soldiers yet.</p>'}</div>`;
+};
+ACT.wGen = v => { const [aid, id] = v.split(':'), err = WAR.setGeneral(S, +aid, id || null); if (err) toast(err); save(); render(); };
+ACT.wRecruit = v => { const [aid, t] = v.split(':'), r = WAR.recruit(S, +aid, t); if (typeof r === 'string') toast(r); else toast(`${esc(r.name)} joins as a ${WAR.TYPES[t].one}.`); save(); render(); };
+ACT.wSoldier = v => {
+  const s = S.war.soldiers[+v], pts = WAR.points(s);
+  overlay(`<div class="sheet"><h2>${WAR.title(s)} ${esc(s.name)}</h2><p class="small muted">${WAR.TYPES[s.type].one} · rank ${s.rank} of 10 · ${s.battles} battles · ${pts} point${pts === 1 ? '' : 's'} to spend</p>
+    ${Object.keys(WAR.PERKS).map(k => { const d = WAR.PERKS[k], r = s.perks[k] || 0; return `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div><b>${d.name}</b> <span class="pot">${'●'.repeat(r)}<span class="off">${'●'.repeat(d.max - r)}</span></span><div class="small muted">${d.desc}</div></div>
+      ${r < d.max ? `<button class="sm ${pts ? 'gold' : ''}" data-a="wPerk" data-v="${s.sid}:${k}" ${pts ? '' : 'disabled'}>+1</button>` : ''}</div>`; }).join('')}
+    <button class="big" data-a="closeOv">Done</button></div>`);
+};
+ACT.wPerk = v => { const [sid, k] = v.split(':'); if (WAR.buyPerk(S.war.soldiers[+sid], k)) { save(); render(); ACT.wSoldier(sid); } };
+// Starting the war after chapter one.
+ACT.warBegin = () => scene('war_begins', () => { WAR.start(S); S.shopTier = Math.max(S.shopTier, 4); save(); ACT.war(); });
+function warCard() {
+  if (!WAR) return '';
+  if (!warOn()) return S.areas.tower && S.areas.tower.cleared ? `<div class="card defend alert"><b class="serif" style="font-size:1.1rem;color:var(--bad)">The beacons are lit</b>
+    <div class="small muted" style="margin-top:4px">Fire on every hill to the north. Something is coming.</div><button class="primary big" data-a="warBegin">Go to the walls</button></div>` : '';
+  const w = S.war, threat = w.hollow.find(h => WAR.REGIONS[h.to].named || h.to === 'emberwake'), siege = Object.keys(w.regions).find(id => w.regions[id].siege);
+  return `<div class="card defend ${siege ? 'alert' : ''}"><div class="spread"><b class="serif" style="font-size:1.1rem">The war</b><span class="pill on">Day ${w.day}</span></div>
+    <div class="small muted" style="margin-top:4px">${siege ? `<b style="color:var(--bad)">${WAR.REGIONS[siege].name} is under siege!</b> Relieve it today or it falls.` : threat ? `${threat.name} is marching on ${WAR.REGIONS[threat.to].name}.` : `${WAR.owned(S).length} regions held. Resting here ends the day.`}</div>
+    <button class="big gold" data-a="war">War map</button></div>`;
+}
 
 // ---------- Battle UI ----------
 const BG = {
@@ -1606,8 +1819,8 @@ function evolveScreen(ev, then) {
   const c = S.creatures.find(x => E.creatureName(x) === ev.to);
   const sprite = c ? E.creatureSprite(c) : null;
   overlay(`<div class="sheet" style="text-align:center"><p class="muted">Something is happening to ${esc(ev.from)}...</p>
-    ${sprite ? `<div class="evo">${img(ev.final ? sprite.slice(0, -1) : sprite.split('@')[0], 4)}<span>→</span>${img(sprite, 4)}</div>` : ''}
-    <h2>${esc(ev.from)} became a ${esc(ev.to)}!</h2><p class="muted small">${ev.final ? 'Its final form. Stronger in every way, with its most powerful move.' : W.STANCES[ev.form].name + ' form, shaped by how it fought. It\'s stronger in every way and learned new moves.'}</p>
+    ${sprite ? `<div class="evo">${img(ev.mythic ? sprite : ev.final ? sprite.slice(0, -1) : sprite.split('@')[0], 4)}<span>→</span>${img(sprite, 4)}</div>` : ''}
+    <h2>${esc(ev.from)} became a ${esc(ev.to)}!</h2><p class="muted small">${ev.mythic ? 'An Elder: a quarter stronger again, with a move that changes fights.' : ev.final ? 'Its last form but one. Stronger in every way, with its most powerful move. At level ' + W.EVO3_LVL + ' it can become an Elder.' : W.STANCES[ev.form].name + ' form, shaped by how it fought. It\'s stronger in every way and learned new moves.'}</p>
     <button class="primary big" data-a="evoOk">Brilliant</button></div>`, 'center');
   ACT.evoOk = () => { closeOverlay(); then(); };
 }
