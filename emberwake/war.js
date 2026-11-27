@@ -74,13 +74,17 @@ W2.upgrade = function (S) {
   const w = S.war;
   if (w.v === 2) return w;
   w.v = 2; w.nextCid = w.nextCid || 1; w.levy = Math.max(w.levy || 0, 10);
+  w.armies = w.armies || []; w.hollow = w.hollow || []; w.reports = w.reports || [];
+  const soldiers = w.soldiers || {};
+  for (const a of w.armies) { a.squadsOld = a.squads || []; a.companies = []; }
   for (const a of w.armies) {
     const by = {};
-    for (const sid of a.squads || []) { const s = w.soldiers[sid]; if (!s) continue; (by[s.type] = by[s.type] || []).push(s); }
-    a.companies = [];
+    for (const sid of a.squadsOld) { const s = soldiers[sid]; if (!s || !TYPES[s.type]) continue; (by[s.type] = by[s.type] || []).push(s); }
     for (const t in by) { const c = W2.addCompany(S, a, t, by[t].length * 5); c.rank = Math.max(...by[t].map(s => s.rank)); c.xp = RANK_XP[c.rank - 1]; }
-    delete a.squads;
+    delete a.squads; delete a.squadsOld; delete a.target;
+    a.acted = 0; a.broken = 0;
   }
+  w.reports = []; // old reports name soldiers that no longer exist
   delete w.soldiers; delete w.nextSid;
   return w;
 };

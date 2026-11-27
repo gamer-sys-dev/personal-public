@@ -767,7 +767,8 @@ function boot(obj) {
   S = E.migrate(obj);
   AU.set({ music: S.opts && S.opts.music !== false, sfx: S.opts && S.opts.sfx !== false });
   if (!S.opts) S.opts = { speed: 1 };
-  if (S.war && WAR) WAR.upgrade(S); // first-version war saves: named squads become companies
+  // first-version war saves: named squads become companies. Never let a failed upgrade stop the game loading.
+  if (S.war && WAR) { try { WAR.upgrade(S); } catch (e) { console.error(e); } }
   E.clampParty(S); save();
 }
 ACT.continue = () => {
