@@ -494,7 +494,7 @@ function lineupHTML() {
     ${S.party.map(id => `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow">${heroRow(id)}</div>
       ${bench.length ? `<button class="sm" data-a="swapOut" data-v="${id}">Swap</button>` : ''}</div>`).join('')}</div>
     ${bench.length ? `<div class="card"><h2>On the bench</h2><p class="muted small">${S.buildings.yard ? `Bench heroes earn ${Math.round(W.YARD_RATE[S.buildings.yard] * 100)}% of fight XP at the training yard.` : 'Build a training yard so bench heroes earn XP while you fight.'} Heroes behind the leader always earn bonus XP to catch up.</p>
-      ${bench.map(id => { const gen = warOn() && WAR.generalOf(S, id), hurt = warOn() && WAR.wounded(S, id); return `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow">${heroRow(id)}${gen ? `<div class="small" style="color:var(--gold)">Leading ${gen.name}</div>` : hurt ? `<div class="small" style="color:#ffb0a0">Wounded: ${S.war.wounded[id]} more days</div>` : ''}</div>${gen || hurt ? '' : `<button class="sm gold" data-a="swapIn" data-v="${id}">Bring in</button>`}</div>`; }).join('')}</div>` : '<div class="card muted small">Nobody on the bench yet. Recruits will join as you find them.</div>'}
+      ${bench.map(id => { const gen = warOn() && WAR.generalOf(S, id), hurt = false; return `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="grow">${heroRow(id)}${gen ? `<div class="small" style="color:var(--gold)">Leading ${gen.name}</div>` : hurt ? `<div class="small" style="color:#ffb0a0">Wounded: ${S.war.wounded[id]} more days</div>` : ''}</div><button class="sm gold" data-a="swapIn" data-v="${id}">Bring in</button></div>`; }).join('')}</div>` : '<div class="card muted small">Nobody on the bench yet. Recruits will join as you find them.</div>'}
     ${S.roster.includes('hesk') ? `<div class="card"><h2>Creature</h2>${c ? creatureRow(c) : '<p class="muted">None chosen.</p>'}<button class="sm" style="margin-top:8px" data-a="creatures">Change creature</button></div>` : ''}`;
 }
 
@@ -767,6 +767,7 @@ function boot(obj) {
   S = E.migrate(obj);
   AU.set({ music: S.opts && S.opts.music !== false, sfx: S.opts && S.opts.sfx !== false });
   if (!S.opts) S.opts = { speed: 1 };
+  if (S.war && WAR) WAR.upgrade(S); // first-version war saves: named squads become companies
   E.clampParty(S); save();
 }
 ACT.continue = () => {
@@ -831,7 +832,6 @@ ACT.rest = () => {
   if (!warOn()) { toast('The party rests. Everyone is back to full, and foraging spots have grown back.'); render(); return; }
   const rep = WAR.day(S);
   // Generals and the wounded can't fight in the party.
-  S.party = S.party.filter(id => !WAR.generalOf(S, id));
   save();
   dayReport(rep, () => { if (rep.siege) warSiege(rep); else render(); });
 };
@@ -863,7 +863,7 @@ ACT.swapIn = v => {
   overlay(`<div class="sheet"><h2>Bring in ${heroName(v)} for</h2>${S.party.map(id => `<button class="big" data-a="swapDo" data-v="${v}:${id}">${heroName(id)}</button>`).join('')}<button class="link" data-a="closeOv">Cancel</button></div>`);
 };
 ACT.swapOut = v => {
-  const bench = S.roster.filter(id => !S.party.includes(id) && !(warOn() && (WAR.generalOf(S, id) || WAR.wounded(S, id))));
+  const bench = S.roster.filter(id => !S.party.includes(id));
   overlay(`<div class="sheet"><h2>Swap ${heroName(v)} for</h2>${bench.map(id => `<button class="big" data-a="swapDo" data-v="${id}:${v}">${heroName(id)}</button>`).join('')}<button class="link" data-a="closeOv">Cancel</button></div>`);
 };
 ACT.swapDo = v => {
@@ -1188,99 +1188,211 @@ const WAR = window.WAR;
 const OWN_COL = { p: '#d4a630', h: '#7a3ab8' };
 const warOn = () => WAR && WAR.active(S);
 const pctTxt = p => Math.round(p * 100) + '%';
+const pctPlus = x => (x >= 0 ? '+' : '') + Math.round(x * 100) + '%';
+const ACT_COL = { march: '#7ad8ff', attack: '#e0574a', relieve: '#ffb84a' };
+const ACT_TXT = { march: 'March', attack: 'Attack', relieve: 'Relieve' };
 function regionState(id) {
-  const r = S.war.regions[id], R = WAR.REGIONS[id];
+  const r = S.war.regions[id];
   if (WAR.locked(S, id)) return { txt: 'Sealed', cls: '' };
   if (r.owner === 'p' && r.lost) return { txt: 'Ruins', cls: '' };
   if (r.owner === 'p') return { txt: r.siege ? 'Under siege!' : 'Yours', cls: r.siege ? 'bad' : 'good' };
   return { txt: r.lost ? 'Lost' : 'Hollow', cls: 'bad' };
 }
+const selArmy = () => S.war.armies.find(a => a.id === view.army) || null;
 function warMapSVG() {
-  const w = S.war, sel = view.region, army = w.armies.find(a => a.id === view.army);
+  const w = S.war, sel = view.region, army = selArmy();
   let g = '';
   for (const [a, b] of WAR.ROADS) { const A = WAR.REGIONS[a], B = WAR.REGIONS[b]; g += `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="#3a3d52" stroke-width="1.1"/>`; }
-  // Hollow marches: a dashed red line to their next step
   for (const h of w.hollow) {
     const next = WAR.path(h.at, h.to)[0], A = WAR.REGIONS[h.at];
     if (next) { const B = WAR.REGIONS[next]; g += `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="#e0574a" stroke-width="1.4" stroke-dasharray="2 1.5"/>`; }
   }
   for (const id in WAR.REGIONS) {
-    const R = WAR.REGIONS[id], r = w.regions[id];
-    const reach = army && WAR.canMove(S, army, id);
+    const R = WAR.REGIONS[id], r = w.regions[id], act = army ? WAR.action(S, army, id).kind : null;
     const col = WAR.locked(S, id) ? '#22222c' : r.lost && r.owner === 'p' ? '#5a5560' : OWN_COL[r.owner];
     const shape = R.kind === 'fort' || R.kind === 'citadel' ? `<rect x="-3.6" y="-3.6" width="7.2" height="7.2" rx="1" fill="${col}" stroke="${sel === id ? '#fff' : '#00000088'}" stroke-width="${sel === id ? 0.9 : 0.5}"/>`
       : `<circle r="${R.kind === 'keep' || R.kind === 'town' ? 4.2 : 3.4}" fill="${col}" stroke="${sel === id ? '#fff' : '#00000088'}" stroke-width="${sel === id ? 0.9 : 0.5}"/>`;
     g += `<g transform="translate(${R.x} ${R.y})" data-a="wRegion" data-v="${id}" style="cursor:pointer">
-      ${reach ? '<circle r="6" fill="none" stroke="#7ad8ff" stroke-width=".7" stroke-dasharray="1.5 1"/>' : ''}
+      ${act ? `<circle r="6.2" fill="none" stroke="${ACT_COL[act]}" stroke-width=".9" stroke-dasharray="1.6 1"/><text y="-7" text-anchor="middle" font-size="2.8" font-weight="700" fill="${ACT_COL[act]}">${ACT_TXT[act]}</text>` : ''}
       ${r.siege ? '<circle r="5.6" fill="none" stroke="#e0574a" stroke-width="1"><animate attributeName="r" values="5;6.5;5" dur="1s" repeatCount="indefinite"/></circle>' : ''}
       <circle r="7" fill="transparent"/>${shape}
-      ${R.named ? '<circle cx="2.8" cy="-2.8" r="1.1" fill="#fff"/>' : ''}
+      ${R.named && !r.lost ? '<circle cx="2.8" cy="-2.8" r="1.1" fill="#fff"/>' : ''}
       <text y="7.6" text-anchor="middle" font-size="2.9" fill="${r.lost ? '#8a8590' : '#e8e2d0'}">${R.name}</text></g>`;
   }
-  // armies
   const at = {};
-  for (const a of w.armies) { const R = WAR.REGIONS[a.at], k = at[a.at] = (at[a.at] || 0) + 1; g += `<g transform="translate(${R.x - 5.5 + k * 2.4} ${R.y - 6.5})"><path d="M0 0h2.6v3.2l-1.3-.9-1.3.9z" fill="${a.id === view.army ? '#7ad8ff' : '#4a8ad8'}" stroke="#000" stroke-width=".3"/></g>`; }
-  for (const h of w.hollow) { const R = WAR.REGIONS[h.at]; g += `<g transform="translate(${R.x + 3} ${R.y - 6.5})"><path d="M0 3.2L1.5 0 3 3.2z" fill="#e0574a" stroke="#000" stroke-width=".3"/></g>`; }
-  return `<svg class="warsvg" viewBox="0 -2 100 102">${g}</svg>`;
+  for (const a of w.armies) {
+    const R = WAR.REGIONS[a.at], k = at[a.at] = (at[a.at] || 0) + 1, ready = WAR.ready(S, a);
+    g += `<g transform="translate(${R.x - 6 + k * 2.6} ${R.y - 6.8})" data-a="wSel" data-v="${a.id}" style="cursor:pointer"><path d="M0 0h2.8v3.4l-1.4-.9-1.4.9z" fill="${a.id === view.army ? '#7ad8ff' : ready ? '#4a8ad8' : '#3a4050'}" stroke="#000" stroke-width=".3"/></g>`;
+  }
+  for (const h of w.hollow) { const R = WAR.REGIONS[h.at]; g += `<g transform="translate(${R.x + 3} ${R.y - 6.8})"><path d="M0 3.2L1.5 0 3 3.2z" fill="#e0574a" stroke="#000" stroke-width=".3"/></g>`; }
+  return `<svg class="warsvg" viewBox="0 -4 100 104">${g}</svg>`;
 }
 function bonusText(b) {
   if (!b) return '';
   const n = { stat: 'hero stats', heroXp: 'hero XP', soldierXp: 'soldier XP', soldierPower: 'soldier strength', creatureXp: 'creature XP' };
-  return Object.keys(b).map(k => k === 'shop' ? `tier ${b[k]} gear in the shops` : k === 'armyHeal' ? 'armies mend faster' : `+${Math.round(b[k] * 100)}% ${n[k]}`).join(', ');
+  return Object.keys(b).map(k => k === 'shop' ? `tier ${b[k]} gear in the shops` : k === 'armyHeal' ? 'armies recover faster' : `+${Math.round(b[k] * 100)}% ${n[k]}`).join(', ');
 }
 function yieldText(y) { return y ? Object.keys(y).map(k => `${y[k]} ${k === 'gold' ? 'gold' : k === 'levy' ? 'levy' : D.MATS[k].name}`).join(', ') + ' a day' : ''; }
+// "Soldiers 180 + Aldric +48% + forts +15% = 293"
+function mineSum(a, b) {
+  const parts = [`Soldiers ${b.soldiers}`];
+  if (b.gen) parts.push(`${heroName(a.general)} ${pctPlus(b.gen)}`);
+  if (b.lead) parts.push(`Leaders ${pctPlus(b.lead)}`);
+  if (b.held) parts.push(`Forts held ${pctPlus(b.held)}`);
+  if (b.tired) parts.push(`Regrouping ${pctPlus(b.tired)}`);
+  return `${parts.join(' · ')} = <b>${b.total}</b>`;
+}
+function foeSum(f) {
+  const parts = [];
+  if (f.garrison) parts.push(f.walls > 1 ? `Garrison ${f.garrison} × walls ${f.walls}` : `Garrison ${f.garrison}`);
+  if (f.armies) parts.push(`Hollow army ${f.armies}`);
+  return `${parts.join(' + ')} = <b>${f.total}</b>`;
+}
+function oddsWord(p) { return p >= 0.8 ? 'very likely' : p >= 0.6 ? 'likely' : p >= 0.4 ? 'a coin toss' : p >= 0.2 ? 'unlikely' : 'very unlikely'; }
+const WAR_HELP = `<details class="card"><summary><b>How the war works</b></summary><ol class="small" style="margin:6px 0 0 16px;padding:0">
+  <li><b>Your turn:</b> each army can do one thing a day. Pick an army (blue flag), and the map shows where it can <span style="color:#7ad8ff">March</span> (your own ground), <span style="color:#e0574a">Attack</span> (Hollow ground) or <span style="color:#ffb84a">Relieve</span> (Hollow besieging your place). Only the next region along a road.</li>
+  <li><b>Battles:</b> strength against strength. Auto-resolve rolls the odds shown. Fight it yourself and your party of three fights alongside the army's companies, which act on their own like your creature. Your party gives you a real edge.</li>
+  <li><b>End the day</b> (or rest at the keep): the Hollow move. A Hollow army reaching your ground besieges it for a day. Relieve it the next day or it falls. An army standing there defends it automatically.</li>
+  <li><b>Places with people</b> (white dot) are lost for good if they fall.</li>
+  <li><b>Getting stronger:</b> recruit on your own ground, rank companies up in battle and spend their points, give each army a general (+2% strength per hero level), and hold forts for bonuses. Barracks and forts let armies grow bigger.</li></ol></details>`;
 SCREENS.war = () => {
-  const w = S.war, inc = WAR.income(S), mods = WAR.mods(S);
-  const sel = view.region, army = w.armies.find(a => a.id === view.army);
+  const w = S.war, inc = WAR.income(S), mods = WAR.mods(S), sel = view.region, army = selArmy();
   let card = '';
   if (sel) {
-    const R = WAR.REGIONS[sel], r = w.regions[sel], st = regionState(sel), foe = WAR.foePower(S, sel), here = w.armies.filter(a => a.at === sel);
-    const movers = w.armies.filter(a => WAR.canMove(S, a, sel) && a.squads.length && !a.broken);
+    const R = WAR.REGIONS[sel], r = w.regions[sel], st = regionState(sel), foe = WAR.foeBreakdown(S, sel);
+    let act = '';
+    if (army) {
+      const a = WAR.action(S, army, sel);
+      if (a.kind === 'march') act = `<button class="big primary" data-a="wMarch" data-v="${sel}">March ${army.name} here</button>`;
+      else if (a.kind) {
+        const f = WAR.forecast(S, army, sel);
+        act = `<div class="odds"><div class="small">${army.name}: ${mineSum(army, f.mine)}</div><div class="small">The Hollow: ${foeSum(f.foe)}</div>
+          <div class="spread" style="margin-top:4px"><b>${pctTxt(f.p)} to win on auto</b><span class="small muted">${oddsWord(f.p)} · about ${f.lost} of ${WAR.soldiers(army)} would fall</span></div></div>
+          <button class="big primary" data-a="wFight" data-v="${sel}">⚔ Fight it yourself (party + army)</button>
+          <button class="big" data-a="wAuto" data-v="${sel}">Auto-resolve · ${pctTxt(f.p)}</button>`;
+      } else act = `<div class="small muted" style="margin-top:6px">${a.why}</div>`;
+    } else act = '<div class="small muted" style="margin-top:6px">Pick an army first (a blue flag, or Select below).</div>';
     card = `<div class="card"><div class="spread"><b class="serif" style="font-size:1.1rem">${R.name}</b><span class="pill ${st.cls}">${st.txt}</span></div>
       <div class="small muted" style="margin-top:4px">${sel === 'hollowgate' && S.flags.gate_open ? 'The Gate stands open. Whatever is inside is waiting for Isolde.' : r.lost ? `${R.people ? R.people.replace(/^./, c => c.toUpperCase()) + ' are gone. ' : ''}Only ruins left. Holding it gives nothing now.` : R.desc}</div>
       ${!r.lost && R.bonus ? `<div class="small" style="margin-top:4px;color:var(--gold)">Holding it: ${bonusText(R.bonus)}.</div>` : ''}
       ${!r.lost && R.yields ? `<div class="small muted">Pays ${yieldText(R.yields)}.</div>` : ''}
-      ${foe ? `<div class="small" style="margin-top:4px;color:#ffb0a0">Hollow strength here: ${foe}</div>` : ''}
-      ${here.length ? `<div class="small" style="margin-top:4px">Here: ${here.map(a => a.name).join(', ')}</div>` : ''}
-      ${movers.map(a => { const f = foe ? WAR.forecast(S, a, sel) : null; return `<button class="big ${a.target === sel ? 'gold' : ''}" data-a="wOrder" data-v="${a.id}:${sel}">${a.target === sel ? '✓ ' : ''}${foe ? 'Attack at dawn' : 'March'} with ${a.name}${f ? ` · ${pctTxt(f.p)} · about ${f.lossWin} fall` : ''}</button>`; }).join('')}
-      ${w.armies.filter(a => WAR.canLead(S, a, sel)).map(a => `<button class="big primary" data-a="wLead" data-v="${a.id}:${sel}">⚔ Lead ${a.name} yourself, now</button>`).join('')}
-      ${w.armies.some(a => WAR.canLead(S, a, sel)) ? '<div class="small muted">Leading it yourself uses that army\'s move for today. Squads that go down may survive wounded.</div>' : ''}
-      ${chapter2Buttons(sel)}
-      ${WAR.locked(S, sel) ? '' : !movers.length && r.owner !== 'p' ? '<div class="small muted" style="margin-top:6px">No army is next to it. Armies march one region a day along the roads.</div>' : ''}</div>`;
+      ${foe.total ? `<div class="small" style="margin-top:4px;color:#ffb0a0">Hollow here: ${foeSum(foe)}</div>` : ''}
+      ${act}${chapter2Buttons(sel)}</div>`;
   }
-  const threats = w.hollow.map(h => { const route = WAR.path(h.at, h.to); return `<div class="spread small" style="margin-top:4px"><span><b style="color:#ffb0a0">${h.name}</b> (${h.power}) at ${WAR.REGIONS[h.at].name}</span><span class="muted">→ ${WAR.REGIONS[h.to].name}, ${route.length ? route.length + ' day' + (route.length > 1 ? 's' : '') : 'there now'}</span></div>`; }).join('');
+  const threats = w.hollow.map(h => { const route = WAR.path(h.at, h.to); return `<div class="spread small" style="margin-top:4px"><span><b style="color:#ffb0a0">${h.name}</b> (${h.power}) at ${WAR.REGIONS[h.at].name}</span><span class="muted">→ ${WAR.REGIONS[h.to].name}, ${route.length ? route.length + ' day' + (route.length > 1 ? 's' : '') : h.besieging ? 'besieging' : 'there now'}</span></div>`; }).join('');
   return `<div class="topbar"><h1>The war · Day ${w.day}</h1><button class="sm" data-a="keep">Keep</button></div>
     <div class="spread small"><span class="goldtxt">${S.gold} g</span><span>Levy <b>${w.levy}</b></span><span class="muted">+${inc.gold || 0} g, +${inc.levy || 0} levy a day</span></div>
+    ${army ? `<div class="selbar">Selected: <b>${army.name}</b> at ${WAR.REGIONS[army.at].name} · ${WAR.ready(S, army) ? '<span style="color:var(--good)">ready to act</span>' : army.broken ? `<span style="color:#ffb0a0">regrouping ${army.broken}d</span>` : '<span class="muted">done for today</span>'}. Tap a ringed place.</div>` : ''}
     <div class="mapwrap">${warMapSVG()}</div>
-    <div class="small muted" style="text-align:center;margin:-2px 0 6px">Gold: yours. Purple: Hollow. White dot: people live there and if it falls they're gone for good.</div>
     ${card}
     ${threats ? `<div class="card"><b>Hollow on the march</b>${threats}</div>` : ''}
-    <div class="card"><div class="spread"><b>Your armies</b><span class="muted small">${w.armies.length} of ${WAR.armySlots(S)}</span></div>
-      ${w.armies.map(a => `<div class="warmy ${a.id === view.army ? 'on' : ''}"><div class="spread"><div><b>${a.name}</b> <span class="small muted">at ${WAR.REGIONS[a.at].name}</span>
-        <div class="small">${a.general ? `Led by <b>${heroName(a.general)}</b>` : '<span class="muted">No general</span>'} · ${a.squads.length}/${WAR.SQUADS} squads · strength <b>${WAR.armyPower(S, a, 'atk')}</b>${a.broken ? ` · <span style="color:#ffb0a0">regrouping ${a.broken}d</span>` : ''}</div>
-        <div class="small muted">${a.target ? '→ ' + WAR.REGIONS[a.target].name + ' at dawn' : 'Holding'}</div></div></div>
-        <div class="row" style="margin-top:6px"><button class="sm ${a.id === view.army ? 'gold' : ''}" data-a="wSel" data-v="${a.id}">${a.id === view.army ? 'Selected' : 'Orders'}</button><button class="sm" data-a="wArmy" data-v="${a.id}">Troops</button>${a.target ? `<button class="sm" data-a="wOrder" data-v="${a.id}:">Hold</button>` : ''}</div></div>`).join('')}
-      ${w.armies.length < WAR.armySlots(S) ? `<button class="big" data-a="wNewArmy">Raise a new army (${w.armies.length + 1} of ${WAR.armySlots(S)})</button>` : `<div class="small muted" style="margin-top:6px">More armies: barracks levels, forts held and Ashby each add one.</div>`}</div>
+    <div class="card"><div class="spread"><b>Your armies</b><span class="muted small">${w.armies.length} of ${WAR.armySlots(S)} · up to ${WAR.armyCap(S)} soldiers each</span></div>
+      ${w.armies.map(a => { const b = WAR.breakdown(S, a, 'atk'); return `<div class="warmy ${a.id === view.army ? 'on' : ''}"><div><b>${a.name}</b> <span class="small muted">at ${WAR.REGIONS[a.at].name} · ${WAR.ready(S, a) ? 'ready' : a.broken ? 'regrouping' : 'done today'}</span>
+        <div class="small">${WAR.soldiers(a)} soldiers in ${a.companies.length} compan${a.companies.length === 1 ? 'y' : 'ies'} · strength <b>${b.total}</b></div>
+        <div class="small muted">${mineSum(a, b)}</div></div>
+        <div class="row" style="margin-top:6px"><button class="sm ${a.id === view.army ? 'gold' : ''}" data-a="wSel" data-v="${a.id}">${a.id === view.army ? 'Selected' : 'Select'}</button><button class="sm" data-a="wArmy" data-v="${a.id}">Manage</button></div></div>`; }).join('')}
+      ${w.armies.length < WAR.armySlots(S) ? `<button class="big" data-a="wNewArmy">Raise a new army (${w.armies.length + 1} of ${WAR.armySlots(S)})</button>` : '<div class="small muted" style="margin-top:6px">More armies: barracks levels, forts held and Ashby each add one.</div>'}</div>
     <div class="card"><b>What you hold gives you</b><div class="small" style="margin-top:4px">${bonusText(Object.fromEntries(Object.entries(mods).filter(([, v]) => v))) || '<span class="muted">Nothing yet. Take forts and keep villages safe.</span>'}</div></div>
+    ${WAR_HELP}
     <button class="primary big" data-a="wDay">End the day (rest at the keep)</button>
     ${w.reports[0] ? '<button class="link small" data-a="wLast">Yesterday\'s report</button>' : ''}`;
 };
-ACT.war = () => go('war', { region: null, army: S.war.armies[0] ? S.war.armies[0].id : null });
+ACT.war = () => { go('war', { region: null, army: (S.war.armies.find(a => WAR.ready(S, a)) || S.war.armies[0] || {}).id }); setTimeout(storyBeat, 200); };
 ACT.wRegion = v => { view.region = v; render(); };
 ACT.wSel = v => { view.army = +v; render(); };
-ACT.wOrder = v => {
-  const [aid, rid] = v.split(':'), err = WAR.order(S, +aid, rid || null);
-  if (err) toast(err); else { save(); toast(rid ? `${S.war.armies.find(a => a.id === +aid).name} will march at dawn. End the day to go.` : 'Holding.'); }
-  render();
+ACT.wMarch = rid => { const err = WAR.march(S, selArmy(), rid); if (err) toast(err); else { save(); toast(`${selArmy().name} marches to ${WAR.REGIONS[rid].name}.`); } render(); };
+ACT.wAuto = rid => {
+  const a = selArmy(), rep = WAR.attack(S, a, rid);
+  if (rep.error) { toast(rep.error); return; }
+  save(); battleReport(rep, () => render());
 };
-// ---------- Chapter two: the marshals, the Gate and the king ----------
-// A marshal still alive leads his fort's garrison in person when you storm it.
-function chapter2Boss(rid) {
-  const l = WAR.LIEUTENANTS[rid];
-  if (l && !S.flags[l.flag] && S.war.regions[rid].owner === 'h') return { name: D.ENEMIES[l.t].name, sprite: l.sprite, mult: 1.3 };
-  if (rid === 'hollowgate') return { name: 'The Gatewarden', sprite: 'hand', mult: 1.6 };
-  return null;
+ACT.wNewArmy = () => { const a = WAR.newArmy(S); save(); go('army', { id: a.id }); };
+ACT.wArmy = v => go('army', { id: +v });
+ACT.wDay = () => ACT.rest();
+ACT.wLast = () => dayReport(S.war.reports[0], () => {});
+function battleCard(b) {
+  return `<div class="lvcard"><div class="spread"><b>${b.defend ? '🛡' : '⚔'} ${b.army} at ${b.where}</b><span class="pill ${b.won ? 'good' : 'bad'}">${b.won ? 'Won' : 'Lost'}</span></div>
+    ${b.P ? `<div class="small muted">${b.P} against ${b.Q} · ${pctTxt(b.p)} odds</div>` : ''}
+    ${b.losses.length ? `<div class="small" style="color:#ffb0a0">Fallen: ${b.losses.map(l => `${l.dead} of the ${esc(l.name)}`).join(', ')}</div>` : '<div class="small" style="color:var(--good)">Nobody fell.</div>'}
+    ${b.promoted.length ? `<div class="small" style="color:var(--gold)">Promoted: ${b.promoted.map(p => `${esc(p.name)} now ${WAR.RANKS[p.rank - 1]}`).join(', ')}</div>` : ''}
+    ${b.heroXp ? `<div class="small">General +${b.heroXp} XP${b.heroLevels ? ' <b style="color:var(--gold)">Level up!</b>' : ''}</div>` : ''}
+    ${b.captured ? `<div class="small" style="color:var(--gold)"><b>${b.where} is yours!</b></div>` : ''}</div>`;
 }
+function battleReport(b, then) {
+  overlay(`<div class="sheet levelup"><h2>${b.won ? 'Victory' : 'Beaten'}</h2>${battleCard(b)}<button class="primary big" data-a="repOk">Back to the war</button></div>`, 'center');
+  ACT.repOk = () => { closeOverlay(); then(); storyBeat(); };
+}
+function dayReport(rep, then) {
+  const inc = rep.income || {};
+  overlay(`<div class="sheet levelup"><h2>Day ${rep.day} ends</h2>
+    ${rep.lines.map(l => `<p class="small" style="${l.cls === 'bad' ? 'color:#ffb0a0' : l.cls === 'good' ? 'color:var(--good)' : l.cls === 'warn' ? 'color:var(--gold)' : ''}">${l.t}</p>`).join('') || '<p class="muted">A quiet night.</p>'}
+    ${rep.battles.map(battleCard).join('')}<p class="small muted">Income: ${Object.keys(inc).map(k => `${inc[k]} ${k === 'gold' || k === 'levy' ? k : D.MATS[k].name}`).join(', ')}</p>
+    <button class="primary big" data-a="repOk">${rep.siege ? 'Man the walls!' : 'Continue'}</button></div>`, 'center');
+  ACT.repOk = () => { closeOverlay(); then(); setTimeout(storyBeat, 200); };
+}
+// Fight a war battle yourself: the party, plus the army's companies acting on their own, against Hollow companies.
+ACT.wFight = rid => {
+  const a = selArmy(), act = WAR.action(S, a, rid);
+  if (!a || !(act.kind === 'attack' || act.kind === 'relieve')) { toast(act.why || 'Nothing to fight there.'); return; }
+  if (S.party.every(h => S.heroes[h].hp <= 0)) { toast('Your party needs to rest first.'); return; }
+  const L = E.partyLevel(S), kind = WAR.REGIONS[rid].kind;
+  S.war.fightingArmy = a.id;
+  startBattle(WAR.hordeSpecs(S, rid, L), { area: ['fort', 'citadel', 'mine'].includes(kind) ? 'tower' : kind === 'temple' ? 'fenmire' : 'millroad', boss: true, story: true, war: { aid: a.id, rid }, allies: WAR.battleUnits(S, a, L) });
+};
+// Called from endBattle for war battles.
+function warBattleEnd(res, c, close) {
+  const a = S.war.armies.find(x => x.id === c.war.aid), losses = {};
+  for (const u of B.heroes.filter(h => h.isCompany)) losses[u.cls] = res.won ? 1 - u.hp / u.maxHp : Math.max(0.6, 1 - u.hp / u.maxHp);
+  const rep = WAR.foughtResult(S, a, c.war.rid, { won: res.won, losses });
+  if (!res.won) E.restParty(S);
+  save(); close();
+  go('war', { region: c.war.rid, army: a.id });
+  const after = () => { if (res.levels && Object.keys(res.levels).length) levelUpScreen(res, () => {}); };
+  battleReport(rep, after);
+}
+// The Hollow reached Emberwake: a siege night at a strength to match the army.
+function warSiege(rep) {
+  const n = WAR.siegeNight(rep.siege.power);
+  SUI.runSiege(S, n, r => {
+    const won = r.result === 'won', lost = WAR.siegeResult(S, rep.siege.hid, won);
+    E.restParty(S); save();
+    overlay(`<div class="sheet" style="text-align:center"><h2>${won ? 'Emberwake holds' : 'They broke in'}</h2><p>${won ? 'The Hollow column breaks on your walls and scatters into the dark.' : `They burned the stores before the survivors drove them off. Lost ${lost} gold and half the levy.`}</p>
+      <button class="primary big" data-a="closeOv">Back to the keep</button></div>`, 'center');
+    go('keep');
+  });
+}
+SCREENS.army = () => {
+  const a = S.war.armies.find(x => x.id === view.id);
+  if (!a) return SCREENS.war();
+  const gens = S.roster.filter(id => !(S.flags.gone || []).includes(id)), atk = WAR.breakdown(S, a, 'atk'), def = WAR.breakdown(S, a, 'def'), cap = WAR.armyCap(S);
+  return `<div class="topbar"><h1>${a.name}</h1><button class="sm" data-a="war">War map</button></div>
+    <div class="card"><div class="small">At <b>${WAR.REGIONS[a.at].name}</b> · ${WAR.soldiers(a)} of ${cap} soldiers · ${a.companies.length} of ${WAR.COMPANIES} companies</div>
+      <div class="small" style="margin-top:4px">Attacking: ${mineSum(a, atk)}</div><div class="small">Defending: ${mineSum(a, def)}</div></div>
+    <div class="card"><b>General</b><div class="small muted">A hero who leads an army adds +2% strength per level (+15% more if Awakened) and earns XP from its battles. They stay in your party too.</div>
+      <div class="row" style="flex-wrap:wrap;margin-top:6px">${gens.map(id => { const other = WAR.generalOf(S, id), bonus = 0.02 * S.heroes[id].lvl + (S.heroes[id].awakened ? 0.15 : 0); return `<button class="sm ${a.general === id ? 'gold' : ''}" data-a="wGen" data-v="${a.id}:${id}" ${other && other !== a ? 'disabled' : ''}>${heroName(id)} ${pctPlus(bonus)}${other && other !== a ? ' (' + other.name + ')' : ''}</button>`; }).join('')}
+      ${a.general ? `<button class="sm" data-a="wGen" data-v="${a.id}:">Nobody</button>` : ''}</div></div>
+    <div class="card"><div class="spread"><b>Recruit</b><span class="small">Levy <b>${S.war.levy}</b> · <span class="goldtxt">${S.gold} g</span></span></div>
+      <div class="small muted">Five at a time, into a company of that kind. Only on your own ground.</div>
+      ${Object.keys(WAR.TYPES).map(t => { const d = WAR.TYPES[t], ok = WAR.unlocked(S, t), c = WAR.recruitCost(t, 5); return `<div class="spread" style="padding:5px 0;border-bottom:1px solid var(--line)"><div class="small"><b>${d.name}</b> <span class="muted">${d.desc}${ok ? '' : ' Needs ' + (d.req[0] === 'barracks' ? 'barracks level ' + d.req[1] : WAR.REGIONS[d.req[1]].name + ' held')}.</span></div>
+        <button class="sm ${ok ? 'gold' : ''}" data-a="wRecruit" data-v="${a.id}:${t}" ${ok ? '' : 'disabled'}>+5 · ${c.gold}g ${c.levy}L</button></div>`; }).join('')}</div>
+    <div class="card"><b>Companies</b> <span class="muted small">They rank up together from battles. Each rank and star is a point to spend: tap one.</span>
+      ${a.companies.map(c => { const pts = WAR.points(c), next = WAR.nextRankXp(c);
+        return `<div class="soldier" data-a="wCompany" data-v="${a.id}:${c.id}"><div class="spread"><span><b>${esc(c.name)}</b> <span class="small muted">×${c.n}</span></span><span class="pot">${'★'.repeat(WAR.stars(c))}<span class="off">${'★'.repeat(5 - WAR.stars(c))}</span></span></div>
+          <div class="spread small"><span class="muted">${WAR.title(c)} · ${c.battles} battles · strength ${Math.round(WAR.companyPower(S, c, 'atk'))}</span>${pts ? `<span class="goldtxt">${pts} point${pts > 1 ? 's' : ''}</span>` : ''}</div>
+          ${next ? `<div class="bar xp" style="margin-top:3px"><i style="width:${Math.min(100, 100 * c.xp / next)}%"></i></div>` : '<div class="small" style="color:var(--gold)">Legendary.</div>'}</div>`; }).join('') || '<p class="muted">No soldiers yet. Recruit above.</p>'}</div>`;
+};
+ACT.wGen = v => { const [aid, id] = v.split(':'), err = WAR.setGeneral(S, +aid, id || null); if (err) toast(err); save(); render(); };
+ACT.wRecruit = v => { const [aid, t] = v.split(':'), r = WAR.recruit(S, +aid, t, 5); if (typeof r === 'string') toast(r); else toast(`Five ${WAR.TYPES[t].name.toLowerCase()} join the ${esc(r.name)}.`); save(); render(); };
+ACT.wCompany = v => {
+  const [aid, cid] = v.split(':'), c = S.war.armies.find(x => x.id === +aid).companies.find(x => x.id === +cid), pts = WAR.points(c);
+  overlay(`<div class="sheet"><h2>${esc(c.name)}</h2><p class="small muted">×${c.n} · ${WAR.title(c)}, rank ${c.rank} of 10 · ${c.battles} battles · ${pts} point${pts === 1 ? '' : 's'} to spend</p>
+    ${Object.keys(WAR.PERKS).map(k => { const d = WAR.PERKS[k], r = c.perks[k] || 0; return `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div><b>${d.name}</b> <span class="pot">${'●'.repeat(r)}<span class="off">${'●'.repeat(d.max - r)}</span></span><div class="small muted">${d.desc}</div></div>
+      ${r < d.max ? `<button class="sm ${pts ? 'gold' : ''}" data-a="wPerk" data-v="${v}:${k}" ${pts ? '' : 'disabled'}>+1</button>` : ''}</div>`; }).join('')}
+    <button class="big" data-a="closeOv">Done</button></div>`);
+};
+ACT.wPerk = v => { const [aid, cid, k] = v.split(':'), c = S.war.armies.find(x => x.id === +aid).companies.find(x => x.id === +cid); if (WAR.buyPerk(c, k)) { save(); render(); ACT.wCompany(aid + ':' + cid); } };
+
+// ---------- Chapter two: the marshals, the Gate and the king ----------
 // The element the Hollow have learned from you: whichever you've used most in the war, once it's been used a lot.
 function learnedEl() {
   const a = S.adapt || {}, top = Object.keys(a).sort((x, y) => a[y] - a[x])[0];
@@ -1312,89 +1424,32 @@ ACT.faceVael = () => scene('vael_meet', () => storyFight([{ t: 'vael' }, { t: 's
   S.flags.vael_dead = true; S.flags.toll_low = (S.toll || 0) <= 5; save();
   scene('vael_choice', () => scene('chapter2_end', () => { S.flags.chapter2_done = true; save(); go('keep'); }));
 }));
-// Fight a war battle yourself, on the field battle screen.
-ACT.wLead = v => {
-  const [aid, rid] = v.split(':'), a = S.war.armies.find(x => x.id === +aid), spec = WAR.fieldSpec(S, rid);
-  if (!a || !WAR.canLead(S, a, rid)) { toast('That army can\'t fight there today.'); return; }
-  const boss = chapter2Boss(rid);
-  window.FIELD.runField(S, a, spec.Q, { fort: spec.fort, title: `${a.name} at ${WAR.REGIONS[rid].name}`, boss }, out => {
-    const rep = WAR.fieldResult(S, a, rid, out);
-    save();
-    overlay(`<div class="sheet levelup"><h2>${rep.won ? (rep.captured ? `${WAR.REGIONS[rid].name} is yours!` : 'Victory') : out.retreat ? 'You fall back' : 'Beaten'}</h2>
-      ${rep.fallen.length ? `<p class="small" style="color:#ffb0a0">Fallen: ${rep.fallen.map(s => `${WAR.title(s)} ${esc(s.name)}`).join(', ')}</p>` : '<p class="small" style="color:var(--good)">Every squad came home.</p>'}
-      ${out.dead.length > rep.fallen.length ? `<p class="small muted">${out.dead.length - rep.fallen.length} squad${out.dead.length - rep.fallen.length > 1 ? 's' : ''} went down but limped home wounded.</p>` : ''}
-      ${rep.promoted.length ? `<p class="small" style="color:var(--gold)">Promoted: ${rep.promoted.map(p => `${esc(p.s.name)} to ${WAR.RANKS[p.rank - 1]}`).join(', ')}</p>` : ''}
-      ${rep.heroXp ? `<p class="small">${heroName(a.general)} +${rep.heroXp} XP${rep.heroLevels ? ' <b style="color:var(--gold)">Level up!</b>' : ''}</p>` : ''}
-      <button class="primary big" data-a="closeOv">Back to the war</button></div>`, 'center');
-    go('war', { region: rid, army: a.id });
-  });
-};
-ACT.wNewArmy = () => { const a = WAR.newArmy(S); save(); go('army', { id: a.id }); };
-ACT.wArmy = v => go('army', { id: +v });
-ACT.wDay = () => ACT.rest();
-ACT.wLast = () => dayReport(S.war.reports[0], () => {});
-function dayReport(rep, then) {
-  const bt = rep.battles.map(b => `<div class="lvcard"><div class="spread"><b>${b.attack ? '⚔' : '🛡'} ${b.army} at ${b.where}</b><span class="pill ${b.won ? 'good' : 'bad'}">${b.won ? 'Won' : 'Lost'}</span></div>
-    <div class="small muted">${b.P} against ${b.Q} · odds were ${pctTxt(b.p)}</div>
-    ${b.fallen.length ? `<div class="small" style="color:#ffb0a0">Fallen: ${b.fallen.map(s => `${WAR.title(s)} ${esc(s.name)}`).join(', ')}</div>` : '<div class="small" style="color:var(--good)">Nobody fell.</div>'}
-    ${b.promoted.length ? `<div class="small" style="color:var(--gold)">Promoted: ${b.promoted.map(p => `${esc(p.s.name)} to ${WAR.RANKS[p.rank - 1]}`).join(', ')}</div>` : ''}
-    ${b.heroXp ? `<div class="small">General +${b.heroXp} XP${b.heroLevels ? ' <b style="color:var(--gold)">Level up!</b>' : ''}</div>` : ''}</div>`).join('');
-  const inc = rep.income || {};
-  overlay(`<div class="sheet levelup"><h2>Day ${rep.day}</h2>
-    ${rep.lines.map(l => `<p class="small ${l.cls || ''}" style="${l.cls === 'bad' ? 'color:#ffb0a0' : l.cls === 'good' ? 'color:var(--good)' : l.cls === 'warn' ? 'color:var(--gold)' : ''}">${l.t}</p>`).join('') || '<p class="muted">A quiet day.</p>'}
-    ${bt}<p class="small muted">Income: ${Object.keys(inc).map(k => `${inc[k]} ${k === 'gold' || k === 'levy' ? k : D.MATS[k].name}`).join(', ')}</p>
-    <button class="primary big" data-a="repOk">${rep.siege ? 'Man the walls!' : 'Continue'}</button></div>`, 'center');
-  ACT.repOk = () => { closeOverlay(); then(); };
+// ---------- Chapter two story beats: scenes as the war moves ----------
+const BEATS = [
+  ['c2_day2', () => S.war.day >= 2],
+  ['c2_ashby', () => WAR.owns(S, 'ashby')],
+  ['c2_prisoner', () => S.war.day >= 4 || Object.keys(S.war.regions).some(id => S.war.regions[id].taken)],
+  ['c2_first_loss', () => Object.values(S.war.regions).some(r => r.lost)],
+  ['c2_kindle_dream', () => (S.toll || 0) >= 2],
+  ['c2_first_fort', () => ['barrowwatch', 'stonecut', 'greyfort', 'kingsbridge', 'temple'].some(id => WAR.owns(S, id))],
+  ['c2_one_down', () => WAR.marshalsAlive(S) <= 2],
+  ['c2_ash_hands', () => (S.toll || 0) >= 5],
+];
+function storyBeat() {
+  if (!warOn() || document.getElementById('ov') || document.getElementById('battle') || document.getElementById('siege')) return;
+  const b = BEATS.find(([k, ok]) => !S.flags.seen[k] && ok());
+  if (b) scene(b[0], () => render());
 }
-// The Hollow reached Emberwake: a siege night at a strength to match the army.
-function warSiege(rep) {
-  const n = WAR.siegeNight(rep.siege.power);
-  SUI.runSiege(S, n, r => {
-    const won = r.result === 'won', lost = WAR.siegeResult(S, rep.siege.hid, won);
-    E.restParty(S); save();
-    overlay(`<div class="sheet" style="text-align:center"><h2>${won ? 'Emberwake holds' : 'They broke in'}</h2><p>${won ? 'The Hollow column breaks on your walls and scatters into the dark.' : `They burned the stores before the survivors drove them off. Lost ${lost} gold and half the levy.`}</p>
-      <button class="primary big" data-a="closeOv">Back to the keep</button></div>`, 'center');
-    go('keep');
-  });
-}
-SCREENS.army = () => {
-  const a = S.war.armies.find(x => x.id === view.id);
-  if (!a) return SCREENS.war();
-  const gens = S.roster.filter(id => !(S.flags.gone || []).includes(id));
-  return `<div class="topbar"><h1>${a.name}</h1><button class="sm" data-a="war">War map</button></div>
-    <div class="card"><div class="spread"><span>At <b>${WAR.REGIONS[a.at].name}</b></span><span>Strength <b>${WAR.armyPower(S, a, 'atk')}</b> attacking · <b>${WAR.armyPower(S, a, 'def')}</b> defending</span></div></div>
-    <div class="card"><b>General</b><div class="small muted">A hero leading an army isn't in your party. Their level makes the army stronger (+2% a level, +15% if Awakened) and they earn XP from every battle. If the army breaks they come back wounded for three days.</div>
-      <div class="row" style="flex-wrap:wrap;margin-top:6px">${gens.map(id => { const other = WAR.generalOf(S, id); return `<button class="sm ${a.general === id ? 'gold' : ''}" data-a="wGen" data-v="${a.id}:${id}" ${other && other !== a ? 'disabled' : ''}>${heroName(id)} ${S.heroes[id].lvl}${other && other !== a ? ' (leads ' + other.name + ')' : ''}${WAR.wounded(S, id) ? ' (wounded)' : ''}</button>`; }).join('')}
-      ${a.general ? `<button class="sm" data-a="wGen" data-v="${a.id}:">Nobody</button>` : ''}</div></div>
-    <div class="card"><div class="spread"><b>Recruit</b><span class="small">Levy <b>${S.war.levy}</b> · <span class="goldtxt">${S.gold} g</span></span></div>
-      <div class="small muted">Recruits join at Recruit rank. Only on your own ground.</div>
-      <div class="row" style="flex-wrap:wrap;margin-top:6px">${Object.keys(WAR.TYPES).map(t => { const d = WAR.TYPES[t], ok = WAR.unlocked(S, t); return `<button class="sm ${ok ? 'gold' : ''}" data-a="wRecruit" data-v="${a.id}:${t}" ${ok ? '' : 'disabled'}>${d.one} ${d.gold}g ${d.levy}L</button>`; }).join('')}</div>
-      <div class="small muted" style="margin-top:4px">${Object.keys(WAR.TYPES).map(t => `<b>${WAR.TYPES[t].name}</b>: ${WAR.TYPES[t].desc}${WAR.unlocked(S, t) ? '' : ' (' + (WAR.TYPES[t].req[0] === 'barracks' ? 'barracks level ' + WAR.TYPES[t].req[1] : 'hold ' + WAR.REGIONS[WAR.TYPES[t].req[1]].name) + ')'}`).join(' ')}</div></div>
-    <div class="card"><b>Soldiers</b> <span class="muted small">${a.squads.length}/${WAR.SQUADS}. Ranks come with battles; every rank and every star is a point to spend.</span>
-      ${a.squads.map(sid => { const s = S.war.soldiers[sid], pts = WAR.points(s), next = s.rank < 10 ? [0, 20, 50, 100, 170, 260, 380, 540, 750, 1000][s.rank] : null;
-        return `<div class="soldier" data-a="wSoldier" data-v="${sid}"><div class="spread"><span><b>${WAR.title(s)} ${esc(s.name)}</b> <span class="small muted">${WAR.TYPES[s.type].one}</span></span><span class="pot">${'★'.repeat(WAR.stars(s))}<span class="off">${'★'.repeat(5 - WAR.stars(s))}</span></span></div>
-          <div class="spread small"><span class="muted">${s.battles} battles · strength ${Math.round(WAR.soldierPower(S, s, 'atk'))}</span>${pts ? `<span class="goldtxt">${pts} point${pts > 1 ? 's' : ''} to spend</span>` : ''}</div>
-          ${next ? `<div class="bar xp" style="margin-top:3px"><i style="width:${Math.min(100, 100 * s.xp / next)}%"></i></div>` : '<div class="small" style="color:var(--gold)">Legend. As good as soldiers get.</div>'}</div>`; }).join('') || '<p class="muted">No soldiers yet.</p>'}</div>`;
-};
-ACT.wGen = v => { const [aid, id] = v.split(':'), err = WAR.setGeneral(S, +aid, id || null); if (err) toast(err); save(); render(); };
-ACT.wRecruit = v => { const [aid, t] = v.split(':'), r = WAR.recruit(S, +aid, t); if (typeof r === 'string') toast(r); else toast(`${esc(r.name)} joins as a ${WAR.TYPES[t].one}.`); save(); render(); };
-ACT.wSoldier = v => {
-  const s = S.war.soldiers[+v], pts = WAR.points(s);
-  overlay(`<div class="sheet"><h2>${WAR.title(s)} ${esc(s.name)}</h2><p class="small muted">${WAR.TYPES[s.type].one} · rank ${s.rank} of 10 · ${s.battles} battles · ${pts} point${pts === 1 ? '' : 's'} to spend</p>
-    ${Object.keys(WAR.PERKS).map(k => { const d = WAR.PERKS[k], r = s.perks[k] || 0; return `<div class="spread" style="padding:6px 0;border-bottom:1px solid var(--line)"><div><b>${d.name}</b> <span class="pot">${'●'.repeat(r)}<span class="off">${'●'.repeat(d.max - r)}</span></span><div class="small muted">${d.desc}</div></div>
-      ${r < d.max ? `<button class="sm ${pts ? 'gold' : ''}" data-a="wPerk" data-v="${s.sid}:${k}" ${pts ? '' : 'disabled'}>+1</button>` : ''}</div>`; }).join('')}
-    <button class="big" data-a="closeOv">Done</button></div>`);
-};
-ACT.wPerk = v => { const [sid, k] = v.split(':'); if (WAR.buyPerk(S.war.soldiers[+sid], k)) { save(); render(); ACT.wSoldier(sid); } };
 // Starting the war after chapter one.
 ACT.warBegin = () => scene('war_begins', () => scene('kindle_first', () => { WAR.start(S); S.shopTier = Math.max(S.shopTier, 4); save(); ACT.war(); }));
 function warCard() {
   if (!WAR) return '';
   if (!warOn()) return S.areas.tower && S.areas.tower.cleared ? `<div class="card defend alert"><b class="serif" style="font-size:1.1rem;color:var(--bad)">The beacons are lit</b>
     <div class="small muted" style="margin-top:4px">Fire on every hill to the north. Something is coming.</div><button class="primary big" data-a="warBegin">Go to the walls</button></div>` : '';
+  setTimeout(storyBeat, 400);
   const w = S.war, threat = w.hollow.find(h => WAR.REGIONS[h.to].named || h.to === 'emberwake'), siege = Object.keys(w.regions).find(id => w.regions[id].siege);
   return `<div class="card defend ${siege ? 'alert' : ''}"><div class="spread"><b class="serif" style="font-size:1.1rem">The war</b><span class="pill on">Day ${w.day}</span></div>
-    <div class="small muted" style="margin-top:4px">${siege ? `<b style="color:var(--bad)">${WAR.REGIONS[siege].name} is under siege!</b> Relieve it today or it falls.` : threat ? `${threat.name} is marching on ${WAR.REGIONS[threat.to].name}.` : `${WAR.owned(S).length} regions held. Resting here ends the day.`}</div>
+    <div class="small muted" style="margin-top:4px">${siege ? `<b style="color:var(--bad)">${WAR.REGIONS[siege].name} is under siege!</b> Relieve it today or it falls.` : !w.armies.some(a => WAR.ready(S, a)) ? 'Every army has acted. Rest to end the day.' : threat ? `${threat.name} is marching on ${WAR.REGIONS[threat.to].name}.` : `${WAR.owned(S).length} regions held. Resting here ends the day.`}</div>
     <button class="big gold" data-a="war">War map</button></div>`;
 }
 
@@ -1439,7 +1494,7 @@ async function bigMove(text, kind) {
 function startBattle(specs, c) {
   ctx = c;
   AU.play(c.arena ? 'arena' : (c.boss || c.story) ? 'boss' : 'battle');
-  B = new E.Battle(S, specs, { boss: !!c.boss, autoItems: false, tameBonus: c.hunt ? 0.15 : 0, huntMult: c.huntMult || 1 });
+  B = new E.Battle(S, specs, { boss: !!c.boss, autoItems: false, tameBonus: c.hunt ? 0.15 : 0, huntMult: c.huntMult || 1, allies: c.allies });
   const bg = BG[c.area] || BG.thornwood;
   const el = document.createElement('div');
   el.id = 'battle';
@@ -1473,9 +1528,10 @@ function unitHTML(a) {
     px = Math.round((big ? 4 : 3) * (sp.scale || 1));
   }
   if (a.isCreature) px = Math.round(3 * (SP.variant(a.sprite).scale || 1));
+  if (a.isCompany) px = 3;
   return `<div class="unit ${a.hp <= 0 ? 'ko' : ''} ${a.isCreature ? 'pet' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
     <div class="spr" style="animation-delay:-${(Math.random() * 2).toFixed(2)}s">${img(a.sprite, px)}</div>
-    ${a.side === 'e' ? `<div class="uname">${esc(a.name)}</div><div class="hpmini"><i style="width:${pct(a.hp, a.maxHp)}%"></i></div>` : ''}
+    ${a.isCompany ? `<div class="uname">${esc(a.name)}</div>` : ''}${a.side === 'e' ? `<div class="uname">${esc(a.name)}</div><div class="hpmini"><i style="width:${pct(a.hp, a.maxHp)}%"></i></div>` : ''}
     <div class="sts"></div></div>`;
 }
 function drawUnits() {
@@ -1483,7 +1539,7 @@ function drawUnits() {
   const live = B.enemies.filter(e => e.hp > 0);
   foes.className = 'foes' + (live.length === 1 ? ' one' : '');
   foes.innerHTML = live.map(unitHTML).join('');
-  document.getElementById('friends').innerHTML = B.heroes.map(unitHTML).join('');
+  const fr = document.getElementById('friends'); fr.classList.toggle('many', B.heroes.length > 5); fr.innerHTML = B.heroes.map(unitHTML).join('');
   refreshUnits();
 }
 function refreshUnits() {
@@ -1511,11 +1567,11 @@ function stsText(a) {
   return out.join(' ');
 }
 function drawBars(active) {
-  document.getElementById('pbars').innerHTML = B.heroes.map(h => h.isCreature
+  document.getElementById('pbars').innerHTML = B.heroes.map(h => h.isCreature || h.isCompany
     ? `<div class="prow pet ${h.hp <= 0 ? 'ko' : ''}" id="r-${h.key}" data-a="tgt" data-v="${h.key}">
         <div><div class="nm">${esc(h.name)}</div><div class="sts">${Object.keys(h.statuses).map(s => STATUS[s]).join(' ')}</div></div>
         <div style="grid-column:span 2"><div class="num"><span>HP</span><span>${h.hp}/${h.maxHp}</span></div><div class="bar ${h.hp < h.maxHp * .3 ? 'low' : ''}"><i style="width:${pct(h.hp, h.maxHp)}%"></i></div></div>
-        <div class="small muted" style="text-align:right">${W.STANCES[h.stance].name}</div></div>`
+        <div class="small muted" style="text-align:right">${h.isCompany ? 'Auto' : W.STANCES[h.stance].name}</div></div>`
     : `<div class="prow ${h.hp <= 0 ? 'ko' : ''} ${active === h ? 'active' : ''}" id="r-${h.key}" data-a="tgt" data-v="${h.key}">
     <div><div class="nm">${h.name}</div><div class="sts">${stsText(h)}</div></div>
     <div><div class="num"><span>HP</span><span>${h.hp}/${h.maxHp}</span></div><div class="bar ${h.hp < h.maxHp * .3 ? 'low' : ''}"><i style="width:${pct(h.hp, h.maxHp)}%"></i></div></div>
@@ -1622,6 +1678,7 @@ async function runBattle() {
     if (a.hp <= 0) continue;
     let c;
     if (a.isCreature) c = B.creatureChoice(a);
+    else if (a.isCompany) c = B.companyChoice(a);
     else if (a.side === 'h') {
       drawBars(a);
       const u0 = document.getElementById('u-' + a.key); if (u0) u0.classList.add('active');
@@ -1757,6 +1814,7 @@ function endBattle() {
   }
   save();
   const close = () => { if (FX) { FX.stop(); FX = null; } const b = document.getElementById('battle'); if (b) b.remove(); document.body.style.overflow = ''; B = null; };
+  if (c.war) { warBattleEnd(res, c, close); return; }
   if (c.arena) {
     if (!res.won) {
       E.healParty(S); save();

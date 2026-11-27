@@ -32,247 +32,306 @@ const NEAR = {};
 for (const [a, b] of ROADS) { (NEAR[a] = NEAR[a] || []).push(b); (NEAR[b] = NEAR[b] || []).push(a); }
 const FORT_DEF = { fort: 1.35, citadel: 1.6, mine: 1.15, temple: 1.2, keep: 1.3, town: 1.1, village: 1, ruin: 1 };
 
-// ---------- soldiers ----------
+// ---------- companies ----------
+// Soldiers serve in companies of one kind. A company ranks up as a whole (veterans teach the new blood),
+// earns stars and perk points, and loses men in battle. power is per soldier.
 const TYPES = {
-  sword:  { name: 'Swordsmen', one: 'Swordsman', power: 10, gold: 60, levy: 1, desc: 'Steady line infantry.' },
-  archer: { name: 'Archers', one: 'Archer', power: 9, gold: 60, levy: 1, desc: 'Strong when defending.', def: 0.2 },
-  spear:  { name: 'Spearmen', one: 'Spearman', power: 12, gold: 90, levy: 1, req: ['barracks', 1], desc: 'Break charges and big brutes.' },
-  priest: { name: 'Priests', one: 'Priest', power: 6, gold: 90, levy: 1, req: ['barracks', 1], desc: 'Fewer of your soldiers die in any battle they join.', saves: 0.07 },
-  knight: { name: 'Knights', one: 'Knight', power: 20, gold: 180, levy: 2, req: ['barracks', 2], desc: 'Heavy cavalry of the old order.' },
-  rider:  { name: 'Outriders', one: 'Outrider', power: 15, gold: 150, levy: 2, req: ['region', 'ashby'], desc: 'Fast horse from Ashby. Strong when attacking.', atk: 0.2 },
+  sword:  { name: 'Swordsmen', power: 3, gold: 30, levy: 0.4, desc: 'Steady line infantry.', cls: 'infantry', sprite: 'm_sword' },
+  archer: { name: 'Archers', power: 2.7, gold: 30, levy: 0.4, desc: 'Strong when defending.', def: 0.2, cls: 'archers', sprite: 'm_archer' },
+  spear:  { name: 'Spearmen', power: 3.6, gold: 45, levy: 0.4, req: ['barracks', 1], desc: 'Break charges and big brutes.', cls: 'infantry', sprite: 'm_spear' },
+  priest: { name: 'Priests', power: 1.8, gold: 45, levy: 0.4, req: ['barracks', 1], desc: 'Each priest in an army saves soldiers who would have died.', saves: 0.012, cls: 'priests', sprite: 'm_priest' },
+  knight: { name: 'Knights', power: 6, gold: 90, levy: 0.8, req: ['barracks', 2], desc: 'Heavy cavalry of the old order.', cls: 'cavalry', sprite: 'm_knight' },
+  rider:  { name: 'Outriders', power: 4.5, gold: 70, levy: 0.8, req: ['region', 'ashby'], desc: 'Fast horse from Ashby. Strong when attacking.', atk: 0.2, cls: 'cavalry', sprite: 'm_knight' },
 };
-const RANKS = ['Recruit', 'Soldier', 'Veteran', 'Corporal', 'Sergeant', 'Lieutenant', 'Captain', 'Champion', 'Hero', 'Legend'];
-const RANK_XP = [0, 20, 50, 100, 170, 260, 380, 540, 750, 1000];
-const STAR_AT = [3, 5, 7, 9, 10]; // a star at each of these ranks
-// Perks bought with points: one point per rank above the first and one per star.
+const RANKS = ['Green', 'Drilled', 'Seasoned', 'Veteran', 'Hardened', 'Elite', 'Famous', 'Renowned', 'Heroic', 'Legendary'];
+const RANK_XP = [0, 75, 200, 400, 700, 1100, 1600, 2250, 3000, 4000];
+const STAR_AT = [3, 5, 7, 9, 10];
 const PERKS = {
   might:   { name: 'Might', max: 5, desc: '+10% strength per rank' },
-  armour:  { name: 'Armour', max: 3, desc: '-20% chance to fall per rank' },
+  armour:  { name: 'Armour', max: 3, desc: '-20% deaths per rank' },
   assault: { name: 'Assault', max: 3, desc: '+15% when attacking per rank' },
   bulwark: { name: 'Bulwark', max: 3, desc: '+15% when defending per rank' },
-  leader:  { name: 'Leader', max: 3, desc: '+3% to the whole army per rank' },
+  leader:  { name: 'Leader', max: 3, desc: '+4% to the whole army per rank' },
 };
-const FIRST = ['Edda', 'Hal', 'Wynn', 'Brom', 'Tilda', 'Osric', 'Mae', 'Corin', 'Ines', 'Dunstan', 'Rhea', 'Garrick', 'Elsa', 'Tam', 'Nell', 'Aldo', 'Bree', 'Cuthbert', 'Ysolde', 'Piers', 'Mags', 'Rowan', 'Hester', 'Jory', 'Lise', 'Ned', 'Orla', 'Silas', 'Tova', 'Wat'];
-const LAST = ['Marsh', 'Cole', 'Ashdown', 'Reed', 'Hale', 'Thatcher', 'Brook', 'Fenn', 'Holt', 'Crane', 'Barrow', 'Wick', 'Stone', 'Fletcher', 'Mill', 'Hart', 'Ford', 'Moss', 'Tanner', 'Webb'];
+const COMPANY_NAMES = ['Ashby', 'Emberwake', 'Millbrook', 'Haywood', 'Brightwater', 'Hillside', 'Thornwood', 'Riverside', 'Old Guard', 'Lantern', 'Greyhill', 'Fenwick'];
+const W2 = {};
+W2.REGIONS = REGIONS; W2.ROADS = ROADS; W2.NEAR = NEAR; W2.TYPES = TYPES; W2.RANKS = RANKS; W2.PERKS = PERKS; W2.FORT_DEF = FORT_DEF;
+W2.COMPANIES = 6; W2.COMPANY_MAX = 40;
+W2.active = S => !!(S.war && S.war.on);
 
 // ---------- state ----------
-const W2 = {};
-W2.REGIONS = REGIONS; W2.ROADS = ROADS; W2.NEAR = NEAR; W2.TYPES = TYPES; W2.RANKS = RANKS; W2.PERKS = PERKS;
-W2.active = S => !!(S.war && S.war.on);
 W2.start = function (S) {
-  if (S.war && S.war.on) return S.war;
+  if (S.war && S.war.on) return W2.upgrade(S);
   const regions = {};
   for (const id in REGIONS) regions[id] = { owner: REGIONS[id].owner, garrison: REGIONS[id].garrison || 0, siege: 0, lost: false, taken: 0 };
-  S.war = { on: true, day: 1, levy: 6, regions, armies: [], soldiers: {}, nextSid: 1, nextAid: 1, hollow: [], nextHid: 1, log: [], reports: [], spawnT: 2 };
-  // The first army: what the siege taught you, six squads.
+  S.war = { v: 2, on: true, day: 1, levy: 10, regions, armies: [], nextAid: 1, nextCid: 1, hollow: [], nextHid: 1, reports: [], spawnT: 2 };
   const a = W2.newArmy(S, 'First Company');
-  for (const t of ['sword', 'sword', 'archer', 'archer', 'sword', 'archer']) W2.addSoldier(S, a, t);
+  W2.addCompany(S, a, 'sword', 16); W2.addCompany(S, a, 'archer', 14);
   return S.war;
 };
+// Saves from the first version of the war: named squads become companies of their kind.
+W2.upgrade = function (S) {
+  const w = S.war;
+  if (w.v === 2) return w;
+  w.v = 2; w.nextCid = w.nextCid || 1; w.levy = Math.max(w.levy || 0, 10);
+  for (const a of w.armies) {
+    const by = {};
+    for (const sid of a.squads || []) { const s = w.soldiers[sid]; if (!s) continue; (by[s.type] = by[s.type] || []).push(s); }
+    a.companies = [];
+    for (const t in by) { const c = W2.addCompany(S, a, t, by[t].length * 5); c.rank = Math.max(...by[t].map(s => s.rank)); c.xp = RANK_XP[c.rank - 1]; }
+    delete a.squads;
+  }
+  delete w.soldiers; delete w.nextSid;
+  return w;
+};
 W2.newArmy = function (S, name) {
-  const a = { id: S.war.nextAid++, name: name || W2.armyName(S), general: null, squads: [], at: 'emberwake', target: null, broken: 0 };
+  const a = { id: S.war.nextAid++, name: name || W2.armyName(S), general: null, companies: [], at: 'emberwake', acted: 0, broken: 0 };
   S.war.armies.push(a);
   return a;
 };
-W2.armyName = S => ['First Company', 'Second Company', 'Ashby Guard', 'The Grey Banners', 'The Ember Host', 'The Last Watch'][S.war.armies.length] || 'Company ' + (S.war.armies.length + 1);
+W2.armyName = S => ['First Company', 'Second Army', 'The Ashby Guard', 'The Grey Banners', 'The Ember Host', 'The Last Watch'][S.war.armies.length] || 'Army ' + (S.war.armies.length + 1);
 W2.armySlots = S => Math.min(6, 1 + (S.buildings.barracks || 0) + W2.owned(S).filter(id => REGIONS[id].kind === 'fort').length + (W2.owns(S, 'ashby') ? 1 : 0));
-W2.SQUADS = 8;
-W2.addSoldier = function (S, army, type, rng) {
-  rng = rng || Math.random;
-  const sid = S.war.nextSid++;
-  const taken = new Set(Object.values(S.war.soldiers).map(x => x.name));
-  let name = '';
-  for (let i = 0; i < 20 && (!name || taken.has(name)); i++) name = FIRST[Math.floor(rng() * FIRST.length)] + ' ' + LAST[Math.floor(rng() * LAST.length)];
-  const s = { sid, type, name, rank: 1, xp: 0, perks: {}, battles: 0, kills: 0 };
-  S.war.soldiers[sid] = s;
-  if (army) army.squads.push(sid);
-  return s;
+// How many soldiers one army can field: grows with barracks and every fort or mine you hold.
+W2.armyCap = S => 30 + 15 * (S.buildings.barracks || 0) + 10 * W2.owned(S).filter(id => ['fort', 'mine', 'temple', 'citadel'].includes(REGIONS[id].kind)).length + (W2.owns(S, 'ashby') ? 5 : 0);
+W2.soldiers = a => a.companies.reduce((t, c) => t + c.n, 0);
+W2.addCompany = function (S, a, type, n) {
+  const used = new Set(S.war.armies.flatMap(x => x.companies.map(c => c.name)));
+  let name = TYPES[type].name;
+  for (const p of COMPANY_NAMES) if (!used.has(p + ' ' + TYPES[type].name)) { name = p + ' ' + TYPES[type].name; break; }
+  const c = { id: S.war.nextCid++, type, n, rank: 1, xp: 0, perks: {}, battles: 0, name };
+  a.companies.push(c);
+  return c;
 };
 W2.unlocked = (S, t) => { const r = TYPES[t].req; if (!r) return true; return r[0] === 'barracks' ? (S.buildings.barracks || 0) >= r[1] : W2.owns(S, r[1]); };
-W2.recruit = function (S, armyId, t) {
-  const a = S.war.armies.find(x => x.id === armyId), d = TYPES[t];
+W2.recruitCost = (t, n) => ({ gold: Math.round(TYPES[t].gold * n), levy: Math.ceil(TYPES[t].levy * n) });
+// Five at a time into a company of that kind (a new one if there's none, or it's full).
+W2.recruit = function (S, armyId, t, n) {
+  n = n || 5;
+  const a = S.war.armies.find(x => x.id === armyId), cost = W2.recruitCost(t, n);
   if (!a || !W2.unlocked(S, t)) return 'Not trained yet.';
-  if (a.squads.length >= W2.SQUADS) return 'That army is full.';
-  if (S.gold < d.gold || S.war.levy < d.levy) return 'Not enough gold or levy.';
   if (a.at !== 'emberwake' && !W2.owns(S, a.at)) return 'Recruits can only reach an army on your own ground.';
-  S.gold -= d.gold; S.war.levy -= d.levy;
-  return W2.addSoldier(S, a, t);
+  if (W2.soldiers(a) + n > W2.armyCap(S)) return `That army is at its limit of ${W2.armyCap(S)} soldiers.`;
+  if (S.gold < cost.gold || S.war.levy < cost.levy) return 'Not enough gold or levy.';
+  let c = a.companies.find(x => x.type === t && x.n + n <= W2.COMPANY_MAX);
+  if (!c && a.companies.length >= W2.COMPANIES) return 'No room for another company in that army.';
+  S.gold -= cost.gold; S.war.levy -= cost.levy;
+  if (c) c.n += n; else c = W2.addCompany(S, a, t, n);
+  return c;
 };
 W2.owns = (S, id) => S.war.regions[id] && S.war.regions[id].owner === 'p';
 W2.owned = S => Object.keys(S.war.regions).filter(id => W2.owns(S, id));
 
-// ---------- soldiers: ranks, stars, perks ----------
-W2.stars = s => STAR_AT.filter(r => s.rank >= r).length;
-W2.points = s => (s.rank - 1) + W2.stars(s) - Object.values(s.perks).reduce((a, b) => a + b, 0);
-W2.title = s => RANKS[s.rank - 1];
-W2.buyPerk = function (s, k) {
-  if (W2.points(s) <= 0 || (s.perks[k] || 0) >= PERKS[k].max) return false;
-  s.perks[k] = (s.perks[k] || 0) + 1;
-  return true;
-};
-W2.soldierXp = function (S, s, n) {
-  s.xp += Math.round(n * (1 + (W2.mods(S).soldierXp || 0)));
+// ---------- ranks, stars, perks ----------
+W2.stars = c => STAR_AT.filter(r => c.rank >= r).length;
+W2.points = c => (c.rank - 1) + W2.stars(c) - Object.values(c.perks).reduce((a, b) => a + b, 0);
+W2.title = c => RANKS[c.rank - 1];
+W2.buyPerk = function (c, k) { if (W2.points(c) <= 0 || (c.perks[k] || 0) >= PERKS[k].max) return false; c.perks[k] = (c.perks[k] || 0) + 1; return true; };
+W2.companyXp = function (S, c, n) {
+  c.xp += Math.round(n * (1 + (W2.mods(S).soldierXp || 0)));
   const ups = [];
-  while (s.rank < 10 && s.xp >= RANK_XP[s.rank]) { s.rank++; ups.push(s.rank); }
+  while (c.rank < 10 && c.xp >= RANK_XP[c.rank]) { c.rank++; ups.push(c.rank); }
   return ups;
 };
-// A squad's strength. mode: 'atk' or 'def'.
-W2.soldierPower = function (S, s, mode) {
-  const d = TYPES[s.type], p = s.perks;
-  let n = d.power * (1 + 0.25 * (s.rank - 1)) * (1 + 0.1 * W2.stars(s)) * (1 + 0.1 * (p.might || 0));
+W2.nextRankXp = c => (c.rank < 10 ? RANK_XP[c.rank] : null);
+W2.companyPower = function (S, c, mode) {
+  const d = TYPES[c.type], p = c.perks;
+  let n = c.n * d.power * (1 + 0.2 * (c.rank - 1)) * (1 + 0.1 * W2.stars(c)) * (1 + 0.1 * (p.might || 0));
   if (mode === 'atk') n *= 1 + 0.15 * (p.assault || 0) + (d.atk || 0);
   else n *= 1 + 0.15 * (p.bulwark || 0) + (d.def || 0);
   return n;
 };
-// The general: a hero leading the army. Not in the party while they lead.
-W2.generalMult = function (S, a) {
-  if (!a.general) return 1;
+// ---------- generals ----------
+W2.generalBonus = function (S, a) {
+  if (!a.general) return 0;
   const h = S.heroes[a.general];
-  return 1 + 0.02 * h.lvl + (h.awakened ? 0.15 : 0);
-};
-W2.armyPower = function (S, a, mode) {
-  let n = 0, lead = 0;
-  for (const sid of a.squads) { const s = S.war.soldiers[sid]; n += W2.soldierPower(S, s, mode); lead += 0.03 * (s.perks.leader || 0); }
-  return Math.round(n * (1 + lead) * W2.generalMult(S, a) * (1 + (W2.mods(S).soldierPower || 0)) * (a.broken ? 0.6 : 1));
+  return 0.02 * h.lvl + (h.awakened ? 0.15 : 0);
 };
 W2.setGeneral = function (S, armyId, heroId) {
   const a = S.war.armies.find(x => x.id === armyId);
   if (!a) return 'No such army.';
   if (heroId && S.war.armies.some(x => x.general === heroId && x !== a)) return 'Already leading another army.';
-  if (heroId && S.party.length <= 1 && S.party.includes(heroId)) return 'Someone has to stay in the party.';
   if (heroId && (S.flags.gone || []).includes(heroId)) return 'Not here.';
   a.general = heroId || null;
-  if (heroId && S.party.includes(heroId)) {
-    S.party = S.party.filter(x => x !== heroId);
-    const free = S.roster.filter(id => !S.party.includes(id) && !W2.generalOf(S, id));
-    while (S.party.length < 3 && free.length) S.party.push(free.shift());
-  }
   return null;
 };
 W2.generalOf = (S, heroId) => (S.war && S.war.on ? S.war.armies.find(a => a.general === heroId) : null) || null;
 W2.wounded = (S, heroId) => !!(S.war && S.war.wounded && S.war.wounded[heroId] > 0);
 
-// ---------- bonuses from regions held ----------
+// ---------- strength, plainly ----------
+// Every number on the army card, so the player can see where the strength comes from.
+W2.breakdown = function (S, a, mode) {
+  const soldiers = a.companies.reduce((t, c) => t + W2.companyPower(S, c, mode), 0);
+  const lead = a.companies.reduce((t, c) => t + 0.04 * (c.perks.leader || 0), 0);
+  const gen = W2.generalBonus(S, a), held = W2.mods(S).soldierPower || 0, tired = a.broken ? -0.4 : 0;
+  const total = Math.round(soldiers * (1 + lead + gen + held + tired));
+  return { soldiers: Math.round(soldiers), lead, gen, held, tired, total };
+};
+W2.armyPower = (S, a, mode) => W2.breakdown(S, a, mode).total;
+// What's waiting in a region: its garrison behind any walls, plus Hollow armies standing there.
+W2.foeBreakdown = function (S, rid) {
+  const r = S.war.regions[rid], k = FORT_DEF[REGIONS[rid].kind] || 1;
+  const garrison = r.owner === 'h' ? Math.round(r.garrison) : 0, walls = r.owner === 'h' ? k : 1;
+  const armies = S.war.hollow.filter(h => h.at === rid).reduce((t, h) => t + h.power, 0);
+  return { garrison, walls, armies, total: Math.round(garrison * walls + armies) };
+};
+W2.foePower = (S, rid) => W2.foeBreakdown(S, rid).total;
+// The odds are just the two numbers against each other: even at equal strength, near certain at double.
+W2.odds = (P, Q) => (Q <= 0 ? 1 : Math.max(0.03, Math.min(0.97, 0.5 + 1.6 * (P - Q) / (P + Q))));
+W2.deathShare = (P, Q, won) => (won ? Math.max(0.03, Math.min(0.3, 0.18 * Q / Math.max(1, P))) : Math.min(0.6, 0.3 + 0.15 * Q / Math.max(1, P)));
+W2.savesIn = a => Math.min(0.5, a.companies.reduce((t, c) => t + (TYPES[c.type].saves || 0) * c.n, 0));
+W2.forecast = function (S, a, rid) {
+  const mine = W2.breakdown(S, a, 'atk'), foe = W2.foeBreakdown(S, rid), p = W2.odds(mine.total, foe.total);
+  const lost = Math.round(W2.soldiers(a) * W2.deathShare(mine.total, foe.total, true) * (1 - W2.savesIn(a)));
+  return { mine, foe, p, lost };
+};
+// Takes losses across companies, veterans dying less. share: fraction of the army that falls.
+W2.takeLosses = function (S, a, share, rng) {
+  rng = rng || Math.random;
+  const saved = 1 - W2.savesIn(a), out = [];
+  for (const c of a.companies) {
+    const k = share * saved * (1 - 0.2 * (c.perks.armour || 0)) * (1 - 0.04 * (c.rank - 1));
+    const dead = Math.min(c.n, Math.round(c.n * k + (rng() - 0.5)));
+    if (dead > 0) { c.n -= dead; out.push({ name: c.name, dead }); }
+  }
+  a.companies = a.companies.filter(c => c.n > 0);
+  return out;
+};
+W2.reward = function (S, a, Q, won) {
+  const promoted = [];
+  for (const c of a.companies) {
+    c.battles++;
+    const ups = W2.companyXp(S, c, (won ? 20 : 8) + Q / 10);
+    if (ups.length) promoted.push({ name: c.name, rank: c.rank });
+  }
+  let heroXp = 0, heroLevels = 0;
+  if (a.general) { heroXp = Math.round((won ? 1 : 0.4) * Q * 3 * (1 + (W2.mods(S).heroXp || 0))); heroLevels = E.gainXp(S, a.general, heroXp); }
+  return { promoted, heroXp, heroLevels };
+};
+// One auto-resolved battle. Returns the report.
+W2.battle = function (S, a, Q, rng) {
+  rng = rng || Math.random;
+  const P = W2.armyPower(S, a, 'atk'), p = W2.odds(P, Q), won = rng() < p;
+  const losses = W2.takeLosses(S, a, W2.deathShare(P, Q, won), rng);
+  const rew = W2.reward(S, a, Q, won);
+  if (!won) { a.broken = 2; if (a.general) { S.war.wounded = S.war.wounded || {}; S.war.wounded[a.general] = 2; } }
+  return Object.assign({ won, P, Q, p, losses }, rew);
+};
+// The war's side of a won battle: the region changes hands, Hollow armies there are gone.
+W2.capture = function (S, a, rid) {
+  const r = S.war.regions[rid];
+  S.war.hollow = S.war.hollow.filter(h => h.at !== rid);
+  a.at = rid; r.siege = 0;
+  if (r.owner === 'h') { r.owner = 'p'; r.garrison = 0; r.taken++; return true; }
+  return false;
+};
+
+// ---------- your turn: one action per army per day ----------
+W2.locked = (S, rid) => !!REGIONS[rid].locked && !(S.flags && S.flags.gate_open);
+W2.LIEUTENANTS = { greyfort: { t: 'grieve', flag: 'grieve_dead', scene: 'grieve_corner', after: 'grieve_dies', sprite: 'hand' }, kingsbridge: { t: 'cinder', flag: 'cinder_dead', scene: 'cinder_corner', after: 'cinder_dies', sprite: 'pitmage' }, temple: { t: 'saint', flag: 'saint_dead', scene: 'saint_corner', after: 'saint_dies', sprite: 'drowned' } };
+W2.marshalsAlive = S => Object.values(W2.LIEUTENANTS).filter(l => !(S.flags && S.flags[l.flag])).length;
+W2.ready = (S, a) => a.acted !== S.war.day && !a.broken && a.companies.length > 0;
+// What the selected army can do with a region: 'march', 'attack', 'relieve' (attack Hollow besieging your place), or why not.
+W2.action = function (S, a, rid) {
+  if (!a || W2.locked(S, rid)) return { kind: null, why: 'Sealed.' };
+  const foe = W2.foePower(S, rid), mine = W2.owns(S, rid);
+  const near = a.at === rid || (NEAR[a.at] || []).includes(rid);
+  if (!near) return { kind: null, why: `${a.name} is at ${REGIONS[a.at].name}. Armies only reach the next region along a road.` };
+  if (a.broken) return { kind: null, why: `${a.name} is regrouping for ${a.broken} more day${a.broken > 1 ? 's' : ''}.` };
+  if (a.acted === S.war.day) return { kind: null, why: `${a.name} has already acted today. End the day.` };
+  if (!a.companies.length) return { kind: null, why: 'That army has no soldiers.' };
+  if (foe > 0) return { kind: mine ? 'relieve' : 'attack' };
+  if (a.at === rid) return { kind: null, why: `${a.name} is here.` };
+  if (mine) return { kind: 'march' };
+  return { kind: 'attack' };
+};
+W2.march = function (S, a, rid) {
+  const act = W2.action(S, a, rid);
+  if (act.kind !== 'march') return act.why || 'Can\'t march there.';
+  a.at = rid; a.acted = S.war.day;
+  return null;
+};
+// Attack (or relieve) now, auto-resolved. Returns the report.
+W2.attack = function (S, a, rid, rng) {
+  const act = W2.action(S, a, rid);
+  if (act.kind !== 'attack' && act.kind !== 'relieve') return { error: act.why || 'Nothing to attack there.' };
+  const Q = W2.foePower(S, rid), b = W2.battle(S, a, Q, rng);
+  a.acted = S.war.day;
+  b.where = REGIONS[rid].name; b.army = a.name;
+  if (b.won) b.captured = W2.capture(S, a, rid);
+  return b;
+};
+// ---------- battles you fight yourself (turn based) ----------
+// The army goes in as up to four units, one per kind (infantry, archers, cavalry, priests), each as strong as its share.
+const CLS = {
+  infantry: { name: 'Infantry', skill: 'company_strike', sprite: 'm_sword' },
+  archers:  { name: 'Archers', skill: 'company_volley', sprite: 'm_archer' },
+  cavalry:  { name: 'Cavalry', skill: 'company_charge', sprite: 'm_knight', spd: 5 },
+  priests:  { name: 'Priests', skill: 'company_mend', sprite: 'm_priest' },
+};
+W2.CLS = CLS;
+// A unit is a level-L Hollow soldier scaled by its strength: more men, more health; better men, harder hits.
+const unitStats = (P, L, t) => {
+  const b = E.enemyStats(D.ENEMIES[t || 'soldier'], L);
+  return { maxHp: Math.round(b.maxHp * (1.2 + P / 55)), str: Math.round(b.str * (0.8 + P / 110)), mag: Math.round(Math.max(b.str, b.mag) * (0.6 + P / 400)), def: Math.round(b.def), res: Math.round(b.res), spd: Math.round(b.spd) };
+};
+W2.battleUnits = function (S, a, L) {
+  const b = W2.breakdown(S, a, 'atk'), mult = b.total / Math.max(1, b.soldiers), out = [];
+  for (const cls in CLS) {
+    const cs = a.companies.filter(c => TYPES[c.type].cls === cls);
+    if (!cs.length) continue;
+    const P = cs.reduce((t, c) => t + W2.companyPower(S, c, 'atk'), 0) * mult, n = cs.reduce((t, c) => t + c.n, 0);
+    const st = unitStats(P, L);
+    if (CLS[cls].spd) st.spd += CLS[cls].spd;
+    out.push(Object.assign(st, { cls, name: `${CLS[cls].name} ×${n}`, sprite: (cs.find(c => c.type !== 'sword') || cs[0]) && TYPES[cs[0].type].sprite, skill: CLS[cls].skill, lvl: L }));
+  }
+  return out;
+};
+// The Hollow side: their strength split across a few companies of soldiers, hounds and acolytes.
+// When you fight it yourself your party is there too, so the Hollow bring matching strength (W2.partyWorth).
+W2.partyWorth = (S, k) => Math.round((k || 3) * S.party.reduce((t, id) => t + S.heroes[id].lvl, 0));
+W2.hordeSpecs = function (S, rid, L, k) {
+  const Q = W2.foePower(S, rid) + W2.partyWorth(S, k), parts = Q > 260 ? [['soldier', 0.45], ['soldier', 0.2], ['hound', 0.2], ['acolyte', 0.15]] : Q > 120 ? [['soldier', 0.55], ['hound', 0.25], ['acolyte', 0.2]] : [['soldier', 0.65], ['hound', 0.35]];
+  const names = { soldier: 'Hollow Soldiers', hound: 'Shadow Hounds', acolyte: 'Hollow Acolytes' };
+  void names;
+  // outnumbered, they hit harder; outnumbering them, they hit softer
+  const a0 = S.war.armies.find(x => x.id === S.war.fightingArmy), mine = (a0 ? W2.armyPower(S, a0, 'atk') : 100) + W2.partyWorth(S, k), ratio = Math.max(0.5, Math.min(3, (Q - W2.partyWorth(S, k) * 0.5) / Math.max(1, mine - W2.partyWorth(S, k) * 0.5)));
+  return parts.map(([t, k2]) => { const P = Q * k2, st = unitStats(P, L, t); st.str = Math.round(st.str * (0.3 + 0.85 * ratio)); st.def = Math.round(st.def * (0.8 + 0.4 * ratio)); return { t, lvl: L, horde: true, xpx: 2, hpSet: st.maxHp, strSet: st.str, defSet: st.def, name: `${names[t]} ×${Math.max(3, Math.round(P / 3))}` }; });
+};
+// Books a battle you fought yourself. out: { won, losses: { cls: share of that unit's health lost } }.
+W2.foughtResult = function (S, a, rid, out, rng) {
+  rng = rng || Math.random;
+  const Q = W2.foePower(S, rid), w = S.war, saved = 1 - W2.savesIn(a), dead = [];
+  for (const c of a.companies) {
+    const share = (out.losses[TYPES[c.type].cls] || 0) * 0.5 * saved * (1 - 0.2 * (c.perks.armour || 0)) * (1 - 0.04 * (c.rank - 1));
+    const n = Math.min(c.n, Math.round(c.n * share + (rng() - 0.5)));
+    if (n > 0) { c.n -= n; dead.push({ name: c.name, dead: n }); }
+  }
+  a.companies = a.companies.filter(c => c.n > 0);
+  const rew = W2.reward(S, a, Q * 1.25, out.won);
+  a.acted = w.day;
+  const rep = Object.assign({ won: out.won, Q, losses: dead, where: REGIONS[rid].name, army: a.name }, rew);
+  if (out.won) rep.captured = W2.capture(S, a, rid);
+  else a.broken = 2;
+  return rep;
+};
+// ---------- bonuses and income ----------
 W2.mods = function (S) {
   const out = { stat: 0, heroXp: 0, soldierXp: 0, soldierPower: 0, creatureXp: 0, armyHeal: 0, shop: 0 };
   if (!S.war || !S.war.on) return out;
   for (const id of W2.owned(S)) {
-    if (S.war.regions[id].lost) continue; // a ruin, nobody left to help
+    if (S.war.regions[id].lost) continue;
     const b = REGIONS[id].bonus || {};
     for (const k in b) out[k] = k === 'shop' ? Math.max(out[k], b[k]) : out[k] + b[k];
   }
   return out;
 };
 W2.income = function (S) {
-  const out = { gold: 0, levy: 1 };
+  const out = { gold: 0, levy: 2 };
   for (const id of W2.owned(S)) if (!S.war.regions[id].lost) for (const k in (REGIONS[id].yields || {})) out[k] = (out[k] || 0) + REGIONS[id].yields[k];
   return out;
 };
 
-// ---------- battles ----------
-// Odds and expected losses for an attack on a region (its garrison and any Hollow army standing there).
-W2.foePower = function (S, rid) {
-  const r = S.war.regions[rid];
-  let n = r.owner === 'h' ? r.garrison * (FORT_DEF[REGIONS[rid].kind] || 1) : 0;
-  for (const h of S.war.hollow) if (h.at === rid) n += h.power;
-  return Math.round(n);
-};
-W2.odds = (P, Q) => (Q <= 0 ? 1 : Math.pow(P, 2.5) / (Math.pow(P, 2.5) + Math.pow(Q, 2.5)));
-W2.forecast = function (S, a, rid, mode) {
-  const P = W2.armyPower(S, a, mode || 'atk'), Q = mode === 'def' ? W2.hollowAt(S, rid) : W2.foePower(S, rid);
-  const p = W2.odds(P, Q);
-  const lossWin = Math.round(a.squads.length * W2.lossRate(Q / Math.max(1, P), true) * W2.deathMult(S, a));
-  return { P, Q, p, lossWin };
-};
-W2.hollowAt = (S, rid) => S.war.hollow.filter(h => h.at === rid).reduce((t, h) => t + h.power, 0);
-W2.lossRate = (ratio, won) => Math.max(0.03, Math.min(0.8, won ? 0.2 * ratio : 0.35 + 0.2 * ratio));
-W2.deathMult = function (S, a) {
-  let saves = 0;
-  for (const sid of a.squads) saves += TYPES[S.war.soldiers[sid].type].saves || 0;
-  return 1 - Math.min(0.35, saves);
-};
-// Fights one battle between an army and a Hollow force. Returns what happened.
-W2.battle = function (S, a, Q, mode, rng) {
-  rng = rng || Math.random;
-  const P = W2.armyPower(S, a, mode), p = W2.odds(P, Q), won = rng() < p;
-  const ratio = Q / Math.max(1, P), rate = W2.lossRate(ratio, won) * W2.deathMult(S, a);
-  const fallen = [], promoted = [];
-  for (const sid of a.squads.slice()) {
-    const s = S.war.soldiers[sid];
-    const die = rate * (1 - 0.2 * (s.perks.armour || 0)) * (1 - 0.06 * (s.rank - 1));
-    if (rng() < die) { fallen.push(s); a.squads = a.squads.filter(x => x !== sid); delete S.war.soldiers[sid]; continue; }
-    s.battles++;
-    const ups = W2.soldierXp(S, s, (won ? 25 : 10) + Q / 8);
-    if (ups.length) promoted.push({ s, rank: s.rank });
-  }
-  let heroXp = 0, heroLevels = 0;
-  if (a.general) {
-    heroXp = Math.round((won ? 1 : 0.4) * Q * 3 * (1 + (W2.mods(S).heroXp || 0)));
-    heroLevels = E.gainXp(S, a.general, heroXp);
-  }
-  if (!won) {
-    a.broken = 3;
-    if (a.general) { S.war.wounded = S.war.wounded || {}; S.war.wounded[a.general] = 3; }
-  }
-  return { won, P: Math.round(P), Q: Math.round(Q), p, fallen, promoted, heroXp, heroLevels };
-};
-
-// ---------- battles you fight yourself (fieldbattle.js) ----------
-// What you'd face leading an attack on a region now, or riding out against a Hollow army in it.
-W2.fieldSpec = function (S, rid) {
-  const r = S.war.regions[rid], R = REGIONS[rid];
-  const fort = r.owner === 'h' && r.garrison > 0 && ['fort', 'citadel', 'mine', 'temple'].includes(R.kind);
-  return { Q: W2.foePower(S, rid), fort, hollowHere: S.war.hollow.filter(h => h.at === rid) };
-};
-W2.canLead = (S, a, rid) => !a.broken && a.squads.length && a.acted !== S.war.day && (a.at === rid || W2.canMove(S, a, rid)) && W2.foePower(S, rid) > 0;
-// Books the result of a battle you fought yourself. out: { won, dead: [sid], Q, retreat }.
-W2.fieldResult = function (S, a, rid, out, rng) {
-  rng = rng || Math.random;
-  const w = S.war, fallen = [], promoted = [];
-  a.acted = w.day; a.target = null;
-  for (const sid of a.squads.slice()) {
-    const s = w.soldiers[sid];
-    if (out.dead.includes(sid) && rng() < 0.6 * (1 - 0.2 * (s.perks.armour || 0)) * (1 - 0.04 * (s.rank - 1))) {
-      fallen.push(s); a.squads = a.squads.filter(x => x !== sid); delete w.soldiers[sid]; continue;
-    }
-    s.battles++;
-    if (out.retreat && !out.won) continue;
-    const ups = W2.soldierXp(S, s, (out.won ? 35 : 12) + out.Q / 7);
-    if (ups.length) promoted.push({ s, rank: s.rank });
-  }
-  let heroXp = 0, heroLevels = 0;
-  if (a.general) { heroXp = Math.round((out.won ? 1.2 : 0.4) * out.Q * 3 * (1 + (W2.mods(S).heroXp || 0))); heroLevels = E.gainXp(S, a.general, heroXp); }
-  const rep = { army: a.name, where: REGIONS[rid].name, won: out.won, fallen, promoted, heroXp, heroLevels, captured: false };
-  if (out.won) {
-    w.hollow = w.hollow.filter(h => h.at !== rid);
-    a.at = rid;
-    const r = w.regions[rid];
-    if (r.owner === 'h') { r.owner = 'p'; r.garrison = 0; r.taken++; rep.captured = true; }
-    r.siege = 0;
-  } else {
-    a.broken = out.retreat ? 1 : 3;
-    if (a.general && !out.retreat) { w.wounded = w.wounded || {}; w.wounded[a.general] = 3; }
-  }
-  return rep;
-};
-// ---------- orders ----------
-// The Hollow Gate stays sealed until all three marshals are dead.
-W2.LIEUTENANTS = { greyfort: { t: 'grieve', flag: 'grieve_dead', scene: 'grieve_corner', after: 'grieve_dies', sprite: 'hand' }, kingsbridge: { t: 'cinder', flag: 'cinder_dead', scene: 'cinder_corner', after: 'cinder_dies', sprite: 'pitmage' }, temple: { t: 'saint', flag: 'saint_dead', scene: 'saint_corner', after: 'saint_dies', sprite: 'drowned' } };
-W2.locked = (S, rid) => !!REGIONS[rid].locked && !(S.flags && S.flags.gate_open);
-W2.marshalsAlive = S => Object.values(W2.LIEUTENANTS).filter(l => !(S.flags && S.flags[l.flag])).length;
-W2.canMove = (S, a, rid) => a.at !== rid && (NEAR[a.at] || []).includes(rid) && !W2.locked(S, rid);
-W2.order = function (S, armyId, rid) {
-  const a = S.war.armies.find(x => x.id === armyId);
-  if (!a) return 'No such army.';
-  if (!a.squads.length) return 'That army has no soldiers.';
-  if (a.broken && rid) return `${a.name} is regrouping for ${a.broken} more day${a.broken > 1 ? 's' : ''}.`;
-  if (rid && !W2.canMove(S, a, rid)) return 'Armies march one region a day, along the roads.';
-  a.target = rid || null;
-  return null;
-};
-
-// ---------- the Hollow ----------
-// Shortest path by roads (any owner), for Hollow armies marching on a target.
+// ---------- the Hollow's turn ----------
 W2.path = function (from, to) {
   const prev = { [from]: null }, q = [from];
   while (q.length) { const c = q.shift(); if (c === to) break; for (const n of NEAR[c] || []) if (!(n in prev)) { prev[n] = c; q.push(n); } }
@@ -280,7 +339,6 @@ W2.path = function (from, to) {
   for (let c = to; c && c !== from; c = prev[c]) out.unshift(c);
   return out;
 };
-// The Hollow grow with time and with how much you've taken from them.
 W2.hollowPower = S => Math.round((50 + 6 * S.war.day + 30 * Object.values(S.war.regions).reduce((t, r) => t + (r.taken ? 1 : 0), 0)) * (1 + 0.1 * W2.marshalsAlive(S)));
 W2.spawn = function (S, rng) {
   rng = rng || Math.random;
@@ -290,90 +348,58 @@ W2.spawn = function (S, rng) {
   const targets = W2.owned(S);
   if (!targets.length) return null;
   const from = forts[Math.floor(rng() * forts.length)];
-  // Prefer places with people in them, then whatever is nearest.
-  const score = id => W2.path(from, id).length - (REGIONS[id].named ? 1.5 : 0) - (id === 'emberwake' ? -1 : 0) + rng();
+  const score = id => W2.path(from, id).length - (REGIONS[id].named && !S.war.regions[id].lost ? 1.5 : 0) + rng();
   const to = targets.sort((x, y) => score(x) - score(y))[0];
   const h = { id: S.war.nextHid++, from, at: from, to, power: Math.round(W2.hollowPower(S) * (0.8 + rng() * 0.4)), name: ['A Hollow warband', 'A Hollow column', 'A Hollow raiding party', 'A Hollow host'][Math.floor(rng() * 4)] };
   S.war.hollow.push(h);
   return h;
 };
-
-// ---------- the day ----------
-// Runs one day of the war. Returns a report: battles, captures, losses, income, and whether Emberwake is attacked tonight.
+W2.retreat = function (S, from) { for (const n of NEAR[from] || []) if (W2.owns(S, n)) return n; return 'emberwake'; };
+// Ending the day: the Hollow march and attack, places under siege fall, holdings pay, wounds mend.
 W2.day = function (S, rng) {
   rng = rng || Math.random;
-  const w = S.war, rep = { day: w.day, lines: [], battles: [], captured: [], lost: [], promoted: [], fallen: 0, siege: null };
+  const w = S.war, rep = { day: w.day, lines: [], battles: [], captured: [], lost: [], siege: null };
   const say = (t, cls) => rep.lines.push({ t, cls });
-  // 1. your armies march and attack
-  for (const a of w.armies) {
-    if (a.broken) { a.broken--; continue; }
-    if (a.acted === w.day) { a.target = null; continue; }
-    if (!a.target) continue;
-    const rid = a.target; a.target = null;
-    const r = w.regions[rid];
-    const enemy = W2.foePower(S, rid);
-    if (enemy > 0) {
-      const b = W2.battle(S, a, enemy, 'atk', rng);
-      rep.battles.push(Object.assign({ army: a.name, where: REGIONS[rid].name, attack: true }, b));
-      rep.fallen += b.fallen.length; rep.promoted.push(...b.promoted);
-      if (b.won) {
-        w.hollow = w.hollow.filter(h => h.at !== rid);
-        a.at = rid;
-        if (r.owner === 'h') { r.owner = 'p'; r.garrison = 0; r.taken++; rep.captured.push(rid); say(`${a.name} takes ${REGIONS[rid].name}!`, 'good'); }
-        else say(`${a.name} drives the Hollow from ${REGIONS[rid].name}.`, 'good');
-      } else say(`${a.name} is thrown back from ${REGIONS[rid].name}. ${b.fallen.length} fall.`, 'bad');
-    } else { a.at = rid; if (r.owner === 'h' || r.lost) { r.owner = 'p'; rep.captured.push(rid); say(`${a.name} marches into ${REGIONS[rid].name} unopposed.`); } }
-  }
-  // 2. the Hollow march
   for (const h of w.hollow.slice()) {
     const route = W2.path(h.at, h.to);
     if (route.length && !(w.regions[h.at].owner === 'p' && h.besieging)) { h.at = route[0]; h.besieging = 0; }
-    const r = w.regions[h.at], here = w.armies.filter(a => a.at === h.at && a.squads.length);
+    const r = w.regions[h.at], here = w.armies.filter(a => a.at === h.at && a.companies.length);
     if (r.owner !== 'p') continue;
     if (here.length) {
+      // your army there defends: walls help, archers and Bulwark count
       const a = here.sort((x, y) => W2.armyPower(S, y, 'def') - W2.armyPower(S, x, 'def'))[0];
-      const b = W2.battle(S, a, h.power * (1 / (FORT_DEF[REGIONS[h.at].kind] || 1)), 'def', rng);
-      rep.battles.push(Object.assign({ army: a.name, where: REGIONS[h.at].name, attack: false, foe: h.name }, b));
-      rep.fallen += b.fallen.length; rep.promoted.push(...b.promoted);
-      if (b.won) { w.hollow = w.hollow.filter(x => x !== h); say(`${a.name} breaks ${h.name.toLowerCase()} at ${REGIONS[h.at].name}.`, 'good'); continue; }
-      say(`${h.name} beats ${a.name} at ${REGIONS[h.at].name}.`, 'bad');
-      a.at = W2.retreat(S, h.at);
-      h.power = Math.round(h.power * 0.7);
+      const P = Math.round(W2.armyPower(S, a, 'def') * (FORT_DEF[REGIONS[h.at].kind] || 1)), p = W2.odds(P, h.power), won = rng() < p;
+      const losses = W2.takeLosses(S, a, W2.deathShare(P, h.power, won), rng), rew = W2.reward(S, a, h.power, won);
+      rep.battles.push(Object.assign({ army: a.name, where: REGIONS[h.at].name, defend: true, won, P, Q: h.power, p, losses }, rew));
+      if (won) { w.hollow = w.hollow.filter(x => x !== h); say(`${a.name} holds ${REGIONS[h.at].name} and breaks ${h.name.toLowerCase()}.`, 'good'); continue; }
+      say(`${h.name} beats ${a.name} at ${REGIONS[h.at].name}. They fall back to ${REGIONS[W2.retreat(S, h.at)].name}.`, 'bad');
+      a.at = W2.retreat(S, h.at); a.broken = 2; h.power = Math.round(h.power * 0.7);
     }
     if (h.at === 'emberwake') { rep.siege = { power: h.power, hid: h.id }; say(`${h.name} reaches Emberwake. Man the walls tonight!`, 'bad'); continue; }
     h.besieging = (h.besieging || 0) + 1;
-    if (h.besieging === 1) { r.siege = 1; say(`${h.name} besieges ${REGIONS[h.at].name}. Relieve it by tomorrow or it falls.`, 'bad'); continue; }
-    // falls
+    if (h.besieging === 1) { r.siege = 1; say(`${h.name} besieges ${REGIONS[h.at].name}. Attack them there tomorrow or it falls.`, 'bad'); continue; }
     r.siege = 0;
-    if (REGIONS[h.at].named && !r.lost) { r.owner = 'h'; r.lost = true; r.garrison = Math.round(h.power * 0.5); rep.lost.push(h.at); say(`${REGIONS[h.at].name} falls. ${REGIONS[h.at].people.replace(/^./, c => c.toUpperCase())} are gone.`, 'bad'); }
-    else { r.owner = 'h'; r.garrison = Math.round(h.power * 0.6); rep.lost.push(h.at); say(`${REGIONS[h.at].name} falls to the Hollow.`, 'bad'); }
+    if (REGIONS[h.at].named && !r.lost) { r.lost = true; say(`${REGIONS[h.at].name} falls. ${REGIONS[h.at].people.replace(/^./, c => c.toUpperCase())} are gone.`, 'bad'); }
+    else say(`${REGIONS[h.at].name} falls to the Hollow.`, 'bad');
+    r.owner = 'h'; r.garrison = Math.round(h.power * 0.6); rep.lost.push(h.at);
     w.hollow = w.hollow.filter(x => x !== h);
   }
   for (const id in w.regions) if (!w.hollow.some(h => h.at === id)) w.regions[id].siege = 0;
-  // 3. new Hollow armies
   w.spawnT--;
-  if (w.spawnT <= 0) { const h = W2.spawn(S, rng); if (h) say(`${h.name} marches out of ${REGIONS[h.from].name}, heading for ${REGIONS[h.to].name}.`, 'warn'); w.spawnT = w.day < 8 ? 3 : 2; }
-  // Hollow garrisons rebuild slowly
+  if (w.spawnT <= 0) { const h = W2.spawn(S, rng); if (h) say(`${h.name} (strength ${h.power}) marches out of ${REGIONS[h.from].name}, heading for ${REGIONS[h.to].name}.`, 'warn'); w.spawnT = w.day < 8 ? 3 : 2; }
   for (const id in w.regions) { const r = w.regions[id]; if (r.owner === 'h' && REGIONS[id].garrison) r.garrison = Math.min(REGIONS[id].garrison * 1.5, r.garrison + 3); }
-  // 4. income, healing, wounds
   const inc = W2.income(S);
   S.gold += inc.gold || 0; w.levy += inc.levy || 0;
   for (const m of ['ore', 'starsteel', 'emberglass']) if (inc[m]) S.mats[m] = (S.mats[m] || 0) + inc[m];
   rep.income = inc;
   const heal = W2.mods(S).armyHeal ? 2 : 1;
-  for (const a of w.armies) if (a.broken) a.broken = Math.max(0, a.broken - (heal - 1));
+  for (const a of w.armies) if (a.broken) a.broken = Math.max(0, a.broken - heal);
   for (const id in (w.wounded || {})) { w.wounded[id] = Math.max(0, w.wounded[id] - 1); if (!w.wounded[id]) delete w.wounded[id]; }
   if (W2.mods(S).shop) S.shopTier = Math.max(S.shopTier, W2.mods(S).shop);
   w.day++;
   w.reports.unshift(rep); w.reports = w.reports.slice(0, 10);
   return rep;
 };
-// Where a beaten army falls back to: the nearest region you hold, Emberwake if nothing else.
-W2.retreat = function (S, from) {
-  for (const n of NEAR[from] || []) if (W2.owns(S, n)) return n;
-  return 'emberwake';
-};
-// After a siege night at Emberwake: the attacking Hollow army is gone either way, but losing burns stores.
 W2.siegeResult = function (S, hid, won) {
   S.war.hollow = S.war.hollow.filter(h => h.id !== hid);
   if (!won) { const lost = Math.floor(S.gold * 0.2); S.gold -= lost; S.war.levy = Math.floor(S.war.levy / 2); return lost; }

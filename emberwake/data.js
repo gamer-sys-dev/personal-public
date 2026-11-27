@@ -256,6 +256,11 @@ const SKILLS = {
   raise_dead:   { name: 'Raise Dead', type: 'summon', summon: ['skeleton', 'skeleton'] },
   raise_dead_again: { name: 'Raise Dead', type: 'summon', summon: ['skeleton', 'wight'] },
   // Boss moves that are announced a turn ahead (see mech.windup)
+  // War companies fighting beside the party
+  company_strike: { name: 'Shield Wall Push', type: 'phys', power: 1.0, target: 'enemy' },
+  company_volley: { name: 'Volley', type: 'phys', power: 0.5, target: 'enemies' },
+  company_charge: { name: 'Charge', type: 'phys', power: 1.4, target: 'enemy' },
+  company_mend:   { name: 'Field Prayers', type: 'heal', power: 0.2, target: 'allies' },
   apex_fury:    { name: 'Apex Fury', type: 'phys', power: 1.7, target: 'enemies' },
   tusk_charge:  { name: 'Tusk Charge', type: 'phys', power: 1.5, target: 'enemies' },
   execution:    { name: 'Execution', type: 'phys', power: 3.4, target: 'enemy' },

@@ -6,6 +6,63 @@
 
 const STORY5 = {
   // ---------- Chapter two ----------
+  // Beats that play as the war moves (BEATS in game.js)
+  c2_day2: [
+    ['', 'A boy on a pony comes up the hill at dawn, soaked to the waist. He has ridden all night from Fenwick.'],
+    ['', '"There\'s lights in the reeds," he says. "Hundreds. Mam says they\'re waiting for something."'],
+    ['morwen', 'Waiting to be told. They never used to wait. They used to just come.', 'has:morwen'],
+    ['bram', 'We can\'t hold everywhere at once.'],
+    ['isolde', 'Then we\'d better be quick about the places we can.'],
+  ],
+  c2_ashby: [
+    ['', 'Ashby is ash and nettles. The forge is three walls and a chimney. Bram stands in the doorway a long time.'],
+    ['', 'Under the fallen roof he finds his father\'s hammer, the handle burned to a stub. The head is fine. Smith\'s work lasts.'],
+    ['bram', 'There\'s writing on the anvil. Scratched in with a nail. Militia roll, the year of the long winter: the lads who marched north and never came back.'],
+    ['bram', 'Hob\'s brother. Old Tam\'s two boys. A corporal called Grieve.'],
+    ['isolde', 'Grieve. I\'ve heard that name somewhere.'],
+    ['', 'Bram takes the hammer. Ashby\'s survivors start coming back that week, a few at a time, with spades.'],
+  ],
+  c2_prisoner: [
+    ['', 'After the fighting, one Hollow soldier doesn\'t get up and doesn\'t crumble either. It sits in the mud, looking at its hands.'],
+    ['', '"I had a name," it says. "I had it this morning."'],
+    ['aldric', 'Who gives you orders, soldier?', 'has:aldric'],
+    ['bram', 'Who gives you orders?', '!has:aldric'],
+    ['', '"The three. The Marshal in Greyfort. The Lady on the bridge. The Saint under the water. And behind them the Gate, and behind the Gate the king. He is so cold. We all feel how cold he is."'],
+    ['', 'It turns its face to Isolde, and to the stone in her hand, the way a plant turns to a window. Then it is ash.'],
+    ['isolde', 'It wanted to be warm. That\'s all it wanted.'],
+  ],
+  c2_first_loss: [
+    ['', 'The smoke from the fallen village is visible from the keep wall. Nobody says much at supper.'],
+    ['isolde', 'If I\'d kindled it. If I\'d opened my hand all the way, every fight, we\'d have been there in time.'],
+    ['bram', 'You don\'t know that.'],
+    ['isolde', 'I know what it feels like when I let it out. Like I could hold the whole north back on my own.'],
+    ['bram', 'Isolde. Look at me. We\'ll get stronger. The proper way.'],
+  ],
+  c2_kindle_dream: [
+    ['', 'Isolde dreams of a cold hall. Somebody on a throne is counting, softly, the way you count sheep.'],
+    ['', '"One," says the voice. "Two. Do you feel it, girl? Every time you open your hand, I feel a little less cold."'],
+    ['', 'She wakes with frost on the inside of the window and the Ember burning in her fist.'],
+  ],
+  c2_first_fort: [
+    ['', 'From the walls of the captured fort you can see a long way north. The land beyond is grey, all of it: grey fields, grey woods, a grey river.'],
+    ['', 'On the far hills, a banner of black iron catches the light. Greyfort.'],
+    ['aldric', 'Royal colours, under the rust. Somebody up there remembers being a soldier of the old crown.', 'has:aldric'],
+    ['bram', 'Then he\'ll know how this ends. One wall at a time.'],
+  ],
+  c2_one_down: [
+    ['', 'That night nobody can sleep, so they sit up by the fire instead.'],
+    ['bram', 'They were people. All of them. That knight had an Ashby token.'],
+    ['isolde', 'Somebody made them what they are. Something did.'],
+    ['wren', 'You keep looking at your hand when you say that.', 'has:wren'],
+    ['isolde', 'Do I?'],
+  ],
+  c2_ash_hands: [
+    ['', 'Bram takes Isolde\'s hand to help her down from the wall, and stops.'],
+    ['bram', 'Your fingers. There\'s ash on them. Grey, like...'],
+    ['isolde', 'It washes off.'],
+    ['bram', 'Does it?'],
+    ['', 'She doesn\'t answer. The Ember is very warm today.'],
+  ],
   kindle_first: [
     ['isolde', 'There\'s more in the stone than I\'ve ever let out. I can feel it. If I open my hand all the way...'],
     ['bram', 'Then do it. We need it.'],

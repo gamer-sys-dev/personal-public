@@ -695,6 +695,7 @@ E.explored = function (S, id) {
 };
 
 // ---------- Battle ----------
+E.enemyStats = (tpl, L) => enemyStats(tpl, L);
 function enemyStats(tpl, L) {
   const m = tpl.m;
   return {
@@ -712,6 +713,8 @@ class Battle {
     this.heroes = S.party.map((id, i) => this.makeHero(id, i));
     const c = E.creatureOf(S, S.companion);
     if (c && c.hp > 0) this.heroes.push(this.makeCreature(c));
+    // War battles: the army's companies fight beside the party on their own, like the creature does
+    for (const [i, u] of (opts.allies || []).entries()) this.heroes.push(Object.assign({ side: 'h', isCompany: true, key: 'w' + i, statuses: {}, gauge: 0, weak: {}, flags: { immune: [] }, mp: 0, maxMp: 0, crit: 5, horde: true, hp: u.maxHp }, u));
     this.bond = Math.max(0, ...this.heroes.filter(h => !h.isCreature).map(h => h.flags.beastBond || 0));
     this.enemies = [];
     this.letters = {};
@@ -750,6 +753,7 @@ class Battle {
       isBoss: !!tpl.boss || !!o.boss, used: {}, base: name, big: !!o.hpx || !!o.boss || !!el,
       elite: el ? o.elite : null, apex: o.apex || null, learned: o.resist || null, mech: o.mech || tpl.mech || null, plated: !!(tpl.mech && tpl.mech.plated) || o.elite === 'ironhide', turnsTaken: 0 });
     if (o.resist) a.weak = Object.assign({}, a.weak, { [o.resist]: 0.4 });
+    if (o.horde) { a.horde = true; a.xpx = o.xpx || 1; a.maxHp = a.hp = Math.round(o.hpSet); a.str = o.strSet; a.mag = o.strSet; if (o.defSet) a.def = a.res = o.defSet; a.big = true; }
     this.enemies.push(a);
     return a;
   }
@@ -841,7 +845,7 @@ class Battle {
   check() {
     if (this.over) return;
     if (!this.alive(this.enemies).length) { this.over = true; this.won = true; }
-    else if (!this.alive(this.heroes.filter(h => !h.isCreature)).length) { this.over = true; this.won = false; }
+    else if (!this.alive(this.heroes.filter(h => !h.isCreature && !h.isCompany)).length) { this.over = true; this.won = false; }
   }
   addStatus(t, s, dur, ev) {
     if (t.hp <= 0) return;
@@ -877,6 +881,8 @@ class Battle {
     n *= 0.9 + this.rng() * 0.2;
     if (t.flags && t.flags.bulwark) n *= 1 - t.flags.bulwark;
     if (t.defending) n *= 0.5;
+    // a company or horde hits softer as it loses men
+    if (a.horde) n *= Math.max(0.35, a.hp / a.maxHp);
     const sh = t.side === 'e' ? this.shield(t) : 1;
     n *= sh;
     return { n: Math.max(1, Math.round(n)), crit, weak: el > 1, resist: el < 1 || sh < 1 };
@@ -961,7 +967,7 @@ class Battle {
     if (c.kind === 'windup') {
       const w = a.mech.windup;
       let tgt = null;
-      if (w.mark) { const hs = this.alive(this.heroes.filter(h => !h.isCreature)); tgt = hs[Math.floor(this.rng() * hs.length)]; }
+      if (w.mark) { const hs = this.alive(this.heroes.filter(h => !h.isCreature && !h.isCompany)); tgt = hs[Math.floor(this.rng() * hs.length)]; }
       a.charge = { skill: w.skill, target: tgt };
       ev.push({ t: 'warn', who: a, mark: tgt, text: w.text.replace('{t}', tgt ? tgt.name : '') });
       return ev;
@@ -997,7 +1003,7 @@ class Battle {
     a.mp -= cost;
     if (c.id !== 'attack') ev.push({ t: 'say', text: sk.name, who: a, combo: !!sk.combo });
     let mult = 1;
-    if (a.side === 'h' && !a.isCreature && c.id !== 'attack' && sk.type !== 'tame' && sk.type !== 'steal') {
+    if (a.side === 'h' && !a.isCreature && !a.isCompany && c.id !== 'attack' && sk.type !== 'tame' && sk.type !== 'steal') {
       const h = this.S.heroes[a.id];
       const before = E.masteryLevel(h.mastery[c.id]);
       h.mastery[c.id] = (h.mastery[c.id] || 0) + 1;
@@ -1164,6 +1170,13 @@ class Battle {
     }
     return { kind: 'skill', id, target };
   }
+  // A company on your side: priests pray over whoever is worst off, the rest go for the weakest enemy.
+  companyChoice(a) {
+    const foes = this.alive(this.enemies);
+    if (a.skill === 'company_mend') return { kind: 'skill', id: 'company_mend' };
+    const t = a.skill === 'company_volley' ? null : foes.slice().sort((x, y) => x.hp - y.hp)[0];
+    return { kind: 'skill', id: a.skill, target: t };
+  }
   creatureChoice(a) {
     const foes = this.alive(this.enemies), friends = this.alive(this.heroes);
     const atk = a.skills.filter(s => D.SKILLS[s].type === 'phys' || D.SKILLS[s].type === 'mag');
@@ -1184,6 +1197,7 @@ class Battle {
   autoChoice(a) {
     const S = this.S;
     if (a.isCreature) return this.creatureChoice(a);
+    if (a.isCompany) return this.companyChoice(a);
     if (this.holdBack && a.skills.includes('tame')) {
       const t = this.alive(this.enemies).filter(e => this.holdingBack(e) && e.hp / e.maxHp < 0.35).sort((x, y) => this.tameOdds(y, a) - this.tameOdds(x, a))[0];
       if (t) return { kind: 'skill', id: 'tame', target: t };
@@ -1191,7 +1205,7 @@ class Battle {
     const friends = this.heroes, live = this.alive(friends), foes = this.alive(this.enemies);
     const can = id => a.skills.includes(id) && a.mp >= this.mpCost(a, D.SKILLS[id]);
     if (this.surgeReady() && (this.boss || foes.reduce((s, f) => s + f.hp, 0) > a.maxHp * 2)) return { kind: 'surge', target: foes.sort((x, y) => y.hp - x.hp)[0] };
-    const dead = friends.filter(f => f.hp <= 0 && !f.isCreature);
+    const dead = friends.filter(f => f.hp <= 0 && !f.isCreature && !f.isCompany);
     if (dead.length && can('raise')) return { kind: 'skill', id: 'raise', target: dead[0] };
     if (dead.length && S.bag.feather && this.opts.autoItems) return { kind: 'item', id: 'feather', target: dead[0] };
     const hurt = live.filter(f => f.hp / f.maxHp < 0.45);
@@ -1232,6 +1246,7 @@ E.Battle = Battle;
 // Writes the battle back to the save and works out rewards.
 E.finishBattle = function (S, B) {
   for (const h of B.heroes) {
+    if (h.isCompany) continue;
     if (h.isCreature) h.rec.hp = h.hp;
     else { S.heroes[h.id].hp = h.hp; S.heroes[h.id].mp = h.mp; }
   }
@@ -1244,7 +1259,7 @@ E.finishBattle = function (S, B) {
   let xp = 0, gold = 0, lsum = 0;
   for (const e of B.dead) {
     const ek = e.apex ? 8 : e.elite ? 3 : 1;
-    xp += e.tpl.xp * (8 + 5 * e.lvl) * ek;
+    xp += e.tpl.xp * (8 + 5 * e.lvl) * ek * (e.xpx || 1);
     gold += e.tpl.gold * (5 + 3 * e.lvl) * ek;
     if (e.elite) { out.mats.ore = (out.mats.ore || 0) + 1; if (rng() < 0.35) out.items.hi_potion = (out.items.hi_potion || 0) + 1; out.elites = (out.elites || 0) + 1; }
     lsum += e.lvl;

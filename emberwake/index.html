@@ -107,6 +107,10 @@
   .spr { position:relative; display:flex; justify-content:center; }
   .spr::after { content:''; position:absolute; left:12%; right:12%; bottom:-4px; height:9px; background:radial-gradient(ellipse at center, rgba(0,0,0,.45), rgba(0,0,0,0) 70%); z-index:-1; }
   .unit.pet { margin-right:40px; }
+  .friends.many { display:grid; grid-template-columns:1fr 1fr; align-content:space-evenly; justify-items:center; width:40%; }
+  .friends.many .unit.pet { margin-right:0; }
+  .selbar { font-size:.82rem; background:#1c2a3a; border:1px solid #3a5a7a; border-radius:10px; padding:6px 10px; margin:6px 0; }
+  .odds { margin-top:8px; padding:8px; border:1px solid var(--line); border-radius:10px; background:rgba(0,0,0,.2); }
   .field.surgeflash::after { content:''; position:absolute; inset:0; background:radial-gradient(circle, rgba(255,170,60,.65), rgba(255,90,20,0) 70%); animation:sflash .7s; pointer-events:none; }
   @keyframes sflash { from { opacity:1; } to { opacity:0; } }
   .banner.big { font-size:1.3rem; color:var(--ember); border-color:var(--ember); }
@@ -295,7 +299,6 @@
 <script src="war.js"></script>
 <script src="siege.js"></script>
 <script src="siegeui.js"></script>
-<script src="fieldbattle.js"></script>
 <script src="battlefx.js"></script>
 <script src="game.js"></script>
 <script>
