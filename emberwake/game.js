@@ -1479,13 +1479,41 @@ async function impact(who, level) {
   if (u) u.classList.remove('impact');
   shakeField(level >= 2);
 }
-// Combo Arts and Ember Surges: the field darkens and the move's name comes up before the hit.
-async function bigMove(text, kind) {
+// How a fighter moves before their action lands: a lunge for blows, a glow and gathering sparks for spells,
+// then a bolt across the field for ranged attacks and spells aimed at an enemy.
+const RANGED = ['wren', 'isolde', 'morwen'];
+async function actMotion(a, c, u) {
+  if (!u || !c) { await T(150); return; }
+  const sk = c.kind === 'skill' ? D.SKILLS[c.id] : c.kind === 'surge' ? D.SKILLS[D.SURGE[a.id]] : null;
+  const type = sk ? sk.type : c.kind === 'item' ? 'item' : 'phys';
+  const el = sk && sk.el ? (sk.el === 'light' ? 'light' : sk.el === 'dark' ? 'dark' : sk.el) : type === 'heal' ? 'heal' : 'mag';
+  u.classList.add('step');
+  if (type === 'mag' || type === 'heal' || type === 'buff' || type === 'revive') {
+    u.classList.add(type === 'heal' || type === 'revive' ? 'castheal' : 'cast');
+    if (FX) FX.gather(u, el);
+    await T(260);
+    const t = c.target && unitEl(c.target);
+    if (FX && t && type === 'mag') { FX.bolt(u, t, el); await T(230); }
+    return;
+  }
+  if (type === 'phys') {
+    const ranged = a.side === 'h' ? RANGED.includes(a.id) || a.cls === 'archers' : a.ranged || /arrow|volley|bolt|spit/.test(c.id || '');
+    const t = c.target && unitEl(c.target);
+    if (ranged && t && FX) { u.classList.add('cast'); await T(120); FX.bolt(u, t, sk && sk.el ? el : 'phys', 0.2); await T(180); return; }
+    u.classList.add('lunge'); u.style.setProperty('--dir', a.side === 'h' ? '-1' : '1');
+    await T(200);
+    return;
+  }
+  await T(150);
+}
+// Combo Arts, Ember Surges and Awakened moves: the field darkens, the hero's portrait sweeps across and the name comes up.
+async function bigMove(text, kind, who) {
   const f = document.querySelector('#battle .field');
   if (!f) return;
   const d = document.createElement('div');
   d.className = 'bigmove ' + kind;
-  d.innerHTML = `<small>${kind === 'combo' ? 'Combo Art' : 'Ember Surge'}</small><b>${esc(text)}</b>`;
+  const face = who && who.sprite && !who.isCompany ? `<div class="cutin">${img(who.sprite, 9)}</div>` : '';
+  d.innerHTML = `${face}<small>${kind === 'combo' ? 'Combo Art' : kind === 'awaken' ? 'Awakened' : 'Ember Surge'}</small><b>${esc(text)}</b>`;
   f.appendChild(d);
   await T(kind === 'combo' ? 650 : 750);
   setTimeout(() => d.remove(), 500);
@@ -1592,6 +1620,17 @@ function banner(text, big) {
   b.textContent = text; b.classList.add('show'); b.classList.toggle('big', !!big);
   clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.remove('show'), (big ? 1300 : 900) * (S.opts.speed === 2 ? 0.6 : 1));
 }
+// A boss changing phase: the screen flashes red, the boss swells and glows from then on, and says what's happening.
+async function bossPhase(who, text, stype) {
+  text = stype === 'summon' ? `${text}. Reinforcements are coming` : stype === 'buff' ? `${text}. Something has changed in it` : text;
+  const u = unitEl(who), f = document.querySelector('#battle .field');
+  AU.sfx('gate');
+  if (f) { f.classList.remove('phaseflash'); void f.offsetWidth; f.classList.add('phaseflash'); }
+  if (u) u.classList.add('enraged');
+  shakeField(true);
+  warnBanner(`${who.name} changes. ${text}!`);
+  await T(1300);
+}
 function warnBanner(text, good) {
   const f = document.querySelector('#battle .field');
   if (!f) return;
@@ -1619,13 +1658,14 @@ async function play(evs) {
   for (const ev of evs) {
     switch (ev.t) {
       case 'say':
-        if (ev.combo) { AU.sfx('surge'); await bigMove(ev.text, 'combo'); break; }
+        if (ev.combo || ev.awaken) { AU.sfx('surge'); await bigMove(ev.text, ev.combo ? 'combo' : 'awaken', ev.who); break; }
+        if (ev.phase && ev.who && ev.who.isBoss) { await bossPhase(ev.who, ev.text, ev.stype); break; }
         banner(ev.text); await T(ev.who ? 380 : 650); break;
       case 'surge': {
         AU.sfx('surge');
         const f = document.querySelector('.field'); f.classList.add('surgeflash'); setTimeout(() => f.classList.remove('surgeflash'), 700);
         if (FX) FX.surge(); shakeField(true);
-        await bigMove(ev.text, 'surge');
+        await bigMove(ev.text, 'surge', ev.who);
         refreshUnits(); break;
       }
       case 'dmg': {
@@ -1638,6 +1678,7 @@ async function play(evs) {
         if (B && B.holdingBack(ev.who) && ev.who.hp <= 1) floatText(ev.who, 'held back', 'label');
         if (ev.reflect) floatText(ev.who, 'reflected!', 'label weak');
         if (ev.dot) floatText(ev.who, STATUS[ev.dot], 'label');
+        { const hu = unitEl(ev.who); if (hu) hu.style.setProperty('--kb', ev.who.side === 'h' ? '1' : '-1'); }
         pulse(ev.who, 'hit'); pulse(ev.who, 'flash');
         if (FX) FX.hit(unitEl(ev.who), ev.dot === 'poison' ? 'poison' : ev.dot === 'burn' ? 'fire' : ev.el || 'phys', lvl > 0);
         AU.sfx(ev.crit || lvl >= 2 ? 'crit' : ev.el === 'fire' ? 'fire' : ev.el === 'frost' ? 'frost' : ev.el && ev.el !== 'phys' ? 'magic' : 'hit');
@@ -1657,7 +1698,12 @@ async function play(evs) {
         refreshUnits(); drawBars(); await T(ev.good ? 900 : 1500); break;
       }
       case 'off': refreshUnits(); drawBars(); break;
-      case 'ko': AU.sfx('ko'); if (FX && ev.who.side === 'e') FX.puff(unitEl(ev.who), 'death'); refreshUnits(); drawBars(); await T(330); break;
+      case 'ko': {
+        AU.sfx('ko');
+        const ku = unitEl(ev.who);
+        if (ev.who.side === 'e' && ku) { ku.classList.add('dying'); if (FX) FX.puff(ku, 'death'); await T(420); }
+        refreshUnits(); drawBars(); await T(200); break;
+      }
       case 'tamed': AU.sfx('tame'); floatText(ev.who, 'Tamed!', 'heal'); banner(ev.who.name + ' is tamed!', true); await T(900); break;
       case 'stole': floatText(ev.who, ev.text, 'label'); await T(300); break;
       case 'summon': drawUnits(); pulse(ev.who, 'flash'); banner(ev.who.name + ' joins the fight'); await T(500); break;
@@ -1687,11 +1733,10 @@ async function runBattle() {
       if (u0) u0.classList.remove('active');
     } else c = B.enemyChoice(a);
     const u = document.getElementById('u-' + a.key);
-    if (u) u.classList.add('step');
-    await T(150);
+    await actMotion(a, c, u);
     const ev = B.act(a, c);
     await play(ev);
-    if (u) u.classList.remove('step');
+    if (u) u.classList.remove('step', 'lunge', 'cast', 'castheal');
     drawBars();
     if (a.side === 'h') drawCmd();
   }

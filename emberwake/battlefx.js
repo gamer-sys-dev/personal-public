@@ -183,6 +183,25 @@ function fx(field) {
       if (kind === 'frost') for (let i = 0; i < 6; i++) P.add({ x: p.x + (Math.random() - 0.5) * p.w * 0.6, y: p.y - p.h * 0.6, vy: 220, life: 0.3, size: 3, col: '#e0f8ff', glow: true });
     },
     puff(el, kind) { if (el) { const p = where(el); P.burst(p.x, p.y, 16, STYLE[kind] || STYLE.heal); } },
+    // A spell or arrow flying from the caster to the target: a glowing head with a trail.
+    bolt(from, to, kind, dur) {
+      if (!from || !to) return;
+      const a = where(from), b = where(to), st = STYLE[kind] || STYLE.mag, n = 10, t = (dur || 0.28);
+      for (let i = 0; i < n; i++) {
+        const k = i / n;
+        setTimeout(() => {
+          const x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k - Math.sin(k * Math.PI) * 18;
+          P.add({ x, y, life: 0.25, size: st.size + 2, col: st.col[i % st.col.length], glow: true });
+          P.add({ x, y, vx: (Math.random() - 0.5) * 30, vy: (Math.random() - 0.5) * 30, life: 0.35, size: st.size * 0.6, col: st.col[0], glow: true });
+        }, k * t * 1000);
+      }
+    },
+    // A caster gathering power: sparks drawn in towards them.
+    gather(el, kind) {
+      if (!el) return;
+      const p = where(el), st = STYLE[kind] || STYLE.mag;
+      for (let i = 0; i < 14; i++) { const ang = Math.random() * Math.PI * 2, r = 40 + Math.random() * 20; P.add({ x: p.x + Math.cos(ang) * r, y: p.y + Math.sin(ang) * r, vx: -Math.cos(ang) * r * 3, vy: -Math.sin(ang) * r * 3, life: 0.3, size: st.size, col: st.col[i % st.col.length], glow: true }); }
+    },
     surge() { P.burst(w / 2, h * 0.55, 80, STYLE.surge); P.add({ x: w / 2, y: h * 0.55, ring: w * 0.6, lw: 6, life: 0.6, col: '#ffb84a', glow: true }); },
     stop() { alive = false; c.remove(); },
   };

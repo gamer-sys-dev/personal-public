@@ -309,47 +309,50 @@ function variant(id) {
   return Object.assign({}, sp, { pal, scale: (sp.scale || 1) * (final ? 1.35 : 1.15) });
 }
 const cache = {}, ccache = {};
+// Shading: light falls from above and a little to the left. Tops of shapes catch the light, undersides and
+// right edges fall into shadow, so flat pixel art reads as solid. Near-black outline pixels are left alone.
+const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const lum = ([r, g, b]) => (0.3 * r + 0.59 * g + 0.11 * b) / 255;
+function tint(col, f) {
+  if (!/^#[0-9a-f]{6}$/i.test(col)) return col;
+  const c = hexRgb(col);
+  if (lum(c) < 0.1) return col;
+  const out = c.map(v => Math.round(f > 0 ? v + (255 - v) * f : v * (1 + f)));
+  return '#' + out.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+}
+function paint(g, sp, px) {
+  const rows = SHAPES[sp.shape], w = Math.max(...rows.map(r => r.length)), h = rows.length;
+  const at = (x, y) => (y >= 0 && y < h && x >= 0 && x < rows[y].length ? sp.pal[rows[y][x]] : null);
+  for (let y = 0; y < h; y++) for (let x = 0; x < rows[y].length; x++) {
+    let col = at(x, y);
+    if (!col) continue;
+    const up = at(x, y - 1), down = at(x, y + 1), left = at(x - 1, y), right = at(x + 1, y);
+    let f = 0;
+    if (!up) f += 0.22; else if (!left) f += 0.08;
+    if (!down) f -= 0.25; else if (!right) f -= 0.12;
+    if (f) col = tint(col, f);
+    g.fillStyle = col;
+    g.fillRect((sp.flip ? (w - 1 - x) : x) * px, y * px, px, px);
+  }
+  return { w, h };
+}
 function spriteCanvas(id, px) {
   px = px || 1;
   const key = id + '@' + px;
   if (ccache[key]) return ccache[key];
-  const sp = variant(id);
-  const rows = SHAPES[sp.shape];
+  const sp = variant(id), rows = SHAPES[sp.shape];
   const w = Math.max(...rows.map(r => r.length)), h = rows.length;
   const c = document.createElement('canvas');
   c.width = w * px; c.height = h * px;
-  const g = c.getContext('2d');
-  rows.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) {
-      const col = sp.pal[row[x]];
-      if (!col) continue;
-      g.fillStyle = col;
-      g.fillRect((sp.flip ? (w - 1 - x) : x) * px, y * px, px, px);
-    }
-  });
+  paint(c.getContext('2d'), sp, px);
   return (ccache[key] = { canvas: c, w: w * px, h: h * px, scale: sp.scale || 1 });
 }
 function spriteURL(id, px) {
   px = px || 4;
   const key = id + '@' + px;
   if (cache[key]) return cache[key];
-  const sp = variant(id);
-  const rows = SHAPES[sp.shape];
-  const w = Math.max(...rows.map(r => r.length)), h = rows.length;
-  const c = document.createElement('canvas');
-  c.width = w * px; c.height = h * px;
-  const g = c.getContext('2d');
-  rows.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) {
-      const ch = row[x];
-      const col = sp.pal[ch];
-      if (!col) continue;
-      g.fillStyle = col;
-      const dx = sp.flip ? (w - 1 - x) : x;
-      g.fillRect(dx * px, y * px, px, px);
-    }
-  });
-  return (cache[key] = { url: c.toDataURL(), w: w * px, h: h * px, scale: sp.scale || 1 });
+  const sc = spriteCanvas(id, px);
+  return (cache[key] = { url: sc.canvas.toDataURL(), w: sc.w, h: sc.h, scale: sc.scale });
 }
 
 root.SPRITES = { spriteURL, spriteCanvas, SPRITES, variant };

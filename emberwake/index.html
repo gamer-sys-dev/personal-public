@@ -175,6 +175,27 @@
   .warmy.on { border-left:3px solid #7ad8ff; padding-left:8px; }
   .soldier { padding:8px 0; border-bottom:1px solid var(--line); cursor:pointer; }
   .kindlebtn { width:100%; margin-bottom:8px; background:linear-gradient(90deg,#3a0a0a,#8a2a10); border-color:#ff6a2a; color:#ffd0a0; font-weight:700; }
+  .unit.lunge .spr { animation:lunge .32s ease-out; }
+  @keyframes lunge { 40% { transform:translateX(calc(var(--dir, -1) * 34px)) scale(1.08); } 100% { transform:none; } }
+  .unit.cast .spr img, .unit.castheal .spr img { animation:castglow .5s ease-out; }
+  .unit.cast .spr { animation:castrise .5s ease-out; }
+  .unit.castheal .spr { animation:castrise .5s ease-out; }
+  @keyframes castrise { 40% { transform:translateY(-8px); } 100% { transform:none; } }
+  @keyframes castglow { 50% { filter:drop-shadow(0 0 10px #a0c0ff) brightness(1.5); } }
+  .unit.castheal .spr img { animation-name:healglow; }
+  @keyframes healglow { 50% { filter:drop-shadow(0 0 10px #7aff9a) brightness(1.4); } }
+  .unit.hit .spr { animation:recoil .28s ease-out; }
+  @keyframes recoil { 30% { transform:translateX(calc(var(--kb, 1) * 10px)) rotate(4deg); } 100% { transform:none; } }
+  .unit.dying { animation:dying .45s ease-in forwards; }
+  @keyframes dying { to { opacity:0; transform:translateY(10px) scale(.8); filter:brightness(3) saturate(0); } }
+  .unit.enraged .spr { transform:scale(1.18); transition:transform .4s; }
+  .unit.enraged .spr img { filter:drop-shadow(0 0 4px #ff3a1a) drop-shadow(0 0 10px #ff3a1a) !important; }
+  .field.phaseflash::before { content:''; position:absolute; inset:0; background:radial-gradient(circle, rgba(255,40,20,.55), rgba(80,0,0,.2) 70%); pointer-events:none; z-index:8; animation:hflash .9s forwards; }
+  .cutin { position:absolute; left:-30%; top:50%; transform:translateY(-50%); opacity:.9; animation:cutin .75s ease-out forwards; filter:drop-shadow(0 0 16px #ff9a3d); }
+  .bigmove.combo .cutin { filter:drop-shadow(0 0 16px #7ad8ff); }
+  .bigmove.awaken .cutin { filter:drop-shadow(0 0 18px #ffd76a); }
+  @keyframes cutin { 0% { left:-40%; } 30% { left:4%; } 80% { left:10%; opacity:.9; } 100% { left:14%; opacity:0; } }
+  .bigmove.awaken b { color:#fff6c8; text-shadow:0 0 16px #ffd76a, 0 2px 0 #000; }
   .bigmove { position:absolute; inset:0; z-index:9; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(4,4,12,.62); pointer-events:none; animation:bmin .18s; }
   .bigmove small { font-size:.75rem; letter-spacing:.25em; text-transform:uppercase; color:#ffd27a; }
   .bigmove b { font-family:Georgia,serif; font-size:1.9rem; color:#fff; text-shadow:0 0 12px #ff9a3d, 0 2px 0 #000; animation:bmname .35s ease-out; }

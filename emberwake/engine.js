@@ -1001,7 +1001,7 @@ class Battle {
     const cost = this.mpCost(a, sk);
     if (a.mp < cost) { ev.push({ t: 'say', text: 'Not enough MP' }); return ev; }
     a.mp -= cost;
-    if (c.id !== 'attack') ev.push({ t: 'say', text: sk.name, who: a, combo: !!sk.combo });
+    if (c.id !== 'attack') ev.push({ t: 'say', text: sk.name, who: a, combo: !!sk.combo, awaken: !!sk.awaken, phase: !!c.phase, stype: sk.type });
     let mult = 1;
     if (a.side === 'h' && !a.isCreature && !a.isCompany && c.id !== 'attack' && sk.type !== 'tame' && sk.type !== 'steal') {
       const h = this.S.heroes[a.id];
@@ -1148,7 +1148,7 @@ class Battle {
     e.turnsTaken++;
     if (m.windup && e.turnsTaken % m.windup.every === 0) return { kind: 'windup' };
     for (const s of tpl.skills) {
-      if (s.phase && !e.used[s.id] && e.hp / e.maxHp <= s.phase) { e.used[s.id] = true; return this.withTarget(e, s.id); }
+      if (s.phase && !e.used[s.id] && e.hp / e.maxHp <= s.phase) { e.used[s.id] = true; return Object.assign(this.withTarget(e, s.id), { phase: true }); }
     }
     const allies = this.alive(this.enemies);
     const ok = tpl.skills.filter(s => s.w > 0 && (
