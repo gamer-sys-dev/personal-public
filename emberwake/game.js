@@ -22,9 +22,10 @@ const T = ms => sleep(ms * (S && S.opts.speed === 2 ? 0.5 : 1));
 // A sprite, or a hero's painted portrait (cropped to the face) where we have one.
 const ART = window.ART || {};
 // Painted art for a battle unit: heroes by sprite, enemies by their own id (several bosses share a pixel sprite).
-// Tamed creatures in their first form borrow the enemy painting of their kind, mirrored (CSS on .pet).
+// Tamed creatures borrow the enemy painting of their kind, mirrored (CSS on .pet). Evolved forms use it too,
+// with a tint by form (.evo-attack and so on) until they get their own art.
 const artOf = a => a.isCompany ? null : a.side === 'e' ? (window.ART_FOE || {})[a.t]
-  : a.isCreature ? (a.rec && !a.rec.form ? (window.ART_FOE || {})[a.rec.sp] : null) : ART[a.sprite];
+  : a.isCreature ? (a.rec ? (window.ART_FOE || {})[a.rec.sp] : null) : ART[a.sprite];
 const img = (id, px, cls) => {
   const s = SP.spriteURL(id, px);
   if (ART[id] && ART[id].portrait) return `<img class="face ${cls || ''}" src="${ART[id].portrait}" width="${s.w}" height="${s.h}" alt="">`;
@@ -1590,7 +1591,7 @@ function unitHTML(a) {
   }
   if (a.isCreature) px = Math.round(3 * (SP.variant(a.sprite).scale || 1));
   if (a.isCompany) px = 3;
-  return `<div class="unit ${a.hp <= 0 ? 'ko' : ''} ${a.isCreature ? 'pet' : ''} ${a.isBoss ? 'boss' : ''} ${artOf(a) && artOf(a).idle ? 'hasart' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
+  return `<div class="unit ${a.hp <= 0 ? 'ko' : ''} ${a.isCreature ? 'pet' + (a.rec && a.rec.form ? ' evo-' + a.rec.form + (a.rec.final ? ' evo-final' : '') : '') + (a.rec && a.rec.alpha ? ' alpha' : '') : ''} ${a.isBoss ? 'boss' : ''} ${artOf(a) && artOf(a).idle ? 'hasart' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
     <div class="spr" style="animation-delay:-${(Math.random() * 2).toFixed(2)}s">${artOf(a) && artOf(a).idle ? `<img class="paint" src="${artOf(a).idle}" alt=""${artOf(a).scale ? ` style="--fs:${artOf(a).scale}"` : ''}>` : img(a.sprite, px)}</div>
     ${a.isCompany ? `<div class="uname">${esc(a.name)}</div>` : ''}${a.side === 'e' ? `<div class="uname">${esc(a.name)}</div><div class="hpmini"><i style="width:${pct(a.hp, a.maxHp)}%"></i></div>` : ''}
     <div class="sts"></div></div>`;

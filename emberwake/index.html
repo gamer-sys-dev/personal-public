@@ -106,9 +106,10 @@
   /* painted backgrounds: ground is the bottom of the picture, so both sides stand there.
      The party forms two staggered rows (back row behind, front row lower and on top). */
   .field.painted { height:min(58vh, 520px); }
-  .field.painted .friends { top:50%; bottom:1%; right:6%; width:42%; display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:1fr; align-items:end; justify-items:center; }
+  .field.painted .friends { top:50%; bottom:1%; right:4%; width:44%; display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:1fr; align-items:end; justify-items:center; }
   .field.painted .friends .unit:nth-child(2) { margin-right:0; }
   .field.painted .friends .unit:nth-child(n+3) { translate:-16% 0; }
+  .field.painted .friends .unit:not(.pet) .spr img.paint { max-width:21vw; object-fit:contain; object-position:50% 100%; }
   .field.painted .foes { top:48%; bottom:2%; }
   .unit { position:relative; display:flex; flex-direction:column; align-items:center; transition:transform .15s, opacity .4s, filter .3s; }
   .unit img { filter:drop-shadow(0 2px 0 rgba(0,0,0,.25)); }
@@ -207,6 +208,12 @@
   .unit .spr img.paint { height:var(--ph, 100px); width:auto; image-rendering:auto; }
   .unit.hasart .spr::after { left:22%; right:22%; bottom:-2px; }
   .unit.pet .spr img.paint { height:calc(var(--ph) * var(--fs, 1) * 0.8); max-width:20vw; object-fit:contain; object-position:50% 100%; scale:-1 1; }
+  /* evolved companions: same painting, tinted by the form they grew into */
+  .unit.pet.evo-attack .spr img.paint { filter:sepia(.35) saturate(1.6) hue-rotate(-25deg) drop-shadow(0 0 4px rgba(255,80,40,.55)); }
+  .unit.pet.evo-guard .spr img.paint { filter:saturate(.7) brightness(.95) drop-shadow(0 0 4px rgba(150,180,220,.6)); }
+  .unit.pet.evo-support .spr img.paint { filter:brightness(1.08) drop-shadow(0 0 5px rgba(140,255,170,.6)); }
+  .unit.pet.evo-final .spr img.paint { height:calc(var(--ph) * var(--fs, 1) * 0.92); }
+  .unit.pet.alpha .spr img.paint { height:calc(var(--ph) * var(--fs, 1) * 1.0); }
   .foes .unit .spr img.paint { height:calc(var(--ph) * var(--fs, 1)); max-width:28vw; object-fit:contain; object-position:50% 100%; }
   .foes.one .unit .spr img.paint { max-width:56vw; }
   .foes .unit.boss.hasart .spr img.paint { height:calc(var(--ph) * 1.7 * var(--fs, 1)); }
