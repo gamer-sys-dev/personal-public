@@ -15,4 +15,7 @@ root.ART = {
 // Battle backgrounds, keyed by area id (or the background key it borrows). Square, ground in the bottom third.
 root.ART_BG = {};
 for (const k of ['thornwood', 'millroad', 'barrows', 'fenmire', 'tower', 'arena', 'greyfort_keep', 'kingsbridge_town', 'drowned_temple', 'hollow_court']) root.ART_BG[k] = 'art/bg_' + k + '.webp';
+// Enemies and bosses, keyed by enemy id (not sprite: some chapter two bosses borrow a chapter one sprite). Face right.
+root.ART_FOE = {};
+for (const k of ['old_tusk', 'rook', 'shade', 'drowned', 'hand', 'warden']) root.ART_FOE[k] = { idle: 'art/boss_' + k + '.webp' };
 })(this);

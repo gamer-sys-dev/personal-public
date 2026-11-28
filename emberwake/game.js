@@ -21,6 +21,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const T = ms => sleep(ms * (S && S.opts.speed === 2 ? 0.5 : 1));
 // A sprite, or a hero's painted portrait (cropped to the face) where we have one.
 const ART = window.ART || {};
+// Painted art for a battle unit: heroes by sprite, enemies by their own id (several bosses share a pixel sprite).
+const artOf = a => a.isCompany ? null : a.side === 'e' ? (window.ART_FOE || {})[a.t] : ART[a.sprite];
 const img = (id, px, cls) => {
   const s = SP.spriteURL(id, px);
   if (ART[id] && ART[id].portrait) return `<img class="face ${cls || ''}" src="${ART[id].portrait}" width="${s.w}" height="${s.h}" alt="">`;
@@ -1508,7 +1510,7 @@ const RANGED = ['wren', 'isolde', 'morwen'];
 async function actMotion(a, c, u) {
   if (!u || !c) { await T(150); return; }
   // painted heroes switch to their attack picture for any action, then back
-  const art = ART[a.sprite], pic = art && art.attack && u.querySelector('img.paint');
+  const art = artOf(a), pic = art && art.attack && u.querySelector('img.paint');
   if (pic) { pic.src = art.attack; setTimeout(() => { pic.src = art.idle; }, 700 * (S.opts.speed === 2 ? 0.5 : 1)); }
   const sk = c.kind === 'skill' ? D.SKILLS[c.id] : c.kind === 'surge' ? D.SKILLS[D.SURGE[a.id]] : null;
   const type = sk ? sk.type : c.kind === 'item' ? 'item' : 'phys';
@@ -1586,8 +1588,8 @@ function unitHTML(a) {
   }
   if (a.isCreature) px = Math.round(3 * (SP.variant(a.sprite).scale || 1));
   if (a.isCompany) px = 3;
-  return `<div class="unit ${a.hp <= 0 ? 'ko' : ''} ${a.isCreature ? 'pet' : ''} ${ART[a.sprite] && ART[a.sprite].idle && !a.isCompany ? 'hasart' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
-    <div class="spr" style="animation-delay:-${(Math.random() * 2).toFixed(2)}s">${ART[a.sprite] && ART[a.sprite].idle && !a.isCompany ? `<img class="paint" src="${ART[a.sprite].idle}" alt="">` : img(a.sprite, px)}</div>
+  return `<div class="unit ${a.hp <= 0 ? 'ko' : ''} ${a.isCreature ? 'pet' : ''} ${a.isBoss ? 'boss' : ''} ${artOf(a) && artOf(a).idle ? 'hasart' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
+    <div class="spr" style="animation-delay:-${(Math.random() * 2).toFixed(2)}s">${artOf(a) && artOf(a).idle ? `<img class="paint" src="${artOf(a).idle}" alt="">` : img(a.sprite, px)}</div>
     ${a.isCompany ? `<div class="uname">${esc(a.name)}</div>` : ''}${a.side === 'e' ? `<div class="uname">${esc(a.name)}</div><div class="hpmini"><i style="width:${pct(a.hp, a.maxHp)}%"></i></div>` : ''}
     <div class="sts"></div></div>`;
 }
@@ -1596,6 +1598,9 @@ function drawUnits() {
   const live = B.enemies.filter(e => e.hp > 0);
   foes.className = 'foes' + (live.length === 1 ? ' one' : '');
   foes.innerHTML = live.map(unitHTML).join('');
+  // painted enemies: a lone foe fills the space, otherwise they share it by rows (name and health bar take ~30px each)
+  const frows = live.length === 1 ? 1 : Math.ceil(live.length / 2);
+  foes.style.setProperty('--ph', Math.max(60, Math.min(live.length === 1 ? 240 : 150, foes.clientHeight / frows - 34)) + 'px');
   const fr = document.getElementById('friends'); fr.classList.toggle('many', B.heroes.length > 5); fr.innerHTML = B.heroes.map(unitHTML).join('');
   // painted figures share the column's height with everyone else in it
   const rows = B.heroes.length > 5 ? Math.ceil(B.heroes.length / 2) : B.heroes.length;
