@@ -53,11 +53,25 @@ function go(name, extra) {
   AU.play(name === 'title' ? 'title' : name === 'area' ? MOOD[view.id] || 'wood' : name === 'market' ? 'arena' : 'keep');
   if (name === 'keep' && S && S.areas.barrows && S.areas.barrows.cleared && !S.flags.raid_done && !S.flags.seen.the_raid) setTimeout(startRaid, 500);
 }
+// The painting behind each menu screen (blurred and dark).
+function backdropFor() {
+  const B = window.ART_BG || {}, v = view && view.name;
+  if (v === 'area') { const a = E.area(view.id) || {}; return B[view.id] || B[a.bg]; }
+  if (v === 'market') return B.arena;
+  if (v === 'map') return B.millroad;
+  if (v === 'war' || v === 'army') return B.greyfort_keep;
+  if (!S || v === 'title') return B.thornwood;
+  return warOn() ? B.greyfort_keep : B.thornwood;
+}
+let lastScreen = null;
 function render() {
   if (S) save();
   if (stopScene) { stopScene(); stopScene = null; }
   const f = SCREENS[view.name];
   app.innerHTML = f ? f() : '';
+  if (view.name !== lastScreen) { app.classList.remove('enter'); void app.offsetWidth; app.classList.add('enter'); lastScreen = view.name; }
+  document.body.dataset.screen = view.name;
+  if (window.CINE) { try { CINE.backdrop(backdropFor()); CINE.ambient(true); } catch (e) { /* decoration only */ } }
   const kc = document.getElementById('keepscene');
   if (kc && SUI) { try { stopScene = SUI.mountKeep(kc, S); } catch (e) { kc.remove(); } }
 }
@@ -141,20 +155,65 @@ function scene(key, then) {
   const lines = sceneLines(key);
   if (!lines.length) { then && then(); return; }
   S.flags.seen[key] = true; save();
-  let i = 0;
-  const o = overlay('', 'scene');
+  vn(lines, then);
+}
+// Where a conversation is painted: the battle's place, the area you're in, or the keep.
+function sceneBg() {
+  const B = window.ART_BG || {};
+  if (document.getElementById('battle') && ctx && ctx.area) { const a = E.area(ctx.area) || {}; return B[ctx.area] || B[a.bg] || backdropFor(); }
+  return backdropFor();
+}
+// Conversation player: up to two speakers on stage as large portraits, the speaker lit, text typed out.
+// choice: { prompt, choices } shows the decision after the lines.
+function vn(lines, then, choice) {
+  const o = overlay('', 'vnwrap scene');
+  o.innerHTML = `<div class="vn"><div class="vn-bg" style="background-image:url('${sceneBg() || ''}')"></div><div class="vn-ports"></div>
+    <div class="vn-box"><div class="vn-name" style="display:none"></div><div class="vn-text"></div><div class="vn-more">&#9660;</div></div>
+    <button class="vn-skip sm">Skip</button></div>`;
+  const ports = o.querySelector('.vn-ports'), nameEl = o.querySelector('.vn-name'), textEl = o.querySelector('.vn-text'), more = o.querySelector('.vn-more');
+  const slots = {};
+  let i = 0, typing = null, full = '', lastSpeaker = null;
+  const portrait = id => { const h = D.HEROES[id], a = h && ART[h.sprite]; return a && a.portrait; };
+  const stageFor = id => {
+    if (slots[id]) return slots[id];
+    const src = portrait(id); if (!src) return null;
+    const ids = Object.keys(slots);
+    let pos;
+    if (ids.length < 2) pos = ids.length ? (slots[ids[0]].dataset.pos === 'l' ? 'r' : 'l') : 'l';
+    else { const drop = ids.find(k => k !== lastSpeaker); pos = slots[drop].dataset.pos; slots[drop].remove(); delete slots[drop]; }
+    const im = document.createElement('img'); im.className = 'vn-port in ' + pos; im.dataset.pos = pos; im.src = src; im.alt = '';
+    ports.appendChild(im);
+    requestAnimationFrame(() => requestAnimationFrame(() => im.classList.remove('in')));
+    slots[id] = im; return im;
+  };
+  const type = text => {
+    full = text; let n = 0; textEl.textContent = ''; more.style.visibility = 'hidden';
+    clearInterval(typing);
+    typing = setInterval(() => { n += 2; textEl.textContent = full.slice(0, n); if (n >= full.length) { clearInterval(typing); typing = null; more.style.visibility = ''; } }, 22);
+  };
+  const showChoices = () => {
+    o.onclick = null; clearInterval(typing); typing = null;
+    Object.values(slots).forEach(s => s.classList.remove('on'));
+    nameEl.style.display = 'none'; more.style.visibility = 'hidden'; o.querySelector('.vn-skip').style.display = 'none';
+    textEl.className = 'vn-text narr'; textEl.textContent = choice.prompt;
+    const box = document.createElement('div'); box.className = 'vn-choices';
+    box.innerHTML = choice.choices.map((c, k) => `<button class="big" data-a="storyPick" data-v="${k}">${esc(c.label)}</button>`).join('');
+    o.querySelector('.vn-box').appendChild(box);
+  };
   const show = () => {
-    if (i >= lines.length) { closeOverlay(); then && then(); return; }
-    const [who, text] = lines[i];
-    const hero = D.HEROES[who];
-    o.innerHTML = `<div class="dialog" data-a="sceneNext">
-      ${hero ? `<div class="who">${img(hero.sprite, 3)}${hero.name}</div>` : ''}
-      <div class="text ${hero ? '' : 'narr'}">${esc(text)}</div>
-      <div class="next">${i + 1}/${lines.length} · tap</div>
-      <button class="link" style="position:absolute;right:6px;top:4px" data-a="sceneSkip">Skip</button></div>`;
+    if (i >= lines.length) { clearInterval(typing); if (choice) { showChoices(); return; } closeOverlay(); then && then(); return; }
+    const [who, text] = lines[i], hero = D.HEROES[who];
+    Object.values(slots).forEach(s => s.classList.remove('on'));
+    if (hero) {
+      const im = stageFor(who); if (im) im.classList.add('on'); lastSpeaker = who;
+      nameEl.style.display = ''; nameEl.textContent = hero.name; nameEl.className = 'vn-name' + (im && im.dataset.pos === 'r' ? ' r' : '');
+      textEl.className = 'vn-text';
+    } else { nameEl.style.display = 'none'; textEl.className = 'vn-text narr'; }
+    type(text);
   };
   o.onclick = e => {
-    if (e.target.closest('[data-a="sceneSkip"]')) { i = lines.length; show(); return; }
+    if (e.target.closest('.vn-skip')) { i = lines.length; show(); return; }
+    if (typing) { clearInterval(typing); typing = null; textEl.textContent = full; more.style.visibility = ''; return; }
     i++; show();
   };
   show();
@@ -163,19 +222,6 @@ function scene(key, then) {
 function choiceScene(key, then) {
   const ch = STX.CHOICES[key], lines = ch.lines.filter(lineOk);
   S.flags.seen[key] = true; save();
-  let i = 0;
-  const o = overlay('', 'scene');
-  const show = () => {
-    if (i < lines.length) {
-      const [who, text] = lines[i], hero = D.HEROES[who];
-      o.innerHTML = `<div class="dialog">${hero ? `<div class="who">${img(hero.sprite, 3)}${hero.name}</div>` : ''}<div class="text ${hero ? '' : 'narr'}">${esc(text)}</div><div class="next">${i + 1}/${lines.length} · tap</div></div>`;
-      o.onclick = () => { i++; show(); };
-      return;
-    }
-    o.onclick = null;
-    o.innerHTML = `<div class="dialog"><div class="text narr" style="margin-bottom:10px">${esc(ch.prompt)}</div>
-      ${ch.choices.map((c, k) => `<button class="big" data-a="storyPick" data-v="${k}">${esc(c.label)}</button>`).join('')}</div>`;
-  };
   ACT.storyPick = k => {
     const c = ch.choices[+k];
     closeOverlay();
@@ -184,7 +230,7 @@ function choiceScene(key, then) {
     const after = () => { save(); if (c.scene) scene(c.scene, then); else if (then) then(); };
     if (c.act) STORY_ACTS[c.act](after, then); else after();
   };
-  show();
+  vn(lines, then, { prompt: ch.prompt, choices: ch.choices });
 }
 const STORY_ACTS = {
   banish_wren(next) { E.removeHero(S, 'wren'); next(); },
@@ -238,9 +284,9 @@ SCREENS.title = () => {
   const has = !!load();
   return `<div class="title">
     <svg class="flame" viewBox="0 0 64 64"><path d="M32 4c4 10 14 16 14 30a14 14 0 0 1-28 0c0-7 3-11 6-15 0 6 3 9 6 9-2-8 0-16 2-24z" fill="#ff8a3d"/><path d="M32 30c2 5 7 7 7 14a7 7 0 0 1-14 0c0-4 2-6 4-8 0 3 1 4 3 4-1-4-1-7 0-10z" fill="#ffe08a"/></svg>
-    <h1>EMBERWAKE</h1>
-    <p class="muted">Chapter One · The Hollow Tower</p>
-    <div style="max-width:320px;margin:36px auto 0">
+    <div class="logo">EMBERWAKE</div>
+    <p class="tag">${S && warOn() ? 'Chapter Two · The Hollow King' : 'Chapter One · The Hollow Tower'}</p>
+    <div class="menu" style="max-width:320px;margin:40px auto 0">
       ${has ? '<button class="primary big" data-a="continue">Continue</button>' : ''}
       <button class="big ${has ? '' : 'primary'}" data-a="newGame">New game</button>
       <button class="link" style="margin-top:14px" data-a="importFile">Load a backup file</button>
@@ -310,14 +356,14 @@ SCREENS.map = () => {
     const st = S.areas[a.id], open = i < S.unlocked;
     if (!open) return `<div class="card" style="opacity:.5"><div class="spread"><b class="serif">???</b><span class="pill">Locked</span></div><p class="muted">Clear ${D.AREAS[i - 1].name} first.</p></div>`;
     const ex = E.explored(S, a.id);
-    return `<div class="card"><div class="spread"><b class="serif" style="font-size:1.1rem">${a.name}</b>
+    return `<div class="card">${(window.ART_BG || {})[a.id] || (window.ART_BG || {})[a.bg] ? `<div class="cardart" style="background-image:url('${(window.ART_BG || {})[a.id] || (window.ART_BG || {})[a.bg]}')"></div>` : ''}<div class="spread"><b class="serif" style="font-size:1.1rem">${a.name}</b>
       <span class="pill ${st.cleared ? 'good' : 'on'}">${st.cleared ? 'Cleared' : 'Lv ' + a.lvl[0] + ' to ' + a.lvl[1]}</span></div>
       <p class="muted">${a.desc}</p>
       <div class="bar xp"><i style="width:${ex}%"></i></div>
       <div class="spread small muted" style="margin-top:4px"><span>${ex}% explored</span><span>${D.MATS[a.mat].name} here</span></div>
       <button class="big ${st.cleared ? '' : 'primary'}" data-a="enter" data-v="${a.id}">${ex > 10 ? 'Go back' : 'Explore'}</button></div>`;
   }).join('');
-  const market = S.flags.market ? `<div class="card town"><div class="spread"><b class="serif" style="font-size:1.1rem">Brightwater Market</b><span class="pill on">Town</span></div>
+  const market = S.flags.market ? `<div class="card town">${(window.ART_BG || {}).arena ? `<div class="cardart" style="background-image:url('${ART_BG.arena}')"></div>` : ''}<div class="spread"><b class="serif" style="font-size:1.1rem">Brightwater Market</b><span class="pill on">Town</span></div>
     <p class="muted">A busy market town east along the road, with a fighting pit at its heart.</p>
     <div class="small muted">Arena: ${['bronze', 'silver', 'gold'].map((r, i) => { const rank = W.ARENA[i]; const won = rank.bouts.filter(b => S.arena.won[b.id]).length; return `${rank.name} ${won}/${rank.bouts.length}`; }).join(' · ')}</div>
     <button class="big gold" data-a="market">Go to Brightwater</button></div>` : '';
@@ -325,7 +371,7 @@ SCREENS.map = () => {
     const st = S.areas[a.id], open = E.areaOpen(S, a), R = WAR.REGIONS[a.opens];
     if (!open) return `<div class="card" style="opacity:.55"><div class="spread"><b class="serif">${a.name}</b><span class="pill">Locked</span></div><p class="muted small">${a.id === 'hollow_court' && WAR.owns(S, a.opens) ? 'The Gate is sealed while any marshal lives.' : `Take ${R.name} on the war map first.`}</p></div>`;
     const ex = E.explored(S, a.id);
-    return `<div class="card"><div class="spread"><b class="serif" style="font-size:1.1rem">${a.name}</b><span class="pill ${st.cleared ? 'good' : 'bad'}">${st.cleared ? 'Cleared' : 'Lv ' + a.lvl[0] + ' to ' + a.lvl[1]}</span></div>
+    return `<div class="card">${(window.ART_BG || {})[a.id] || (window.ART_BG || {})[a.bg] ? `<div class="cardart" style="background-image:url('${(window.ART_BG || {})[a.id] || (window.ART_BG || {})[a.bg]}')"></div>` : ''}<div class="spread"><b class="serif" style="font-size:1.1rem">${a.name}</b><span class="pill ${st.cleared ? 'good' : 'bad'}">${st.cleared ? 'Cleared' : 'Lv ' + a.lvl[0] + ' to ' + a.lvl[1]}</span></div>
       <p class="muted">${a.desc}</p><div class="bar xp"><i style="width:${ex}%"></i></div>
       <div class="spread small muted" style="margin-top:4px"><span>${ex}% explored</span><span>${D.MATS[a.mat].name} here</span></div>
       <button class="big ${st.cleared ? '' : 'primary'}" data-a="enter" data-v="${a.id}">${ex > 10 ? 'Go back' : 'Go inside'}</button></div>`;
@@ -778,10 +824,39 @@ SCREENS.market = () => {
 };
 
 // ---------- Actions ----------
+// The opening: Ashby burning, the Hollow coming, three getting out, the stone, the title.
+function openingShots() {
+  const B = window.ART_BG || {}, F = window.ART_FOE || {}, H = id => (ART[id] || {}).idle;
+  const sold = F.soldier && F.soldier.idle;
+  return [
+    { bg: B.kingsbridge_town, from: [1.12, 0, 2], to: [1.3, -2, -2], fx: ['embers', 'ash'], tint: 'linear-gradient(180deg, rgba(90,20,0,.25), rgba(0,0,0,.35))',
+      text: ['Ashby burned three nights ago.'], dur: 5200 },
+    { bg: B.barrows, from: [1.3, 3, 0], to: [1.15, -3, 0], fx: ['fog', 'ash'], fxo: { fog: '170,170,190' }, lightning: true, bgFilter: 'brightness(.55) saturate(.6)',
+      tint: 'linear-gradient(180deg, rgba(10,10,30,.4), rgba(0,0,0,.4))',
+      figs: sold ? [{ src: sold, x: 24, b: 27, h: 26, dark: .28, enter: 'left', drift: 6 }, { src: sold, x: 44, b: 29, h: 22, dark: .22, enter: 'left', delay: 500, drift: 6 },
+        { src: sold, x: 63, b: 31, h: 18, dark: .18, enter: 'left', delay: 1000, drift: 6 }] : [],
+      text: ['The Hollow came out of the north.', 'No banners. No faces.'], dur: 6400 },
+    { bg: B.thornwood, from: [1.1, 0, 3], to: [1.22, 0, 0], fx: ['fog'], fxo: { fog: '220,190,150', density: .6 },
+      figs: [{ src: H('bram'), x: 30, b: 27, h: 30, enter: 'right' }, { src: H('wren'), x: 54, b: 29, h: 27, enter: 'right', delay: 700 }, { src: H('isolde'), x: 76, b: 27, h: 29, enter: 'right', delay: 1400, glow: 'rgba(255,140,40,.35)' }].filter(f => f.src),
+      text: ['Three got out.', 'A smith\'s son. A poacher.', 'An apprentice who never finished her training.'], dur: 7600 },
+    { bg: B.tower, from: [1.3, 0, 0], to: [1.4, 0, 0], fx: ['embers'], fxo: { density: .5 }, bgFilter: 'brightness(.35) blur(2px)',
+      figs: (ART.isolde || {}).portrait ? [{ src: ART.isolde.portrait, x: 50, b: 30, h: 46, enter: 'up', glow: 'rgba(255,120,30,.55)' }] : [],
+      text: ['Something in the dark wants what she carries.'], dur: 5200 },
+    { bg: B.thornwood, from: [1.5, 0, 6], to: [1.1, 0, 0], fx: ['embers'], bgFilter: 'brightness(.6)', bars: true,
+      title: 'EMBERWAKE', sub: 'Chapter One · The Hollow Tower', titleDelay: 600, dur: 5200 },
+  ];
+}
 ACT.newGame = () => {
   if (load() && !confirm('Start a new game? Your current save will be replaced.')) return;
   S = E.newGame(); save();
-  scene('intro', () => { go('keep'); toast('Check the Noticeboard to see what you can unlock.', 3200); });
+  const after = () => { go('keep'); toast('Check the Noticeboard to see what you can unlock.', 3200); };
+  if (!window.CINE) { scene('intro', after); return; }
+  AU.play('dread');
+  CINE.play(openingShots(), () => {
+    // the cinematic told the first two lines; the conversation picks up from there
+    dynScenes.intro_rest = (D.STORY.intro || []).slice(2); S.flags.seen.intro = true;
+    AU.play('keep'); scene('intro_rest', after);
+  });
 };
 function boot(obj) {
   S = E.migrate(obj);
@@ -1551,7 +1626,24 @@ async function bigMove(text, kind, who) {
   d.classList.add('out');
 }
 
+// First time you meet a boss, it gets an entrance: its painting rises out of the dark and its name lands.
+const BOSS_SUB = { old_tusk: 'Terror of Thornwood', rook: 'Captain of the Mill Road', shade: 'Keeper of the Barrows', drowned: 'Guardian of Fenmire',
+  hand: 'Enforcer of the Hollow Tower', warden: 'Master of the Hollow Tower', grieve: 'Marshal of Greyfort', cinder: 'Marshal of Kingsbridge',
+  saint: 'Marshal of the Temple', vael: 'Lord of the Hollow Court' };
 function startBattle(specs, c) {
+  const boss = c && c.boss && !c.arena && window.CINE && !document.getElementById('cine') && specs.find(sp => D.ENEMIES[sp.t] && D.ENEMIES[sp.t].boss);
+  if (boss && !S.flags.seen['arrive_' + boss.t]) {
+    S.flags.seen['arrive_' + boss.t] = true; save();
+    const BGs = window.ART_BG || {}, a = E.area(c.area) || {}, art = (window.ART_FOE || {})[boss.t], name = D.ENEMIES[boss.t].name;
+    AU.play('boss'); CINE.ambient(false);
+    CINE.bossIntro({ bg: BGs[c.area] || BGs[a.bg] || BGs.tower, src: art && art.idle, name, sub: BOSS_SUB[boss.t] || '',
+      size: Math.min(2, 30 / name.length) }, () => startBattleNow(specs, c));
+    return;
+  }
+  startBattleNow(specs, c);
+}
+function startBattleNow(specs, c) {
+  if (window.CINE) CINE.ambient(false);
   ctx = c;
   AU.play(c.arena ? 'arena' : (c.boss || c.story) ? 'boss' : 'battle');
   B = new E.Battle(S, specs, { boss: !!c.boss, autoItems: false, tameBonus: c.hunt ? 0.15 : 0, huntMult: c.huntMult || 1, allies: c.allies });
