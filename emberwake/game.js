@@ -22,7 +22,9 @@ const T = ms => sleep(ms * (S && S.opts.speed === 2 ? 0.5 : 1));
 // A sprite, or a hero's painted portrait (cropped to the face) where we have one.
 const ART = window.ART || {};
 // Painted art for a battle unit: heroes by sprite, enemies by their own id (several bosses share a pixel sprite).
-const artOf = a => a.isCompany ? null : a.side === 'e' ? (window.ART_FOE || {})[a.t] : ART[a.sprite];
+// Tamed creatures in their first form borrow the enemy painting of their kind, mirrored (CSS on .pet).
+const artOf = a => a.isCompany ? null : a.side === 'e' ? (window.ART_FOE || {})[a.t]
+  : a.isCreature ? (a.rec && !a.rec.form ? (window.ART_FOE || {})[a.rec.sp] : null) : ART[a.sprite];
 const img = (id, px, cls) => {
   const s = SP.spriteURL(id, px);
   if (ART[id] && ART[id].portrait) return `<img class="face ${cls || ''}" src="${ART[id].portrait}" width="${s.w}" height="${s.h}" alt="">`;
