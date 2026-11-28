@@ -6,5 +6,6 @@
 root.ART = {
   bram: { idle: 'art/bram_idle.webp', attack: 'art/bram_attack.webp', portrait: 'art/bram_portrait.webp' },
   wren: { idle: 'art/wren_idle.webp', attack: 'art/wren_attack.webp', portrait: 'art/wren_portrait.webp' },
+  isolde: { idle: 'art/isolde_idle.webp', attack: 'art/isolde_attack.webp', portrait: 'art/isolde_portrait.webp' },
 };
 })(this);
