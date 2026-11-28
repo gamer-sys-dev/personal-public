@@ -19,7 +19,13 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const pct = (a, b) => b ? Math.max(0, Math.min(100, a / b * 100)) : 0;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const T = ms => sleep(ms * (S && S.opts.speed === 2 ? 0.5 : 1));
-const img = (id, px, cls) => { const s = SP.spriteURL(id, px); return `<img class="px ${cls || ''}" src="${s.url}" width="${s.w}" height="${s.h}" alt="">`; };
+// A sprite, or a hero's painted portrait (cropped to the face) where we have one.
+const ART = window.ART || {};
+const img = (id, px, cls) => {
+  const s = SP.spriteURL(id, px);
+  if (ART[id] && ART[id].portrait) return `<img class="face ${cls || ''}" src="${ART[id].portrait}" width="${s.w}" height="${s.h}" alt="">`;
+  return `<img class="px ${cls || ''}" src="${s.url}" width="${s.w}" height="${s.h}" alt="">`;
+};
 const STAT_NAMES = { hp: 'HP', mp: 'MP', str: 'Strength', mag: 'Magic', def: 'Defence', res: 'Resistance', spd: 'Speed', crit: 'Critical %' };
 const SHORT = { hp: 'HP', mp: 'MP', str: 'STR', mag: 'MAG', def: 'DEF', res: 'RES', spd: 'SPD', crit: 'CRIT' };
 const STATUS = { poison: 'Poison', burn: 'Burn', slow: 'Slow', haste: 'Haste', defUp: 'Guard ▲', defDown: 'Armour ▼', resUp: 'Ward ▲', strUp: 'Fury ▲', taunt: 'Taunt', regen: 'Regen' };
@@ -1518,6 +1524,8 @@ async function actMotion(a, c, u) {
     const t = c.target && unitEl(c.target);
     if (ranged && t && FX) { u.classList.add('cast'); await T(120); FX.bolt(u, t, sk && sk.el ? el : 'phys', 0.2); await T(180); return; }
     u.classList.add('lunge'); u.style.setProperty('--dir', a.side === 'h' ? '-1' : '1');
+    const art = ART[a.sprite], pic = art && art.attack && u.querySelector('img.paint');
+    if (pic) { pic.src = art.attack; setTimeout(() => { pic.src = art.idle; }, 650 * (S.opts.speed === 2 ? 0.5 : 1)); }
     await T(200);
     return;
   }
@@ -1576,8 +1584,8 @@ function unitHTML(a) {
   }
   if (a.isCreature) px = Math.round(3 * (SP.variant(a.sprite).scale || 1));
   if (a.isCompany) px = 3;
-  return `<div class="unit ${a.hp <= 0 ? 'ko' : ''} ${a.isCreature ? 'pet' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
-    <div class="spr" style="animation-delay:-${(Math.random() * 2).toFixed(2)}s">${img(a.sprite, px)}</div>
+  return `<div class="unit ${a.hp <= 0 ? 'ko' : ''} ${a.isCreature ? 'pet' : ''} ${ART[a.sprite] && ART[a.sprite].idle && !a.isCompany ? 'hasart' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
+    <div class="spr" style="animation-delay:-${(Math.random() * 2).toFixed(2)}s">${ART[a.sprite] && ART[a.sprite].idle && !a.isCompany ? `<img class="paint" src="${ART[a.sprite].idle}" alt="">` : img(a.sprite, px)}</div>
     ${a.isCompany ? `<div class="uname">${esc(a.name)}</div>` : ''}${a.side === 'e' ? `<div class="uname">${esc(a.name)}</div><div class="hpmini"><i style="width:${pct(a.hp, a.maxHp)}%"></i></div>` : ''}
     <div class="sts"></div></div>`;
 }
