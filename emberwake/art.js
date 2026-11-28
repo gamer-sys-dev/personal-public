@@ -8,5 +8,6 @@ root.ART = {
   wren: { idle: 'art/wren_idle.webp', attack: 'art/wren_attack.webp', portrait: 'art/wren_portrait.webp' },
   isolde: { idle: 'art/isolde_idle.webp', attack: 'art/isolde_attack.webp', portrait: 'art/isolde_portrait.webp' },
   hesk: { idle: 'art/hesk_idle.webp', attack: 'art/hesk_attack.webp', portrait: 'art/hesk_portrait.webp' },
+  dace: { idle: 'art/dace_idle.webp', attack: 'art/dace_attack.webp', portrait: 'art/dace_portrait.webp' },
 };
 })(this);
