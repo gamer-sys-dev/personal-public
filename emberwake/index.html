@@ -103,8 +103,13 @@
   .foes { position:absolute; left:2%; top:24%; bottom:4%; width:60%; display:grid; grid-template-columns:1fr 1fr; align-content:center; align-items:end; justify-items:center; gap:4px 2px; }
   .foes.one { grid-template-columns:1fr; }
   .friends { position:absolute; right:3%; top:15%; bottom:1%; width:32%; display:flex; flex-direction:column; justify-content:space-evenly; align-items:center; }
-  .field.painted .friends { top:28%; }
-  .field.painted .foes { top:30%; }
+  /* painted backgrounds: ground is the bottom of the picture, so both sides stand there.
+     The party forms two staggered rows (back row behind, front row lower and on top). */
+  .field.painted { height:min(58vh, 520px); }
+  .field.painted .friends { top:50%; bottom:1%; right:6%; width:42%; display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:1fr; align-items:end; justify-items:center; }
+  .field.painted .friends .unit:nth-child(2) { margin-right:0; }
+  .field.painted .friends .unit:nth-child(n+3) { translate:-16% 0; }
+  .field.painted .foes { top:48%; bottom:2%; }
   .unit { position:relative; display:flex; flex-direction:column; align-items:center; transition:transform .15s, opacity .4s, filter .3s; }
   .unit img { filter:drop-shadow(0 2px 0 rgba(0,0,0,.25)); }
   .spr { position:relative; display:flex; justify-content:center; }
@@ -201,7 +206,7 @@
   .bigmove.awaken b { color:#fff6c8; text-shadow:0 0 16px #ffd76a, 0 2px 0 #000; }
   .unit .spr img.paint { height:var(--ph, 100px); width:auto; image-rendering:auto; }
   .unit.hasart .spr::after { left:22%; right:22%; bottom:-2px; }
-  .unit.pet .spr img.paint { height:calc(var(--ph) * var(--fs, 1)); scale:-1 1; }
+  .unit.pet .spr img.paint { height:calc(var(--ph) * var(--fs, 1) * 0.8); max-width:20vw; object-fit:contain; object-position:50% 100%; scale:-1 1; }
   .foes .unit .spr img.paint { height:calc(var(--ph) * var(--fs, 1)); max-width:28vw; object-fit:contain; object-position:50% 100%; }
   .foes.one .unit .spr img.paint { max-width:56vw; }
   .foes .unit.boss.hasart .spr img.paint { height:calc(var(--ph) * 1.7 * var(--fs, 1)); }

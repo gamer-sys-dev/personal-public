@@ -1605,8 +1605,15 @@ function drawUnits() {
   foes.style.setProperty('--ph', Math.max(60, Math.min(live.length === 1 ? 120 : 105, foes.clientHeight / frows - 34)) + 'px');
   const fr = document.getElementById('friends'); fr.classList.toggle('many', B.heroes.length > 5); fr.innerHTML = B.heroes.map(unitHTML).join('');
   // painted figures share the column's height with everyone else in it
-  const rows = B.heroes.length > 5 ? Math.ceil(B.heroes.length / 2) : B.heroes.length;
-  fr.style.setProperty('--ph', Math.max(60, Math.min(110, fr.clientHeight / rows * 0.9)) + 'px');
+  const painted = fr.parentNode.classList.contains('painted');
+  const rows = painted || B.heroes.length > 5 ? Math.ceil(B.heroes.length / 2) : B.heroes.length;
+  // painted rows overlap a little, like a party standing in depth
+  fr.style.setProperty('--ph', Math.max(60, Math.min(painted ? 115 : 110, fr.clientHeight / rows * (painted ? 0.92 : 0.9))) + 'px');
+  // ordinary enemies never stand taller than the heroes (bosses scale up from this in CSS)
+  if (painted) {
+    const hp = parseFloat(fr.style.getPropertyValue('--ph')), fp = parseFloat(foes.style.getPropertyValue('--ph')) || hp;
+    foes.style.setProperty('--ph', Math.min(fp, hp * (live.length === 1 ? 1.1 : 1)) + 'px');
+  }
   refreshUnits();
 }
 function refreshUnits() {
