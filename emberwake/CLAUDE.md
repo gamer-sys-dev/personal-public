@@ -156,7 +156,7 @@ Player: chapter one done and the game felt stale; asked what it's missing agains
 Player chose option 1: he makes art with Gemini (Nano Banana 2, free in the Gemini app) from a prompt pack (Google Doc "Emberwake art: Gemini prompt pack": style picture first and attached to every prompt, a fresh chat per hero, figures on flat magenta #FF00FF, heroes facing left, enemies and bosses facing right, battle backgrounds square with open ground in the bottom third). He sends the files in chat.
 - art/ holds the processed files (webp). Prepare them with the scratchpad script artprep.py: `figure IN OUT [--flip] [--height 320]` cuts the magenta out (soft edge, spill removed), crops, mirrors if needed and resizes; `portrait IN OUT [--width 360]`. Gemini sometimes ignores the facing in attack poses: check and flip.
 - art.js (window.ART): { id: { idle, attack, portrait } } keyed by sprite id. Battles show the painted idle figure (img.paint, about 14vh tall) and swap to the attack pose during the lunge; img() shows the portrait cropped to the face wherever a sprite icon appears (party tabs, dialogue, cut-ins). The siege and keep canvases still use pixel sprites.
-- Done so far: Bram (idle, attack mirrored, portrait).
+- Done so far: Bram (idle, attack mirrored, portrait), Wren (idle, attack, portrait). Attack pictures show for any action, not just lunges.
 
 ## Next layers
 

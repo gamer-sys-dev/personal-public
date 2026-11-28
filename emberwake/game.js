@@ -1507,6 +1507,9 @@ async function impact(who, level) {
 const RANGED = ['wren', 'isolde', 'morwen'];
 async function actMotion(a, c, u) {
   if (!u || !c) { await T(150); return; }
+  // painted heroes switch to their attack picture for any action, then back
+  const art = ART[a.sprite], pic = art && art.attack && u.querySelector('img.paint');
+  if (pic) { pic.src = art.attack; setTimeout(() => { pic.src = art.idle; }, 700 * (S.opts.speed === 2 ? 0.5 : 1)); }
   const sk = c.kind === 'skill' ? D.SKILLS[c.id] : c.kind === 'surge' ? D.SKILLS[D.SURGE[a.id]] : null;
   const type = sk ? sk.type : c.kind === 'item' ? 'item' : 'phys';
   const el = sk && sk.el ? (sk.el === 'light' ? 'light' : sk.el === 'dark' ? 'dark' : sk.el) : type === 'heal' ? 'heal' : 'mag';
@@ -1524,8 +1527,6 @@ async function actMotion(a, c, u) {
     const t = c.target && unitEl(c.target);
     if (ranged && t && FX) { u.classList.add('cast'); await T(120); FX.bolt(u, t, sk && sk.el ? el : 'phys', 0.2); await T(180); return; }
     u.classList.add('lunge'); u.style.setProperty('--dir', a.side === 'h' ? '-1' : '1');
-    const art = ART[a.sprite], pic = art && art.attack && u.querySelector('img.paint');
-    if (pic) { pic.src = art.attack; setTimeout(() => { pic.src = art.idle; }, 650 * (S.opts.speed === 2 ? 0.5 : 1)); }
     await T(200);
     return;
   }
