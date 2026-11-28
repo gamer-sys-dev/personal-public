@@ -1552,10 +1552,11 @@ function startBattle(specs, c) {
   B = new E.Battle(S, specs, { boss: !!c.boss, autoItems: false, tameBonus: c.hunt ? 0.15 : 0, huntMult: c.huntMult || 1, allies: c.allies });
   const bgKey = (E.area(c.area) || {}).bg || c.area;
   const bg = BG[bgKey] || BG.thornwood;
+  const ABG = window.ART_BG || {}, artBg = ABG[c.area] || ABG[bgKey];
   const el = document.createElement('div');
   el.id = 'battle';
-  el.innerHTML = `<div class="field"><div class="sky" style="background:linear-gradient(180deg,${bg[0]},${bg[1]})"></div>
-    <div class="ground" style="background:linear-gradient(180deg,${bg[2]},${bg[3]})"></div><canvas class="bgc" id="bgc"></canvas>
+  el.innerHTML = `<div class="field${artBg ? ' painted' : ''}"><div class="sky" style="background:linear-gradient(180deg,${bg[0]},${bg[1]})"></div>
+    <div class="ground" style="background:linear-gradient(180deg,${bg[2]},${bg[3]})"></div><canvas class="bgc" id="bgc"></canvas>${artBg ? `<img class="bgimg" src="${artBg}" alt="">` : ''}
     <div class="foes" id="foes"></div><div class="friends" id="friends"></div><div class="banner" id="banner"></div></div>
     <div class="pbars" id="pbars"></div><div class="cmd" id="cmd"></div>`;
   document.body.appendChild(el);

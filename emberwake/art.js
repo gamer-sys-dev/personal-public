@@ -12,4 +12,7 @@ root.ART = {
   aldric: { idle: 'art/aldric_idle.webp', attack: 'art/aldric_attack.webp', portrait: 'art/aldric_portrait.webp' },
   morwen: { idle: 'art/morwen_idle.webp', attack: 'art/morwen_attack.webp', portrait: 'art/morwen_portrait.webp' },
 };
+// Battle backgrounds, keyed by area id (or the background key it borrows). Square, ground in the bottom third.
+root.ART_BG = {};
+for (const k of ['thornwood', 'millroad', 'barrows', 'fenmire', 'tower', 'arena', 'greyfort_keep', 'kingsbridge_town', 'drowned_temple']) root.ART_BG[k] = 'art/bg_' + k + '.webp';
 })(this);
