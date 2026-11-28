@@ -9,5 +9,6 @@ root.ART = {
   isolde: { idle: 'art/isolde_idle.webp', attack: 'art/isolde_attack.webp', portrait: 'art/isolde_portrait.webp' },
   hesk: { idle: 'art/hesk_idle.webp', attack: 'art/hesk_attack.webp', portrait: 'art/hesk_portrait.webp' },
   dace: { idle: 'art/dace_idle.webp', attack: 'art/dace_attack.webp', portrait: 'art/dace_portrait.webp' },
+  aldric: { idle: 'art/aldric_idle.webp', attack: 'art/aldric_attack.webp', portrait: 'art/aldric_portrait.webp' },
 };
 })(this);
