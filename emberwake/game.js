@@ -1589,7 +1589,7 @@ function unitHTML(a) {
   if (a.isCreature) px = Math.round(3 * (SP.variant(a.sprite).scale || 1));
   if (a.isCompany) px = 3;
   return `<div class="unit ${a.hp <= 0 ? 'ko' : ''} ${a.isCreature ? 'pet' : ''} ${a.isBoss ? 'boss' : ''} ${artOf(a) && artOf(a).idle ? 'hasart' : ''}" id="u-${a.key}" data-a="tgt" data-v="${a.key}">
-    <div class="spr" style="animation-delay:-${(Math.random() * 2).toFixed(2)}s">${artOf(a) && artOf(a).idle ? `<img class="paint" src="${artOf(a).idle}" alt="">` : img(a.sprite, px)}</div>
+    <div class="spr" style="animation-delay:-${(Math.random() * 2).toFixed(2)}s">${artOf(a) && artOf(a).idle ? `<img class="paint" src="${artOf(a).idle}" alt=""${artOf(a).scale ? ` style="--fs:${artOf(a).scale}"` : ''}>` : img(a.sprite, px)}</div>
     ${a.isCompany ? `<div class="uname">${esc(a.name)}</div>` : ''}${a.side === 'e' ? `<div class="uname">${esc(a.name)}</div><div class="hpmini"><i style="width:${pct(a.hp, a.maxHp)}%"></i></div>` : ''}
     <div class="sts"></div></div>`;
 }
@@ -1600,7 +1600,7 @@ function drawUnits() {
   foes.innerHTML = live.map(unitHTML).join('');
   // painted enemies: a lone foe fills the space, otherwise they share it by rows (name and health bar take ~30px each)
   const frows = live.length === 1 ? 1 : Math.ceil(live.length / 2);
-  foes.style.setProperty('--ph', Math.max(60, Math.min(live.length === 1 ? 240 : 150, foes.clientHeight / frows - 34)) + 'px');
+  foes.style.setProperty('--ph', Math.max(60, Math.min(live.length === 1 ? 120 : 105, foes.clientHeight / frows - 34)) + 'px');
   const fr = document.getElementById('friends'); fr.classList.toggle('many', B.heroes.length > 5); fr.innerHTML = B.heroes.map(unitHTML).join('');
   // painted figures share the column's height with everyone else in it
   const rows = B.heroes.length > 5 ? Math.ceil(B.heroes.length / 2) : B.heroes.length;

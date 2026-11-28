@@ -18,4 +18,7 @@ for (const k of ['thornwood', 'millroad', 'barrows', 'fenmire', 'tower', 'arena'
 // Enemies and bosses, keyed by enemy id (not sprite: some chapter two bosses borrow a chapter one sprite). Face right.
 root.ART_FOE = {};
 for (const k of ['old_tusk', 'rook', 'shade', 'drowned', 'hand', 'warden']) root.ART_FOE[k] = { idle: 'art/boss_' + k + '.webp' };
+for (const k of ['soldier', 'hound', 'acolyte', 'wolf', 'cutthroat', 'archer', 'skeleton', 'wight']) root.ART_FOE[k] = { idle: 'art/foe_' + k + '.webp' };
+// beasts stand lower than a person
+root.ART_FOE.wolf.scale = 0.75; root.ART_FOE.hound.scale = 0.75;
 })(this);
