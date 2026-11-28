@@ -31,6 +31,8 @@ E.newGame = function () {
 // Fills in anything a save from an older layer is missing.
 E.ensure = function (S) {
   for (const c of (S.creatures || [])) if (c.final && !c.mythic && c.lvl >= W.EVO3_LVL) c.mythic = true;
+  S.areas = S.areas || {};
+  for (const a of D.AREAS) if (!S.areas[a.id]) S.areas[a.id] = { cleared: false };
   if (S.areas && S.areas.tower && S.areas.tower.cleared) S.shopTier = Math.max(S.shopTier || 1, 4);
   S.buildings = Object.assign({ yard: 0, kennels: 0, barracks: 0, walls: 0 }, S.buildings || {});
   S.siege = S.siege || { best: 0, stars: {} };
@@ -1391,9 +1393,28 @@ E.defeatPenalty = function (S) {
 };
 
 // After a boss win: unlocks the next area, shop tiers and surge. Returns story scenes to show.
+// Chapter two areas open from the war: hold the region on the war map (and for the Court, the Gate must be open).
+E.areaOpen = function (S, a) {
+  if (!a.c2) return E.areaIndex(a.id) < S.unlocked;
+  if (!S.war || !S.war.on || !S.war.regions[a.opens] || S.war.regions[a.opens].owner !== 'p') return false;
+  return a.id !== 'hollow_court' || !!S.flags.gate_open;
+};
 E.clearArea = function (S, areaId) {
   const i = E.areaIndex(areaId);
-  if (i < 0 || !S.areas[areaId]) return [];
+  if (i < 0) return [];
+  S.areas[areaId] = S.areas[areaId] || { cleared: false };
+  const A = D.AREAS[i];
+  if (A.c2) {
+    S.areas[areaId].cleared = true;
+    if (A.marshal) {
+      S.flags[A.marshal] = true;
+      const left = ['grieve_dead', 'cinder_dead', 'saint_dead'].filter(f => !S.flags[f]).length;
+      if (!left && !S.flags.gate_open) { S.flags.gate_open = true; return [areaId + '_out', 'gate_open']; }
+      return [areaId + '_out'];
+    }
+    S.flags.vael_dead = true; S.flags.toll_low = (S.toll || 0) <= 5; S.flags.chapter2_done = true;
+    return ['vael_choice', 'chapter2_end'];
+  }
   S.areas[areaId].cleared = true;
   S.unlocked = Math.max(S.unlocked, Math.min(D.AREAS.length, i + 2));
   const scenes = [areaId + '_out'];

@@ -201,6 +201,75 @@ const MAPS = {
     edges: [['f0', 'f1'], ['f1', 'f2'], ['f1', 'f3'], ['f2', 'f5'], ['f2', 'f4'], ['f3', 'f4'], ['f3', 'f8'], ['f4', 'f7'], ['f4', 'f9'], ['f5', 'f6'], ['f6', 'f7'],
       ['f8', 'f9'], ['f9', 'f10'], ['f10', 'f15'], ['f7', 'f11'], ['f7', 'f12'], ['f11', 'f13'], ['f12', 'f13'], ['f12', 'f16'], ['f15', 'f13'], ['f13', 'f14']],
   },
+  // ---------- Chapter two areas ----------
+  greyfort_keep: {
+    nodes: [
+      { id: 'g0', x: 2, y: 7, t: 'start', name: 'The broken gate', desc: 'Your army holds the walls. The keep itself is still the Marshal\'s.' },
+      { id: 'g1', x: 2, y: 6, t: 'fight', name: 'The muster yard', desc: 'Hollow knights drill in perfect silence.', enemies: [{ t: 'h_knight', lvl: 19 }, { t: 'h_knight', lvl: 19 }, { t: 'h_crossbow', lvl: 19 }] },
+      { id: 'g2', x: 1, y: 5, t: 'treasure', name: 'The paymaster\'s chest', desc: 'Four hundred years of a soldier\'s wages nobody came to collect.', reward: { gold: 900, items: { hi_potion: 2 } } },
+      { id: 'g3', x: 3, y: 5, t: 'gather', name: 'Starsteel arrowheads', desc: 'A whole armoury of them, the shafts long rotted away.', mats: { starsteel: 2 } },
+      { id: 'g4', x: 2, y: 4, t: 'camp', name: 'The chapel', desc: 'A soldiers\' chapel. Someone has kept the candles lit.', talks: ['camp_greyfort'] },
+      { id: 'g5', x: 0, y: 4, t: 'fight', name: 'The kennels', desc: 'The Marshal\'s hounds, still waiting to be fed.', enemies: [{ t: 'hound', lvl: 20 }, { t: 'hound', lvl: 20 }, { t: 'hound', lvl: 20 }, { t: 'hound', lvl: 19 }] },
+      { id: 'g6', x: 0, y: 3, t: 'event', ev: 'muster_roll', name: 'The muster roll', desc: 'A ledger on a stand, open, the ink still wet.' },
+      { id: 'g7', x: 4, y: 4, t: 'fight', name: 'The crossbow gallery', desc: 'They have the high ground, and they know it.', enemies: [{ t: 'h_crossbow', lvl: 20 }, { t: 'h_crossbow', lvl: 20 }, { t: 'h_knight', lvl: 20 }] },
+      { id: 'g8', x: 4, y: 3, t: 'treasure', need: 'lock', name: 'The Marshal\'s strongroom', desc: 'Locked three times over. Dace grins.', reward: { gear: 'marshals_plate' } },
+      { id: 'g9', x: 2, y: 2, t: 'fight', name: 'The great stair', desc: 'The honour guard. They step aside for no one.', enemies: [{ t: 'h_knight', lvl: 21 }, { t: 'h_knight', lvl: 21 }, { t: 'soldier', lvl: 20 }] },
+      { id: 'g10', x: 1, y: 1, t: 'treasure', name: 'The old library', desc: 'Drill manuals, and one book that is not a drill manual.', reward: { tome: true } },
+      { id: 'g11', x: 2, y: 0, t: 'boss', name: 'The throne of shields', desc: 'A knight waits on a throne made of shields.' },
+    ],
+    edges: [['g0', 'g1'], ['g1', 'g2'], ['g1', 'g3'], ['g2', 'g4'], ['g3', 'g4'], ['g2', 'g5'], ['g5', 'g6'], ['g3', 'g7'], ['g7', 'g8'], ['g4', 'g9'], ['g6', 'g9'], ['g8', 'g9'], ['g9', 'g10'], ['g9', 'g11']],
+  },
+  kingsbridge_town: {
+    nodes: [
+      { id: 'k0', x: 2, y: 7, t: 'start', name: 'The south arch', desc: 'Kingsbridge is on fire. It has been on fire for four hundred years.' },
+      { id: 'k1', x: 2, y: 6, t: 'fight', name: 'Bakers\' Row', desc: 'Things made of embers dance in the ovens.', enemies: [{ t: 'cinderling', lvl: 21 }, { t: 'cinderling', lvl: 21 }, { t: 'ash_hound', lvl: 21 }] },
+      { id: 'k2', x: 1, y: 5, t: 'gather', name: 'Emberglass in the cinders', desc: 'Where the fire is hottest the ash has run to glass.', mats: { emberglass: 1 } },
+      { id: 'k3', x: 3, y: 5, t: 'fight', name: 'The toll house', desc: 'Crossbows at the windows.', enemies: [{ t: 'h_crossbow', lvl: 21 }, { t: 'h_crossbow', lvl: 21 }, { t: 'soldier', lvl: 21 }, { t: 'soldier', lvl: 21 }] },
+      { id: 'k4', x: 2, y: 4, t: 'camp', name: 'The well that still works', desc: 'Cold water in a burning town. You drink until it hurts.', talks: ['camp_kingsbridge'] },
+      { id: 'k5', x: 0, y: 4, t: 'event', ev: 'bread', name: 'A bakery that never burns', desc: 'Bread on the racks, fresh, warm. In a dead town.' },
+      { id: 'k6', x: 0, y: 3, t: 'fight', name: 'The burning market', desc: 'Ash hounds feed on what the fire leaves.', enemies: [{ t: 'ash_hound', lvl: 22 }, { t: 'ash_hound', lvl: 22 }, { t: 'ash_hound', lvl: 22 }] },
+      { id: 'k7', x: 4, y: 4, t: 'treasure', name: 'The guildhall vault', desc: 'Molten gold, set hard again in the shapes of the coins.', reward: { gold: 1300, items: { hi_potion: 2 } } },
+      { id: 'k8', x: 4, y: 3, t: 'gather', name: 'The glassworks', desc: 'A furnace no one has fed in centuries, still white hot.', mats: { emberglass: 1, starsteel: 1 } },
+      { id: 'k9', x: 2, y: 2, t: 'fight', name: 'The bridge approach', desc: 'Cinderlings swarm the parapets.', enemies: [{ t: 'cinderling', lvl: 23 }, { t: 'cinderling', lvl: 22 }, { t: 'cinderling', lvl: 22 }, { t: 'ash_hound', lvl: 22 }] },
+      { id: 'k10', x: 3, y: 1, t: 'treasure', name: 'The bridge shrine', desc: 'A coal that never goes out, in a little iron cage.', reward: { gear: 'bridge_ember', tome: true } },
+      { id: 'k11', x: 2, y: 0, t: 'boss', name: 'The crown of the bridge', desc: 'A woman in a dress of embers.' },
+    ],
+    edges: [['k0', 'k1'], ['k1', 'k2'], ['k1', 'k3'], ['k2', 'k4'], ['k3', 'k4'], ['k2', 'k5'], ['k5', 'k6'], ['k3', 'k7'], ['k7', 'k8'], ['k4', 'k9'], ['k6', 'k9'], ['k8', 'k9'], ['k9', 'k10'], ['k9', 'k11']],
+  },
+  drowned_temple: {
+    nodes: [
+      { id: 'd0', x: 2, y: 7, t: 'start', name: 'The flooded steps', desc: 'The water is black and perfectly still, and it goes down a long way.' },
+      { id: 'd1', x: 2, y: 6, t: 'fight', name: 'The nave', desc: 'Pews full of the drowned, still at prayer. They turn.', enemies: [{ t: 'drowned_dead', lvl: 23 }, { t: 'drowned_dead', lvl: 23 }, { t: 'drowned_dead', lvl: 23 }] },
+      { id: 'd2', x: 1, y: 5, t: 'gather', name: 'Temple moss', desc: 'It glows faintly under the water.', mats: { moss: 3 } },
+      { id: 'd3', x: 3, y: 5, t: 'fight', name: 'The baptistry', desc: 'Something big moves in the font.', enemies: [{ t: 'deep_lurker', lvl: 23 }, { t: 'deep_lurker', lvl: 23 }] },
+      { id: 'd4', x: 2, y: 4, t: 'camp', name: 'A dry vestry', desc: 'One room the water never reached. The air is old and still.', talks: ['camp_temple'] },
+      { id: 'd5', x: 0, y: 4, t: 'event', ev: 'offering', name: 'The offering bowls', desc: 'Bowls of coins under the water, and a name scratched beside each.' },
+      { id: 'd6', x: 0, y: 3, t: 'fight', name: 'The choir', desc: 'They are still singing. You wish they weren\'t.', enemies: [{ t: 'acolyte', lvl: 24 }, { t: 'drowned_dead', lvl: 24 }, { t: 'drowned_dead', lvl: 24 }] },
+      { id: 'd7', x: 4, y: 4, t: 'treasure', need: 'hex', name: 'A hidden reliquary', desc: 'Morwen sees the shape of a door where there is only wall.', reward: { gear: 'saints_rosary' } },
+      { id: 'd8', x: 4, y: 3, t: 'fight', name: 'The deep cloister', desc: 'The lurkers nest here.', enemies: [{ t: 'deep_lurker', lvl: 24 }, { t: 'deep_lurker', lvl: 24 }, { t: 'drowned_dead', lvl: 24 }] },
+      { id: 'd9', x: 2, y: 2, t: 'fight', name: 'The sunken altar', desc: 'The last of her congregation.', enemies: [{ t: 'acolyte', lvl: 25 }, { t: 'acolyte', lvl: 24 }, { t: 'drowned_dead', lvl: 25 }, { t: 'deep_lurker', lvl: 24 }] },
+      { id: 'd10', x: 1, y: 1, t: 'treasure', name: 'The bishop\'s tomb', desc: 'He was buried with his books.', reward: { tome: true, items: { feather: 2 } } },
+      { id: 'd11', x: 2, y: 0, t: 'boss', name: 'The black pool', desc: 'A priestess kneels in the water, praying to nothing.' },
+    ],
+    edges: [['d0', 'd1'], ['d1', 'd2'], ['d1', 'd3'], ['d2', 'd4'], ['d3', 'd4'], ['d2', 'd5'], ['d5', 'd6'], ['d3', 'd7'], ['d3', 'd8'], ['d4', 'd9'], ['d6', 'd9'], ['d8', 'd9'], ['d9', 'd10'], ['d9', 'd11']],
+  },
+  hollow_court: {
+    nodes: [
+      { id: 'h0', x: 2, y: 7, t: 'start', name: 'Through the Gate', desc: 'On the other side it is very cold, and very quiet, and very grey.' },
+      { id: 'h1', x: 2, y: 6, t: 'fight', name: 'The outer court', desc: 'Guards in black and gold. They have been waiting.', enemies: [{ t: 'court_guard', lvl: 26 }, { t: 'court_guard', lvl: 26 }, { t: 'hollow_noble', lvl: 26 }] },
+      { id: 'h2', x: 1, y: 5, t: 'gather', name: 'Shards in the flagstones', desc: 'The whole floor is shot through with black crystal.', mats: { shard: 3, starsteel: 1 } },
+      { id: 'h3', x: 3, y: 5, t: 'fight', name: 'The hall of petitioners', desc: 'Nobles still waiting for an audience.', enemies: [{ t: 'hollow_noble', lvl: 26 }, { t: 'hollow_noble', lvl: 26 }, { t: 'h_knight', lvl: 26 }] },
+      { id: 'h4', x: 2, y: 4, t: 'camp', name: 'The cold kitchens', desc: 'Ovens full of frost. Someone is humming, far off.', talks: ['camp_court'] },
+      { id: 'h5', x: 0, y: 4, t: 'event', ev: 'portraits', name: 'The long gallery', desc: 'Portraits of a royal family. In the last one the faces have been scratched out.' },
+      { id: 'h6', x: 0, y: 3, t: 'fight', name: 'The royal kennels', desc: 'The king\'s own hounds.', enemies: [{ t: 'hound', lvl: 27 }, { t: 'hound', lvl: 27 }, { t: 'hound', lvl: 27 }, { t: 'court_guard', lvl: 26 }] },
+      { id: 'h7', x: 4, y: 4, t: 'treasure', name: 'The treasury', desc: 'A kingdom\'s gold, and nobody left to spend it.', reward: { gold: 2500, items: { hi_potion: 3, feather: 1 } } },
+      { id: 'h8', x: 4, y: 3, t: 'fight', name: 'The armoury', desc: 'Its guards never left their post.', enemies: [{ t: 'court_guard', lvl: 27 }, { t: 'h_knight', lvl: 27 }, { t: 'h_knight', lvl: 27 }] },
+      { id: 'h9', x: 2, y: 2, t: 'fight', name: 'The throne room doors', desc: 'The last of the court.', enemies: [{ t: 'court_guard', lvl: 28 }, { t: 'court_guard', lvl: 27 }, { t: 'hollow_noble', lvl: 27 }, { t: 'hollow_noble', lvl: 27 }] },
+      { id: 'h10', x: 3, y: 1, t: 'treasure', name: 'The king\'s own armoury', desc: 'One blade on the rack, kept bright.', reward: { gear: 'court_blade', tome: true } },
+      { id: 'h11', x: 2, y: 0, t: 'boss', name: 'The throne', desc: 'A king made of cinders, with a hole in his chest.' },
+    ],
+    edges: [['h0', 'h1'], ['h1', 'h2'], ['h1', 'h3'], ['h2', 'h4'], ['h3', 'h4'], ['h2', 'h5'], ['h5', 'h6'], ['h3', 'h7'], ['h7', 'h8'], ['h4', 'h9'], ['h6', 'h9'], ['h8', 'h9'], ['h9', 'h10'], ['h9', 'h11']],
+  },
   tower: {
     nodes: [
       { id: 'w0', x: 2, y: 7, t: 'start', name: 'The open doors', desc: 'The tower doors stand open. Nothing inside makes a sound.' },
@@ -273,6 +342,34 @@ function genMap(area) {
 
 // ---------- Events with choices ----------
 const EVENTS = {
+  muster_roll: {
+    lines: [['', 'The roll of Greyfort\'s garrison, in a clerk\'s neat hand. The last page has fresh names on it, written today. One of them is Bram\'s.'], ['bram', 'He\'s been expecting me.']],
+    choices: [
+      { label: 'Tear out the page', out: { xp: 900, text: 'It feels good. Everyone feels it. The party gains experience.' } },
+      { label: 'Read the old names', out: { mats: { starsteel: 2 }, text: 'Under the ledger is a box of the militia\'s old kit. Starsteel buckles, starsteel pins. Bram takes it for the forge.' } },
+    ],
+  },
+  bread: {
+    lines: [['', 'The bread is real. It is warm. A girl\'s floury handprint is on the oven door.'], ['isolde', 'Someone baked this every morning for four hundred years.']],
+    choices: [
+      { label: 'Eat', out: { items: { hi_potion: 3 }, text: 'It tastes of home. You fill your packs with the rest. Three Greater Potions\' worth of good bread.' } },
+      { label: 'Leave it be', out: { xp: 1100, text: 'Bram closes the oven door gently. Nobody speaks for a while. The party gains experience.' } },
+    ],
+  },
+  offering: {
+    lines: [['', 'Each bowl has a name beside it, and a coin. The newest coin has a name you know: one of the Hunter\'s Lodge trappers.'], ['morwen', 'They pray for the ones who went into the fire.', 'has:morwen']],
+    choices: [
+      { label: 'Add a coin', out: { xp: 1300, text: 'Isolde adds a coin and says Master Hale\'s name. The water goes very still. The party gains experience.' } },
+      { label: 'Take the coins', out: { gold: 700, mats: { moss: 2 }, text: 'Seven hundred in old silver, and a handful of glowing moss. Nobody looks back.' } },
+    ],
+  },
+  portraits: {
+    lines: [['', 'King Vael and his queen. Vael and his son. Vael alone, with a stone in his fist. In the last portrait every face has been scratched out but his.'], ['isolde', 'He kept kindling it. Even after it took them.']],
+    choices: [
+      { label: 'Burn the last portrait', out: { xp: 1600, text: 'It goes up fast. Isolde watches it burn and keeps her hand closed. The party gains experience.' } },
+      { label: 'Search behind it', out: { mats: { emberglass: 2 }, gold: 900, text: 'A hidden safe: emberglass and royal gold.' } },
+    ],
+  },
   fox: {
     lines: [['', 'A fox is caught in a wire snare, half dead from fighting it.'], ['wren', 'Good pelt on that. Just saying.'], ['isolde', 'Wren.']],
     choices: [

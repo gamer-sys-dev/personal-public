@@ -337,6 +337,11 @@ const GEAR = {
   gladius:        { name: 'Pit Gladius', slot: 'weapon', stats: { str: 11, spd: 2, crit: 4 }, price: 700, unique: true },
   crowd_favour:   { name: 'Crowd\'s Favour', slot: 'charm', stats: { spd: 2 }, flags: { goldBonus: 0.3, xpBonus: 0.1 }, price: 700, unique: true, desc: '+30% gold and +10% XP for the wearer' },
   beastqueen_lash:{ name: 'Beastqueen\'s Lash', slot: 'weapon', stats: { str: 13, mag: 6, spd: 2 }, flags: { beastBond: 0.3 }, price: 1200, unique: true, desc: 'Creature damage +30% while the wearer is in the party' },
+  // Chapter two area treasures
+  marshals_plate: { name: 'The Marshal\'s Plate', slot: 'armour', stats: { def: 30, hp: 130, res: 8 }, price: 2800, unique: true },
+  bridge_ember:   { name: 'Kingsbridge Ember', slot: 'charm', stats: { mag: 12, spd: 4 }, flags: { boost_fire: 0.25 }, price: 2600, unique: true, desc: 'Fire damage +25%' },
+  saints_rosary:  { name: 'The Saint\'s Rosary', slot: 'charm', stats: { res: 12, mp: 40 }, flags: { healBoost: 0.3 }, price: 2600, unique: true, desc: 'Healing +30%' },
+  court_blade:    { name: 'Blade of the Hollow Court', slot: 'weapon', stats: { str: 30, spd: 4, crit: 8 }, price: 3600, unique: true },
   champion_band:  { name: 'Champion\'s Band', slot: 'charm', stats: { hp: 40, str: 4, mag: 4, def: 3, res: 3, spd: 2 }, price: 2000, unique: true },
   // Apex trophies, first kill of each area's apex beast
   greymane_fang:  { name: 'Greymane\'s Fang', slot: 'charm', stats: { str: 6, spd: 3, crit: 6 }, price: 900, unique: true },
@@ -427,6 +432,23 @@ const ELITES = {
   vengeful:     { name: 'Vengeful', desc: 'Bursts when it falls, hurting the whole party.' },
 };
 const ENEMIES = {
+  // Chapter two areas
+  h_knight:     { name: 'Hollow Knight', sprite: 'h_knight', tags: ['hollow'], m: { hp: 1.5, str: 1.25, mag: .5, def: 1.6, res: 1, spd: .9 }, xp: 1.4, gold: 1.5, weak: { light: 1.4 },
+                  skills: [{ id: 'slash', w: 3 }, { id: 'hollow_cleave', w: 1 }, { id: 'brace', w: 1 }], drops: [{ mat: 'starsteel', c: .15 }, { mat: 'ore', c: .4 }] },
+  h_crossbow:   { name: 'Hollow Crossbow', sprite: 'h_crossbow', tags: ['hollow'], m: { hp: .95, str: 1.25, mag: .5, def: 1, res: .9, spd: 1 }, xp: 1.3, gold: 1.4, weak: { light: 1.4 },
+                  skills: [{ id: 'arrow', w: 3 }, { id: 'volley', w: 1 }], drops: [{ mat: 'ore', c: .4 }] },
+  cinderling:   { name: 'Cinderling', sprite: 'cinder_imp', tags: ['hollow'], m: { hp: .9, str: .6, mag: 1.35, def: .8, res: 1.3, spd: 1.2 }, xp: 1.3, gold: 1.3, weak: { frost: 1.7 },
+                  skills: [{ id: 'firebolt', w: 3 }, { id: 'fire_rain', w: 1 }], drops: [{ mat: 'emberglass', c: .06 }, { item: 'ether', c: .15 }] },
+  ash_hound:    { name: 'Ash Hound', sprite: 'ash_hound', tags: ['hollow'], m: { hp: 1.1, str: 1.3, mag: .5, def: .9, res: 1, spd: 1.45 }, xp: 1.3, gold: 1.2, weak: { frost: 1.5, light: 1.3 },
+                  skills: [{ id: 'bite', w: 2 }, { id: 'pounce', w: 1 }], drops: [{ mat: 'pelt', c: .4 }] },
+  drowned_dead: { name: 'Drowned Dead', sprite: 'drowned_dead', tags: ['undead', 'hollow'], m: { hp: 1.3, str: 1.15, mag: .9, def: 1.2, res: 1.1, spd: .9 }, xp: 1.4, gold: 1.3, weak: { light: 1.8, fire: 1.3, frost: .5 },
+                  skills: [{ id: 'slash', w: 2 }, { id: 'frost_touch', w: 2 }, { id: 'drain', w: 1 }], drops: [{ mat: 'bone', c: .4 }, { mat: 'moss', c: .3 }] },
+  deep_lurker:  { name: 'Deep Lurker', sprite: 'deep_lurker', m: { hp: 1.6, str: 1.25, mag: .6, def: 1.3, res: .9, spd: .8 }, xp: 1.5, gold: 1.3, weak: { fire: 1.4 },
+                  skills: [{ id: 'drag', w: 2 }, { id: 'spit', w: 1 }], drops: [{ mat: 'moss', c: .5 }] },
+  court_guard:  { name: 'Court Guard', sprite: 'court_guard', tags: ['hollow'], m: { hp: 1.6, str: 1.35, mag: .6, def: 1.5, res: 1.3, spd: 1 }, xp: 1.6, gold: 1.8, weak: { light: 1.3 },
+                  skills: [{ id: 'slash', w: 3 }, { id: 'hollow_cleave', w: 2 }, { id: 'brace', w: 1 }], drops: [{ mat: 'starsteel', c: .2 }, { mat: 'shard', c: .4 }] },
+  hollow_noble: { name: 'Hollow Noble', sprite: 'hollow_noble', tags: ['hollow'], m: { hp: 1.1, str: .6, mag: 1.45, def: 1, res: 1.5, spd: 1.05 }, xp: 1.6, gold: 2, weak: { light: 1.4 },
+                  skills: [{ id: 'shadow_bolt', w: 3 }, { id: 'soul_drain', w: 1 }, { id: 'mend', w: 2, when: 'allyHurt' }], drops: [{ mat: 'emberglass', c: .08 }, { item: 'hi_potion', c: .2 }] },
   // Chapter two: the Hollow marshals and the king
   grieve:   { name: 'Marshal Grieve', sprite: 'hand', boss: true, tags: ['hollow'], weak: { light: 1.3 },
               mech: { plated: 'Royal plate turns most blows. Break it.', windup: { every: 4, skill: 'execution', mark: true, text: 'Grieve raises his headsman\'s axe at {t}. Defend, or draw him off!' } },
@@ -542,6 +564,19 @@ const AREAS = [
     pool: ['soldier', 'soldier', 'hound', 'acolyte'], boss: [{ t: 'warden', lvl: 12 }],
     unique: { 5: { tome: true }, 11: { gear: 'iron_heart' } },
     desc: 'Where the raids come from. Its windows show no light at all.' },
+  // Chapter two. Opened from the war: take the region, then go inside. c2: not part of the chapter one unlock order.
+  { id: 'greyfort_keep', c2: true, opens: 'greyfort', bg: 'tower', name: 'Greyfort Keep', lvl: [19, 21], steps: 12, size: [2, 4], mat: 'starsteel',
+    pool: ['h_knight', 'soldier', 'h_crossbow', 'hound'], boss: [{ t: 'grieve', lvl: 21 }, { t: 'soldier', lvl: 19 }, { t: 'soldier', lvl: 19 }], marshal: 'grieve_dead',
+    unique: {}, desc: 'The old royal fort, and the Marshal who still keeps it.' },
+  { id: 'kingsbridge_town', c2: true, opens: 'kingsbridge', bg: 'millroad', name: 'Kingsbridge Burning', lvl: [21, 23], steps: 12, size: [2, 4], mat: 'emberglass',
+    pool: ['cinderling', 'ash_hound', 'h_crossbow', 'cinderling'], boss: [{ t: 'cinder', lvl: 23 }, { t: 'soldier', lvl: 21 }], marshal: 'cinder_dead',
+    unique: {}, desc: 'A town that has been on fire for four hundred years and never burned down.' },
+  { id: 'drowned_temple', c2: true, opens: 'temple', bg: 'fenmire', name: 'The Drowned Temple', lvl: [23, 25], steps: 12, size: [2, 4], mat: 'moss',
+    pool: ['drowned_dead', 'deep_lurker', 'acolyte', 'drowned_dead'], boss: [{ t: 'saint', lvl: 25 }, { t: 'acolyte', lvl: 23 }], marshal: 'saint_dead',
+    unique: {}, desc: 'Halls under black water, and a priestess still praying in them.' },
+  { id: 'hollow_court', c2: true, opens: 'hollowgate', bg: 'tower', name: 'The Hollow Court', lvl: [26, 28], steps: 12, size: [2, 4], mat: 'shard',
+    pool: ['court_guard', 'hollow_noble', 'h_knight', 'court_guard'], boss: [{ t: 'vael', lvl: 28 }, { t: 'court_guard', lvl: 26 }],
+    unique: {}, desc: 'Beyond the Gate: a palace for a kingdom that is all ash now.' },
 ];
 
 // Story scenes. Each line is [speaker, text]. Speaker '' is narration.

@@ -415,6 +415,57 @@ const CHOICES = {
   },
 };
 
+// Chapter two areas: entering, the boss and the way out reuse the marshal scenes.
+Object.assign(STORY5, {
+  greyfort_keep_in: [
+    ['', 'The army holds Greyfort\'s walls. The keep is another matter: its doors are shut, and behind them something is still giving orders.'],
+    ['bram', 'Grandad built half the ironwork in this place. I know how it\'s put together.'],
+    ['isolde', 'Then lead the way.'],
+  ],
+  greyfort_keep_boss: STORY5.grieve_corner,
+  greyfort_keep_out: STORY5.grieve_dies,
+  camp_greyfort: [
+    ['bram', 'Someone kept these candles lit. For four hundred years.'],
+    ['aldric', 'A soldier\'s chapel is kept by soldiers. Even dead ones.', 'has:aldric'],
+    ['isolde', 'They remember they were people. That\'s the cruel part. Some of them remember.'],
+  ],
+  kingsbridge_town_in: [
+    ['', 'The road ends at a town that has been burning since before your grandparents\' grandparents. The fire never spreads and never goes out. It just burns.'],
+    ['isolde', 'It\'s the Ember\'s fire. I can feel it. Same as mine.'],
+    ['bram', 'Stay close to me in there.'],
+  ],
+  kingsbridge_town_boss: STORY5.cinder_corner,
+  kingsbridge_town_out: STORY5.cinder_dies,
+  camp_kingsbridge: [
+    ['isolde', 'Do you smell bread? Under the smoke?'],
+    ['bram', 'I thought it was just me.'],
+    ['isolde', 'Somebody baked here. The last morning before the fire.'],
+  ],
+  drowned_temple_in: [
+    ['', 'Under the Temple of the Drowned Light the stairs go down into black water. Then they keep going.'],
+    ['morwen', 'The fen folk won\'t come within a mile of this place. Now I know why.', 'has:morwen'],
+    ['isolde', 'There\'s a voice down there. Praying.'],
+  ],
+  drowned_temple_boss: STORY5.saint_corner,
+  drowned_temple_out: STORY5.saint_dies,
+  camp_temple: [
+    ['isolde', 'Bram. If I asked you to take the stone off me. Would you?'],
+    ['bram', 'If you asked.'],
+    ['isolde', 'I can\'t. Every time I try to open my hand, it\'s already open.'],
+  ],
+  hollow_court_in: [
+    ['', 'Through the Gate. The air is so cold it burns. Ahead, a palace stands in a grey wood, every window dark but one.'],
+    ['isolde', 'He\'s in there. Waiting for me. For this.'],
+    ['bram', 'Then we don\'t keep him waiting.'],
+  ],
+  hollow_court_boss: STORY5.vael_meet,
+  camp_court: [
+    ['bram', 'Whatever happens in there. You\'re still you. I\'ll know.'],
+    ['isolde', 'Will you?'],
+    ['bram', 'I knew you when you were six and set fire to the miller\'s cat. You\'re still you.'],
+    ['isolde', 'That cat was fine.'],
+  ],
+});
 root.STORYX = { STORY5, CHOICES };
 if (typeof module !== 'undefined' && module.exports) module.exports = root.STORYX;
 })(this);

@@ -4,7 +4,7 @@
 const D = window.DATA, W = window.WORLD, E = window.ENGINE, SP = window.SPRITES, SG = window.SIEGE, SUI = window.SIEGEUI;
 let stopScene = null;
 const AU = window.AUDIO || { unlock() {}, play() {}, sfx() {}, set() {} };
-const MOOD = { thornwood: 'wood', millroad: 'wood', barrows: 'dark', fenmire: 'dark', tower: 'dark' };
+const MOOD = { thornwood: 'wood', millroad: 'wood', barrows: 'dark', fenmire: 'dark', tower: 'dark', greyfort_keep: 'dark', kingsbridge_town: 'dark', drowned_temple: 'dark', hollow_court: 'dread' };
 const DREAD = ['the_raid', 'wren_hollow', 'tower_boss', 'millroad_boss', 'fenmire_out', 'dream_1', 'dream_2', 'tower_in', 'aldric_stair'];
 const SAD = ['raid_after', 'wren_dies', 'aldric_holds', 'hale_redeemed', 'hale_ended', 'warden_end_dark', 'wren_banished'];
 document.addEventListener('pointerdown', () => AU.unlock(), { capture: true });
@@ -295,7 +295,7 @@ SCREENS.board = () => {
 };
 
 SCREENS.map = () => {
-  const rows = D.AREAS.map((a, i) => {
+  const rows = D.AREAS.filter(a => !a.c2).map((a, i) => {
     const st = S.areas[a.id], open = i < S.unlocked;
     if (!open) return `<div class="card" style="opacity:.5"><div class="spread"><b class="serif">???</b><span class="pill">Locked</span></div><p class="muted">Clear ${D.AREAS[i - 1].name} first.</p></div>`;
     const ex = E.explored(S, a.id);
@@ -310,7 +310,16 @@ SCREENS.map = () => {
     <p class="muted">A busy market town east along the road, with a fighting pit at its heart.</p>
     <div class="small muted">Arena: ${['bronze', 'silver', 'gold'].map((r, i) => { const rank = W.ARENA[i]; const won = rank.bouts.filter(b => S.arena.won[b.id]).length; return `${rank.name} ${won}/${rank.bouts.length}`; }).join(' · ')}</div>
     <button class="big gold" data-a="market">Go to Brightwater</button></div>` : '';
-  return `<div class="topbar"><h1>Where to?</h1><button class="sm" data-a="keep">Keep</button></div>${market}${rows}`;
+  const c2 = warOn() ? `<h2 class="serif" style="margin:14px 0 4px">Chapter two</h2>` + D.AREAS.filter(a => a.c2).map(a => {
+    const st = S.areas[a.id], open = E.areaOpen(S, a), R = WAR.REGIONS[a.opens];
+    if (!open) return `<div class="card" style="opacity:.55"><div class="spread"><b class="serif">${a.name}</b><span class="pill">Locked</span></div><p class="muted small">${a.id === 'hollow_court' && WAR.owns(S, a.opens) ? 'The Gate is sealed while any marshal lives.' : `Take ${R.name} on the war map first.`}</p></div>`;
+    const ex = E.explored(S, a.id);
+    return `<div class="card"><div class="spread"><b class="serif" style="font-size:1.1rem">${a.name}</b><span class="pill ${st.cleared ? 'good' : 'bad'}">${st.cleared ? 'Cleared' : 'Lv ' + a.lvl[0] + ' to ' + a.lvl[1]}</span></div>
+      <p class="muted">${a.desc}</p><div class="bar xp"><i style="width:${ex}%"></i></div>
+      <div class="spread small muted" style="margin-top:4px"><span>${ex}% explored</span><span>${D.MATS[a.mat].name} here</span></div>
+      <button class="big ${st.cleared ? '' : 'primary'}" data-a="enter" data-v="${a.id}">${ex > 10 ? 'Go back' : 'Go inside'}</button></div>`;
+  }).join('') : '';
+  return `<div class="topbar"><h1>Where to?</h1><button class="sm" data-a="keep">Keep</button></div>${market}${c2}<h2 class="serif" style="margin:14px 0 4px">${warOn() ? 'Chapter one' : ''}</h2>${rows}`;
 };
 
 // Node icons, drawn small in white.
@@ -372,7 +381,7 @@ SCREENS.area = () => {
   if (n.t === 'quest') acts.push('<button class="big gold" data-a="talk">Talk</button>');
   if (n.t === 'event' && !st.done[n.id]) acts.push('<button class="big gold" data-a="eventGo">Look closer</button>');
   acts.push(`<button class="big" data-a="train" ${allKo ? 'disabled' : ''}>Look for a fight</button>`);
-  if (S.areas[id].cleared) acts.push(huntCard(id, allKo));
+  if (S.areas[id].cleared && W.APEX[id]) acts.push(huntCard(id, allKo));
   return `<div class="topbar"><h1>${a.name}</h1><span class="goldtxt">${S.gold} g</span></div>
     <div class="spread small muted"><span>${E.explored(S, id)}% explored</span><span>Enemies Lv ${a.lvl[0]} to ${a.lvl[1] + (S.areas[id].cleared ? 1 : 0)}</span></div>
     <div class="mapwrap">${mapSVG(id)}</div>
@@ -1170,7 +1179,9 @@ ACT.boss = () => {
   const id = view.id, a = E.area(id);
   const specs = E.bossSpecs(a);
   if (id === 'tower' && S.flags.warden_secret) specs[0].hpx = 0.82;
-  const fight = () => startBattle(specs, { area: id, boss: true });
+  const el = a.c2 ? learnedEl() : null;
+  if (el) specs[0].resist = el;
+  const fight = () => startBattle(specs, { area: id, boss: true, learned: el });
   const pre = [];
   if (!S.flags.seen[id + '_boss']) pre.push(id + '_boss');
   if (id === 'barrows' && S.party.includes('aldric') && !S.flags.seen.shade_aldric) pre.push('shade_aldric');
@@ -1400,6 +1411,12 @@ function learnedEl() {
   return top && a[top] >= 20 ? top : null;
 }
 function chapter2Buttons(rid) {
+  const area = D.AREAS.find(a => a.c2 && a.opens === rid);
+  if (area && E.areaOpen(S, area)) return `<button class="big primary" data-a="enter" data-v="${area.id}">Go inside: ${area.name}${S.areas[area.id].cleared ? '' : ' · ' + bossGap(area.boss[0].lvl)}</button>`;
+  if (area && WAR.owns(S, rid) && area.id === 'hollow_court') return '<div class="small muted" style="margin-top:6px">The Gate is sealed while any marshal lives.</div>';
+  return '';
+}
+function chapter2ButtonsOld(rid) {
   if (!S.war.regions[rid] || S.war.regions[rid].owner !== 'p') return '';
   const l = WAR.LIEUTENANTS[rid];
   if (l && !S.flags[l.flag]) return `<button class="big primary" data-a="corner" data-v="${rid}">Corner ${D.ENEMIES[l.t].name} in the keep · ${bossGap(D.ENEMIES[l.t].lvl)}</button><div class="small muted">The fort is yours, but its marshal has dug in. While any marshal lives, every Hollow army is stronger and the Gate stays sealed.</div>`;
@@ -1524,7 +1541,8 @@ function startBattle(specs, c) {
   ctx = c;
   AU.play(c.arena ? 'arena' : (c.boss || c.story) ? 'boss' : 'battle');
   B = new E.Battle(S, specs, { boss: !!c.boss, autoItems: false, tameBonus: c.hunt ? 0.15 : 0, huntMult: c.huntMult || 1, allies: c.allies });
-  const bg = BG[c.area] || BG.thornwood;
+  const bgKey = (E.area(c.area) || {}).bg || c.area;
+  const bg = BG[bgKey] || BG.thornwood;
   const el = document.createElement('div');
   el.id = 'battle';
   el.innerHTML = `<div class="field"><div class="sky" style="background:linear-gradient(180deg,${bg[0]},${bg[1]})"></div>
@@ -1534,7 +1552,7 @@ function startBattle(specs, c) {
   document.body.appendChild(el);
   document.body.style.overflow = 'hidden';
   if (window.BFX) {
-    try { BFX.paint(el.querySelector('#bgc'), c.area || 'thornwood'); } catch (e) { /* plain gradient stays */ }
+    try { BFX.paint(el.querySelector('#bgc'), bgKey || 'thornwood'); } catch (e) { /* plain gradient stays */ }
     try { FX = BFX.fx(el.querySelector('.field')); } catch (e) { FX = null; }
   }
   // Taming fights start holding back, so nobody kills the beast before Hesk gets a go.
@@ -1937,7 +1955,7 @@ function endBattle() {
       }
       if (c.node === 'w13' && !nodeOut.scene) { go('area', { id: area, msg: 'The upper stair is clear.' }); afterStair(); return; }
       if (bossScenes) {
-        scenes(bossScenes.slice(), () => { go('keep'); if (area !== 'tower') toast('A new area is open on the map. Check the noticeboard too.', 3500); });
+        scenes(bossScenes.slice(), () => { go('keep'); if (!E.area(area).c2 && area !== 'tower') toast('A new area is open on the map. Check the noticeboard too.', 3500); });
         return;
       }
       if (nodeOut && nodeOut.scene) {
