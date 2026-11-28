@@ -1596,6 +1596,9 @@ function drawUnits() {
   foes.className = 'foes' + (live.length === 1 ? ' one' : '');
   foes.innerHTML = live.map(unitHTML).join('');
   const fr = document.getElementById('friends'); fr.classList.toggle('many', B.heroes.length > 5); fr.innerHTML = B.heroes.map(unitHTML).join('');
+  // painted figures share the column's height with everyone else in it
+  const rows = B.heroes.length > 5 ? Math.ceil(B.heroes.length / 2) : B.heroes.length;
+  fr.style.setProperty('--ph', Math.max(60, Math.min(110, fr.clientHeight / rows * 0.9)) + 'px');
   refreshUnits();
 }
 function refreshUnits() {

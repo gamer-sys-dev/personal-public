@@ -196,7 +196,7 @@
   .bigmove.awaken .cutin { filter:drop-shadow(0 0 18px #ffd76a); }
   @keyframes cutin { 0% { left:-40%; } 30% { left:4%; } 80% { left:10%; opacity:.9; } 100% { left:14%; opacity:0; } }
   .bigmove.awaken b { color:#fff6c8; text-shadow:0 0 16px #ffd76a, 0 2px 0 #000; }
-  .unit .spr img.paint { height:clamp(76px, 14vh, 110px); width:auto; image-rendering:auto; }
+  .unit .spr img.paint { height:var(--ph, 100px); width:auto; image-rendering:auto; }
   .unit.hasart .spr::after { left:22%; right:22%; bottom:-2px; }
   .dialog .who img.face { width:76px; height:96px; }
   img.face { object-fit:cover; object-position:50% 12%; image-rendering:auto; border-radius:6px; }
