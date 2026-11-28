@@ -14,5 +14,5 @@ root.ART = {
 };
 // Battle backgrounds, keyed by area id (or the background key it borrows). Square, ground in the bottom third.
 root.ART_BG = {};
-for (const k of ['thornwood', 'millroad', 'barrows', 'fenmire', 'tower', 'arena', 'greyfort_keep', 'kingsbridge_town', 'drowned_temple']) root.ART_BG[k] = 'art/bg_' + k + '.webp';
+for (const k of ['thornwood', 'millroad', 'barrows', 'fenmire', 'tower', 'arena', 'greyfort_keep', 'kingsbridge_town', 'drowned_temple', 'hollow_court']) root.ART_BG[k] = 'art/bg_' + k + '.webp';
 })(this);
